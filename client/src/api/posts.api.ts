@@ -1,0 +1,114 @@
+import client from './client';
+import type { Post, PaginatedPosts } from '../types';
+
+export interface CreatePostDto {
+  title: string;
+  body?: string;
+  campus: string;
+  type: string;
+  burnAfter24h?: boolean;
+  image?: string;
+  eventDate?: string;
+  eventLocation?: string;
+  location?: {
+    type: "Point";
+    coordinates: [number, number]; // [lon, lat]
+  };
+}
+
+export const postsApi = {
+  // ── Feed ────────────────────────────────────────────────────────────────────
+  getFeed: async (params: {
+    campus?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedPosts> => {
+    const { data } = await client.get<PaginatedPosts>('/posts', { params });
+    return data;
+  },
+
+  // ── Single post ─────────────────────────────────────────────────────────────
+  getPost: async (id: string): Promise<Post> => {
+    const { data } = await client.get<Post>(`/posts/${id}`);
+    return data;
+  },
+
+  // Alias expected by some hooks
+  getPostById: async (id: string): Promise<Post> => {
+    const { data } = await client.get<Post>(`/posts/${id}`);
+    return data;
+  },
+
+  // ── Stats ───────────────────────────────────────────────────────────────────
+  getStats: async (): Promise<{
+    totalPosts: number;
+    todayPosts: number;
+    campusBreakdown: { _id: string; count: number }[];
+  }> => {
+    const { data } = await client.get('/posts/stats');
+    return data;
+  },
+
+  // ── Create ──────────────────────────────────────────────────────────────────
+  createPost: async (payload: CreatePostDto): Promise<Post> => {
+    const { data } = await client.post<Post>('/posts', payload);
+    return data;
+  },
+
+  // ── Delete post ─────────────────────────────────────────────────────────────
+  deletePost: async (id: string): Promise<void> => {
+    await client.delete(`/posts/${id}`);
+  },
+
+  // ── Vote ────────────────────────────────────────────────────────────────────
+  vote: async (id: string): Promise<{ upvotes: number }> => {
+    const { data } = await client.post<{ upvotes: number }>(`/posts/${id}/vote`);
+    return data;
+  },
+  voteBhandara: async (id: string, vote: 'yes' | 'no'): Promise<any> => {
+    const { data } = await client.post(`/posts/${id}/bhandara-vote`, { vote });
+    return data;
+  },
+
+  // ── React ───────────────────────────────────────────────────────────────────
+  react: async (
+    id: string,
+    reaction: string
+  ): Promise<{ reactions: Record<string, number> }> => {
+    const { data } = await client.post<{ reactions: Record<string, number> }>(
+      `/posts/${id}/react`,
+      { reaction }
+    );
+    return data;
+  },
+
+  // ── Report ──────────────────────────────────────────────────────────────────
+  report: async (id: string, reason: string): Promise<void> => {
+    await client.post(`/posts/${id}/report`, { reason });
+  },
+
+  // ── Comments ────────────────────────────────────────────────────────────────
+  addComment: async (id: string, content: string, image?: string): Promise<any> => {
+    const { data } = await client.post(`/posts/${id}/comments`, { content, image });
+    return data;
+  },
+
+  getComments: async (
+    id: string,
+    page = 1
+  ): Promise<{ comments: any[]; total: number; hasMore: boolean }> => {
+    const { data } = await client.get(`/posts/${id}/comments`, { params: { page } });
+    return data;
+  },
+
+  deleteComment: async (postId: string, commentId: string): Promise<void> => {
+    await client.delete(`/posts/${postId}/comments/${commentId}`);
+  },
+
+  // ── My posts ──────────────────────────────────────────────────────────────
+  getMyPosts: async (page = 1): Promise<PaginatedPosts> => {
+    const { data } = await client.get<PaginatedPosts>('/posts/mine', { params: { page } });
+    return data;
+  },
+};

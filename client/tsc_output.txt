@@ -1,0 +1,75 @@
+app/(auth)/login.tsx(7,10): error TS2305: Module '"../../src/hooks/useAuth"' has no exported member 'useAuth'.
+app/(auth)/register.tsx(7,10): error TS2305: Module '"../../src/hooks/useAuth"' has no exported member 'useAuth'.
+app/(auth)/register.tsx(9,10): error TS2305: Module '"../../src/constants"' has no exported member 'CAMPUSES'.
+app/(auth)/register.tsx(21,40): error TS7006: Parameter 'c' implicitly has an 'any' type.
+app/(auth)/register.tsx(101,31): error TS7006: Parameter 'c' implicitly has an 'any' type.
+app/(tabs)/_layout.tsx(10,11): error TS2339: Property 'openUploadSheet' does not exist on type 'UIState'.
+app/(tabs)/_layout.tsx(53,11): error TS2339: Property 'showUploadSheet' does not exist on type 'UIState'.
+app/(tabs)/_layout.tsx(53,28): error TS2339: Property 'showComposeSheet' does not exist on type 'UIState'.
+app/(tabs)/_layout.tsx(53,46): error TS2339: Property 'showReportSheet' does not exist on type 'UIState'.
+app/(tabs)/profile.tsx(12,40): error TS2339: Property 'okbg' does not exist on type '{ bg: string; bg2: string; bg3: string; card: string; card2: string; bdr: string; bdr2: string; txt: string; txt2: string; txt3: string; ogi: string; ogibg: string; ogibdr: string; lnct: string; lnctbg: string; ... 9 more ...; warnbg: string; }'.
+app/(tabs)/profile.tsx(12,60): error TS2339: Property 'ok' does not exist on type '{ bg: string; bg2: string; bg3: string; card: string; card2: string; bdr: string; bdr2: string; txt: string; txt2: string; txt3: string; ogi: string; ogibg: string; ogibdr: string; lnct: string; lnctbg: string; ... 9 more ...; warnbg: string; }'.
+app/(tabs)/profile.tsx(44,42): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(47,22): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(48,25): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(51,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(52,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(58,22): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(59,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(60,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(61,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(63,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(64,27): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(65,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(67,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(68,27): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(69,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(74,22): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(75,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(77,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(78,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(83,22): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(85,35): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(86,29): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(92,23): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(93,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(94,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(95,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(101,22): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(102,36): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(103,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(107,21): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(107,36): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(111,27): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(118,22): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(121,24): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(122,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(123,26): error TS2304: Cannot find name 's'.
+app/(tabs)/profile.tsx(124,26): error TS2304: Cannot find name 's'.
+src/api/client.ts(3,10): error TS2305: Module '"../constants"' has no exported member 'API_URL'.
+src/components/PostCard.tsx(4,23): error TS2305: Module '"../constants"' has no exported member 'VIBE_META'.
+src/components/PostCard.tsx(16,11): error TS2339: Property 'openReportSheet' does not exist on type 'UIState'.
+src/components/sheets/ComposeSheet.tsx(9,10): error TS2305: Module '"../../constants"' has no exported member 'CAMPUSES'.
+src/components/sheets/ComposeSheet.tsx(9,20): error TS2305: Module '"../../constants"' has no exported member 'detectVibe'.
+src/components/sheets/ComposeSheet.tsx(9,32): error TS2305: Module '"../../constants"' has no exported member 'checkContent'.
+src/components/sheets/ComposeSheet.tsx(19,11): error TS2339: Property 'showComposeSheet' does not exist on type 'UIState'.
+src/components/sheets/ComposeSheet.tsx(19,29): error TS2339: Property 'closeComposeSheet' does not exist on type 'UIState'.
+src/components/sheets/ComposeSheet.tsx(19,48): error TS2339: Property 'composeType' does not exist on type 'UIState'.
+src/components/sheets/ComposeSheet.tsx(33,23): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ clean: { bg: any; border: string; color: any; icon: string; msg: string; }; mild: { bg: string; border: string; color: string; icon: string; msg: string; }; bad: { bg: string; border: string; color: string; icon: string; msg: string; }; }'.
+src/components/sheets/ComposeSheet.tsx(34,25): error TS2339: Property 'okbg' does not exist on type '{ bg: string; bg2: string; bg3: string; card: string; card2: string; bdr: string; bdr2: string; txt: string; txt2: string; txt3: string; ogi: string; ogibg: string; ogibdr: string; lnct: string; lnctbg: string; ... 9 more ...; warnbg: string; }'.
+src/components/sheets/ComposeSheet.tsx(34,68): error TS2339: Property 'ok' does not exist on type '{ bg: string; bg2: string; bg3: string; card: string; card2: string; bdr: string; bdr2: string; txt: string; txt2: string; txt3: string; ogi: string; ogibg: string; ogibdr: string; lnct: string; lnctbg: string; ... 9 more ...; warnbg: string; }'.
+src/components/sheets/ComposeSheet.tsx(39,40): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/components/sheets/ComposeSheet.tsx(49,7): error TS2353: Object literal may only specify known properties, and 'burn' does not exist in type '{ title: string; body?: string | undefined; campus: string; type: string; burnAfter24h: boolean; }'.
+src/components/sheets/ComposeSheet.tsx(94,31): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/components/sheets/ReportSheet.tsx(7,10): error TS2305: Module '"../../hooks/usePosts"' has no exported member 'useReport'.
+src/components/sheets/ReportSheet.tsx(17,11): error TS2339: Property 'showReportSheet' does not exist on type 'UIState'.
+src/components/sheets/ReportSheet.tsx(17,28): error TS2339: Property 'closeReportSheet' does not exist on type 'UIState'.
+src/components/sheets/ReportSheet.tsx(17,46): error TS2339: Property 'reportPostId' does not exist on type 'UIState'.
+src/components/sheets/UploadSheet.tsx(7,10): error TS2305: Module '"../../constants"' has no exported member 'POST_TYPES'.
+src/components/sheets/UploadSheet.tsx(10,11): error TS2339: Property 'showUploadSheet' does not exist on type 'UIState'.
+src/components/sheets/UploadSheet.tsx(10,28): error TS2339: Property 'closeUploadSheet' does not exist on type 'UIState'.
+src/components/sheets/UploadSheet.tsx(10,46): error TS2339: Property 'openComposeSheet' does not exist on type 'UIState'.
+src/components/sheets/UploadSheet.tsx(19,27): error TS7006: Parameter 'pt' implicitly has an 'any' type.
+src/constants/index.ts(2,11): error TS2304: Cannot find name 'Campus'.
+src/hooks/useAuth.ts(12,22): error TS2345: Argument of type 'User' is not assignable to parameter of type 'string'.
+src/hooks/useAuth.ts(24,22): error TS2345: Argument of type 'User' is not assignable to parameter of type 'string'.

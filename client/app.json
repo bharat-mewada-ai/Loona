@@ -1,0 +1,87 @@
+{
+  "expo": {
+    "name": "Loona",
+    "slug": "loona",
+    "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
+    "scheme": "loona",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/icon.png"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.loona.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Loona uses your location to autofill event venue for posts.",
+        "NSPhotoLibraryUsageDescription": "Loona needs photo library access to attach images to your posts.",
+        "NSCameraUsageDescription": "Loona needs camera access to take photos for your posts."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "package": "com.loona.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#C94030",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Loona needs photo library access to attach images to your posts.",
+          "cameraPermission": "Loona needs camera access to take photos for your posts."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Loona uses your location to autofill event venue for posts."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "@sentry/react-native/expo",
+      "@react-native-async-storage/async-storage"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "af8c59f6-dcc9-4b59-af85-cecc2d8aa920"
+      }
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/af8c59f6-dcc9-4b59-af85-cecc2d8aa920"
+    }
+  }
+}
