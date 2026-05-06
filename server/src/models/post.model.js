@@ -25,6 +25,18 @@ const postSchema = new mongoose.Schema({
     hmm:       { type: Number, default: 0 },
     lmao:      { type: Number, default: 0 },
   },
+  isPoll: { type: Boolean, default: false },
+  pollOptions: [
+    {
+      text: String,
+      votes: { type: Number, default: 0 }
+    }
+  ],
+  pollVoters: {
+    type: Map,
+    of: Number, // Stores the index of the option the user voted for
+    default: {}
+  },
   // Duplicate-reaction prevention — maps userId → reaction emoji key
   // Duplicate-reaction prevention — maps userId → reaction emoji key
   reactedBy: {
@@ -67,5 +79,6 @@ postSchema.index({ campus: 1, hidden: 1, score: -1 });
 postSchema.index({ campus: 1, hidden: 1, createdAt: -1 });
 postSchema.index({ type: 1, hidden: 1, score: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
+postSchema.index({ title: "text", body: "text" });
 
 export default mongoose.model("Post", postSchema);

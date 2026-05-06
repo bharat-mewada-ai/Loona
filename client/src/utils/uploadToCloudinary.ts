@@ -64,7 +64,13 @@ export async function uploadToCloudinary(
 
   if (!response.ok) {
     const text = await response.text();
-    console.error('[Cloudinary] Upload failed:', response.status, text);
+    console.error('❌ [Cloudinary] Upload failed!', {
+      status: response.status,
+      statusText: response.statusText,
+      response: text,
+      cloudName: CLOUD_NAME,
+      preset: UPLOAD_PRESET
+    });
     throw new Error(`Cloudinary upload failed (${response.status}): ${text}`);
   }
 

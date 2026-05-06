@@ -5,8 +5,10 @@ import { disconnectSocket } from '../hooks/useChat';
 interface AuthState {
   user: any;
   token: string | null;
-  setAuth: (user: any, token: string) => void;
+  refreshToken: string | null;
+  setAuth: (user: any, token: string, refreshToken: string) => void;
   setUser: (user: any) => void;
+  setToken: (token: string) => void;
   logout: () => void;
   loadStoredAuth: () => Promise<void>;
 }
@@ -14,10 +16,12 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
+  refreshToken: null,
 
-  setAuth: (user, token) => {
-    set({ user, token });
+  setAuth: (user, token, refreshToken) => {
+    set({ user, token, refreshToken });
     storage.setItem('loona_token', token);
+    storage.setItem('loona_refresh_token', refreshToken);
     storage.setItem('loona_user', JSON.stringify(user));
   },
 
@@ -26,21 +30,29 @@ export const useAuthStore = create<AuthState>((set) => ({
     storage.setItem('loona_user', JSON.stringify(user));
   },
 
+  setToken: (token) => {
+    set({ token });
+    storage.setItem('loona_token', token);
+  },
+
   logout: () => {
     disconnectSocket();           // tear down the authenticated socket immediately
-    set({ user: null, token: null });
+    set({ user: null, token: null, refreshToken: null });
     storage.deleteItem('loona_token');
+    storage.deleteItem('loona_refresh_token');
     storage.deleteItem('loona_user');
   },
 
   loadStoredAuth: async () => {
     try {
       const token = await storage.getItem('loona_token');
+      const refreshToken = await storage.getItem('loona_refresh_token');
       const userStr = await storage.getItem('loona_user');
 
       if (token && userStr) {
         set({
           token,
+          refreshToken,
           user: JSON.parse(userStr),
         });
       }

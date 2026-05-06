@@ -6,8 +6,9 @@ import BhandaraVote from "../models/bhandaraVote.model.js";
 import { checkContent } from "../utils/moderation.js";
 import { generateAnonIdentity } from "../utils/anonIdentity.js";
 import { scheduleBurn } from "../utils/burnQueue.js";
-import { sendPush } from "../utils/pushNotifications.js";
-import { invalidateCache } from "../../server.js";
+import { sendPushNotification } from "../utils/pushNotifications.js";
+import { invalidateCache } from "../utils/cache.js";
+import { createNotification } from "../utils/notificationService.js";
 
 // Helper to update post score (hot algorithm)
 const updatePostScore = (post) => {
@@ -19,8 +20,13 @@ const updatePostScore = (post) => {
 
 /* ---------------- CREATE POST ---------------- */
 export const createPost = async (req, res) => {
-  const { title, body, campus, type, burnAfter24h, image, eventDate, eventLocation } = req.body;
+  const { title, body, campus, type, burnAfter24h, image, eventDate, eventLocation, isPoll, pollOptions } = req.body;
   if (!title || !campus) return res.status(400).json({ error: "Title and campus are required" });
+
+  // Strict Restriction: User can only post to their own registered campus
+  if (campus !== req.user.campus) {
+    return res.status(403).json({ error: `You belong to ${req.user.campus.toUpperCase()}. You can only post to your own campus.` });
+  }
 
   // Reject base64 images — clients must upload to Cloudinary first and send the CDN URL
   if (image && image.startsWith("data:")) {
@@ -34,16 +40,27 @@ export const createPost = async (req, res) => {
   const moderation = checkContent(`${title} ${body || ""}`);
   if (moderation.level === "bad") return res.status(400).json({ error: moderation.reason });
 
-  const identity = generateAnonIdentity(req.user._id.toString(), Date.now().toString());
+  let anonName = req.user.name;
+  let anonAvatar = req.user.avatar;
+
+  // ─── Anonymity Fix: For confessions, generate a random identity ──────────────────
+  if (type === "confess") {
+    const identity = generateAnonIdentity(req.user._id.toString(), Date.now().toString());
+    anonName = identity.name;
+    anonAvatar = identity.avatar;
+  }
+
   const postData = {
     title, body, campus, type: type || "all",
     author: req.user._id, 
-    anonName: identity.name, 
-    anonAvatar: req.user.avatar || identity.avatar,
+    anonName, 
+    anonAvatar,
     image, eventDate, eventLocation, 
     burnAfter24h: burnAfter24h || false,
     burnAt: burnAfter24h ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
     location: req.body.location || { type: "Point", coordinates: [0, 0] },
+    isPoll: isPoll || false,
+    pollOptions: isPoll && pollOptions ? pollOptions.map(opt => ({ text: opt, votes: 0 })) : [],
   };
 
   const post = await Post.create(postData);
@@ -116,6 +133,7 @@ export const getPosts = async (req, res) => {
 
   const [posts, total] = await Promise.all([
     Post.find(filter)
+      .select("-author -reports") // Keep pollVoters for identifying user vote but we will filter it in the loop below
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
@@ -133,17 +151,28 @@ export const getPosts = async (req, res) => {
     postIdsWithVotes = new Set(userVotes.map(v => v.postId.toString()));
   }
 
-  const formattedPosts = posts.map(p => ({
-    ...p,
-    hasVoted: postIdsWithVotes.has(p._id.toString())
-  }));
+  const formattedPosts = posts.map(p => {
+    const userId = req.user?._id?.toString();
+    const userVote = p.isPoll && userId ? p.pollVoters?.[userId] : null;
+    
+    // Cleanup internal maps before sending to client
+    const { pollVoters, reactedBy, reports, author, ...rest } = p;
+
+    return {
+      ...rest,
+      hasVoted: postIdsWithVotes.has(p._id.toString()),
+      userVote: userVote !== undefined ? userVote : null
+    };
+  });
 
   res.json({ posts: formattedPosts, total, page: parseInt(page), hasMore: total > page * limit });
 };
 
 /* ---------------- GET SINGLE POST (lean) ---------------- */
 export const getPostById = async (req, res) => {
-  const post = await Post.findById(req.params.id).lean();
+  const post = await Post.findById(req.params.id)
+    .select("-author -reports")
+    .lean();
   if (!post || post.hidden) return res.status(404).json({ error: "Post not found" });
   
   let hasVoted = false;
@@ -152,7 +181,13 @@ export const getPostById = async (req, res) => {
     hasVoted = !!vote;
   }
 
-  res.json({ ...post, hasVoted });
+  const userId = req.user?._id?.toString();
+  const userVote = post.isPoll && userId ? post.pollVoters?.[userId] : null;
+
+  // Cleanup
+  const { pollVoters, reactedBy, reports, author, ...rest } = post;
+
+  res.json({ ...rest, hasVoted, userVote: userVote !== undefined ? userVote : null });
 };
 
 /* ---------------- VOTE POST (toggle vote) ---------------- */
@@ -195,12 +230,52 @@ export const votePost = async (req, res) => {
     await postAuthor.save();
   }
 
+  // ─── Trigger Notification ──────────────────────────────────────────────────
+  if (!existingVote && post.author.toString() !== req.user._id.toString()) {
+    createNotification({
+      recipient: post.author,
+      sender: req.user._id,
+      type: "upvote",
+      title: "New Potato! 🥔",
+      body: `Someone upvoted your post: "${post.title.substring(0, 30)}${post.title.length > 30 ? '...' : ''}"`,
+      data: { postId: post._id }
+    });
+  }
+
   invalidateCache("/api/posts");
   invalidateCache("/api/auth/leaderboard");
   const io = req.app.get("io");
   if (io) io.emit("leaderboardUpdate");
 
   res.json({ upvotes: post.upvotes, score: post.score, hasVoted: !existingVote });
+};
+
+/* ---------------- VOTE POLL ---------------- */
+export const votePoll = async (req, res) => {
+  const { optionIndex } = req.body;
+  const post = await Post.findById(req.params.id);
+  
+  if (!post || !post.isPoll) return res.status(404).json({ error: "Poll not found" });
+  
+  const userId = req.user._id.toString();
+  
+  // Check if user already voted
+  if (post.pollVoters.has(userId)) {
+    return res.status(400).json({ error: "You have already voted in this poll" });
+  }
+  
+  if (optionIndex < 0 || optionIndex >= post.pollOptions.length) {
+    return res.status(400).json({ error: "Invalid option index" });
+  }
+  
+  // Increment vote count
+  post.pollOptions[optionIndex].votes += 1;
+  post.pollVoters.set(userId, optionIndex);
+  
+  await post.save();
+  
+  invalidateCache("/api/posts");
+  res.json({ pollOptions: post.pollOptions, userVote: optionIndex });
 };
 
 /* ---------------- VOTE BHANDARA (Yes/No verification) ---------------- */
@@ -251,9 +326,10 @@ export const getStats = async (req, res) => {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const [totalPosts, todayPosts, campusBreakdown] = await Promise.all([
+  const [totalPosts, todayPosts, totalUsers, campusBreakdown] = await Promise.all([
     Post.countDocuments({ hidden: false }),
     Post.countDocuments({ createdAt: { $gte: startOfToday }, hidden: false }),
+    User.countDocuments(),
     Post.aggregate([
       { $match: { hidden: false } },
       { $group: { _id: "$campus", count: { $sum: 1 } } },
@@ -261,7 +337,7 @@ export const getStats = async (req, res) => {
     ]),
   ]);
 
-  res.json({ totalPosts, todayPosts, campusBreakdown });
+  res.json({ totalPosts, todayPosts, totalUsers, campusBreakdown });
 };
 
 /* ---------------- COMMENTS ---------------- */
@@ -273,11 +349,10 @@ export const addComment = async (req, res) => {
   const moderation = checkContent(content);
   if (moderation.level === "bad") return res.status(400).json({ error: moderation.reason });
 
-  const identity = generateAnonIdentity(req.user._id.toString(), post._id.toString());
   const comment = await Comment.create({
     postId: post._id, author: req.user._id,
-    anonName: identity.name, 
-    anonAvatar: req.user.avatar || identity.avatar,
+    anonName: req.user.name, 
+    anonAvatar: req.user.avatar,
     content, image,
   });
 
@@ -286,15 +361,16 @@ export const addComment = async (req, res) => {
   await post.save();
   await User.findByIdAndUpdate(req.user._id, { $inc: { commentsCount: 1, karma: 2 } });
 
-  // Push notification to post author (non-blocking)
+  // ─── Trigger Notification ──────────────────────────────────────────────────
   if (post.author.toString() !== req.user._id.toString()) {
-    const author = await User.findById(post.author).select("expoPushToken").lean();
-    sendPush(
-      author?.expoPushToken,
-      "💬 New Comment",
-      `Someone replied to your post: "${post.title.slice(0, 40)}"`,
-      { type: "comment", postId: post._id.toString() }
-    );
+    createNotification({
+      recipient: post.author,
+      sender: req.user._id,
+      type: "comment",
+      title: "New Comment! 💬",
+      body: `Someone replied to your post: "${post.title.substring(0, 30)}${post.title.length > 30 ? '...' : ''}"`,
+      data: { postId: post._id }
+    });
   }
 
   invalidateCache("/api/auth/leaderboard");
@@ -310,6 +386,7 @@ export const getComments = async (req, res) => {
 
   const [comments, total] = await Promise.all([
     Comment.find({ postId: req.params.id })
+      .select("-author") // Privacy: Hide real author ID in comments
       .sort({ createdAt: 1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -368,6 +445,20 @@ export const reactPost = async (req, res) => {
 
   updatePostScore(post);
   await post.save();
+
+  // ─── Trigger Notification ──────────────────────────────────────────────────
+  if (!previousReaction && post.author.toString() !== req.user._id.toString()) {
+    const icons = { spicy: "🌶️", lit: "🔥", lmao: "🤣", skull: "💀", wholesome: "🥺", hmm: "🤔" };
+    createNotification({
+      recipient: post.author,
+      sender: req.user._id,
+      type: "reaction",
+      title: "New Vibe! ✨",
+      body: `Someone reacted ${icons[reaction] || ""} to your post: "${post.title.substring(0, 30)}${post.title.length > 30 ? '...' : ''}"`,
+      data: { postId: post._id }
+    });
+  }
+
   invalidateCache("/api/posts");
   res.json({ reactions: post.reactions, userReaction: post.reactedBy.get(userId) ?? null });
 };
@@ -388,7 +479,7 @@ export const reportPost = async (req, res) => {
   const { reason } = req.body;
   post.reports.push({ reason, reporter: req.user._id });
   post.reportCount = (post.reportCount || 0) + 1;
-  if (post.reportCount >= 3) post.hidden = true;
+  if (post.reportCount >= 5) post.hidden = true;
   await post.save();
   res.json({ message: "Reported" });
 };
@@ -398,6 +489,7 @@ export const getMyPosts = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const [posts, total] = await Promise.all([
     Post.find({ author: req.user._id, hidden: false })
+      .select("-author -reports -reactedBy") // Privacy: hide real author ID
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
@@ -405,6 +497,46 @@ export const getMyPosts = async (req, res) => {
     Post.countDocuments({ author: req.user._id, hidden: false }),
   ]);
   res.json({ posts, total, page: parseInt(page), hasMore: total > page * limit });
+};
+
+/* ---------------- SEARCH ---------------- */
+export const searchPosts = async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+
+  try {
+    const posts = await Post.find(
+      { $text: { $search: q }, hidden: false },
+      { score: { $meta: "textScore" } }
+    )
+    .sort({ score: { $meta: "textScore" } })
+    .select("-author -reports -reactedBy")
+    .limit(20)
+    .lean();
+
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const searchUsers = async (req, res) => {
+  const { q } = req.query;
+  if (!q) return res.json([]);
+
+  try {
+    const users = await User.find({
+      name: { $regex: q, $options: "i" },
+      // Only show public users or whatever logic
+    })
+    .select("name avatar campus karma badges")
+    .limit(10)
+    .lean();
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 /* ---------------- ADMIN MODERATION ---------------- */
@@ -437,4 +569,26 @@ export const dismissReports = async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+};
+export const getUserPosts = async (req, res) => {
+  const { userId } = req.params;
+  const { page = 1, limit = 10 } = req.query;
+
+  const targetUser = await User.findById(userId).select("isPrivate").lean();
+  if (!targetUser) return res.status(404).json({ error: "User not found" });
+
+  if (targetUser.isPrivate && req.user._id.toString() !== userId) {
+    return res.json({ posts: [], total: 0, isPrivate: true });
+  }
+
+  const [posts, total] = await Promise.all([
+    Post.find({ author: userId, hidden: false })
+      .select("-author -reports -reactedBy")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .lean(),
+    Post.countDocuments({ author: userId, hidden: false }),
+  ]);
+  res.json({ posts, total, page: parseInt(page), hasMore: total > page * limit, isPrivate: false });
 };

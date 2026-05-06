@@ -19,23 +19,66 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// ─── Response interceptor: handle 401 → clear auth & hard-redirect ───────────
-// A 401 mid-session means the JWT expired or was revoked (e.g. secret rotation).
-// We clear the store and push to login immediately — the user lands cleanly on
-// the login screen without any stale UI state.
-let isRedirecting = false; // guard against redirect loops on concurrent requests
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token);
+  });
+  failedQueue = [];
+};
 
 client.interceptors.response.use(
   (res) => res,
-  (err) => {
-    if (err.response?.status === 401 && !isRedirecting) {
-      isRedirecting = true;
-      useAuthStore.getState().logout();
-      // expo-router imperative navigation — works from any context (hooks, utils)
-      router.replace('/(auth)/login');
-      // Reset the flag after a tick so future legitimate 401s still redirect
-      setTimeout(() => { isRedirecting = false; }, 2000);
+  async (err) => {
+    const originalRequest = err.config;
+
+    // If 401 and not already retrying
+    if (err.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return client(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const { refreshToken, logout, setToken } = useAuthStore.getState();
+
+      if (!refreshToken) {
+        logout();
+        router.replace('/(auth)/login');
+        return Promise.reject(err);
+      }
+
+      try {
+        // Use raw axios to avoid interceptor loop
+        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+        const newToken = data.token;
+        
+        setToken(newToken);
+        processQueue(null, newToken);
+        isRefreshing = false;
+
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return client(originalRequest);
+      } catch (refreshErr) {
+        processQueue(refreshErr, null);
+        isRefreshing = false;
+        logout();
+        router.replace('/(auth)/login');
+        return Promise.reject(refreshErr);
+      }
     }
+
     return Promise.reject(err);
   }
 );

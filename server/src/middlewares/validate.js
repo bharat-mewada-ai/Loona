@@ -12,7 +12,7 @@ import { body, param, query, validationResult } from "express-validator";
 
 // ─── Valid enum values ────────────────────────────────────────────────────────
 const VALID_CAMPUSES  = ["nit", "ogi", "lnct", "all"];
-const VALID_TYPES     = ["thought", "confess", "events", "rumours"];
+const VALID_TYPES     = ["thought", "confess", "events", "rumours", "bhandara", "place"];
 const VALID_REACTIONS = ["wow", "fire", "same", "skull", "spicy", "lit", "wholesome", "hmm", "lmao"];
 
 // ─── validate() — reads validationResult and short-circuits with 422 ──────────
@@ -56,6 +56,18 @@ export const updateProfileRules = [
     .optional()
     .trim()
     .isLength({ max: 10 }).withMessage("Avatar must be a single emoji (max 10 chars)"),
+  body("bio")
+    .optional()
+    .trim()
+    .isLength({ max: 150 }).withMessage("Bio must be at most 150 characters"),
+  body("isPrivate")
+    .optional()
+    .isBoolean().withMessage("isPrivate must be a boolean"),
+  body("tags")
+    .optional()
+    .isArray({ max: 5 }).withMessage("You can have at most 5 tags")
+    .custom((tags) => tags.every(t => typeof t === 'string' && t.length <= 15))
+    .withMessage("Each tag must be a string of at most 15 characters"),
 ];
 
 // ─── Post rules ───────────────────────────────────────────────────────────────
@@ -191,12 +203,12 @@ export const sendMessageRules = [
 
 /** POST /api/feedback */
 export const feedbackRules = [
-  body("message")
+  body("content")
     .trim()
-    .notEmpty().withMessage("Feedback message is required")
+    .notEmpty().withMessage("Feedback content is required")
     .isLength({ min: 10, max: 1000 }).withMessage("Feedback must be 10–1000 characters"),
-  body("type")
+  body("category")
     .optional()
     .trim()
-    .isIn(["bug", "feature", "general"]).withMessage("type must be bug, feature, or general"),
+    .isIn(["bug", "feature", "improvement", "general", "other"]).withMessage("category must be: bug, feature, improvement, general, or other"),
 ];

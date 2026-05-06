@@ -11,6 +11,7 @@ import { useComments, useAddComment, useDeleteComment } from '../../hooks/usePos
 import { useStartChat } from '../../hooks/useChat';
 import { formatDistanceToNow } from '../../utils/time';
 import { useRouter } from 'expo-router';
+import EmojiPicker from '../EmojiPicker';
 
 export default function CommentSheet() {
   const { showCommentSheet, closeCommentSheet, commentPostId, isDark } = useUIStore();
@@ -27,6 +28,8 @@ export default function CommentSheet() {
   
   const [content, setContent] = useState('');
   const [image, setImage] = useState('');
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -36,6 +39,22 @@ export default function CommentSheet() {
       base64: true,
     });
 
+    if (!result.canceled) {
+      setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Allow camera access to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.6,
+      base64: true,
+    });
     if (!result.canceled) {
       setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
     }
@@ -115,16 +134,34 @@ export default function CommentSheet() {
             />
 
             <View style={[s.inputArea, { backgroundColor: themeColors.card, borderTopColor: themeColors.bdr }]}>
+              {image && (
+                <View style={s.previewWrap}>
+                  <Image source={{ uri: image }} style={s.preview} resizeMode="contain" />
+                  <TouchableOpacity onPress={() => setImage('')} style={s.removeBtn}>
+                    <Text style={s.removeTxt}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
               <View style={s.inputBar}>
+                <TouchableOpacity onPress={() => setShowEmoji(!showEmoji)} style={[s.mediaBtn, { backgroundColor: themeColors.card2 }]}>
+                  <Text style={s.mediaIcon}>{showEmoji ? '⌨️' : '😀'}</Text>
+                </TouchableOpacity>
                 <TouchableOpacity onPress={pickImage} style={[s.mediaBtn, { backgroundColor: themeColors.card2 }]}>
-                  <Text style={s.mediaIcon}>{image ? '🖼️✅' : '🖼️'}</Text>
+                  <Text style={s.mediaIcon}>🖼️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={takePhoto} style={[s.mediaBtn, { backgroundColor: themeColors.card2 }]}>
+                  <Text style={s.mediaIcon}>📸</Text>
                 </TouchableOpacity>
                 <TextInput
                   style={[s.inp, { backgroundColor: themeColors.card2, color: themeColors.txt }]}
                   placeholder="Write a comment..."
                   placeholderTextColor={themeColors.txt3}
                   value={content}
-                  onChangeText={setContent}
+                  onChangeText={(text) => {
+                    setContent(text);
+                    if (showEmoji) setShowEmoji(false);
+                  }}
+                  onFocus={() => setShowEmoji(false)}
                   multiline
                 />
                 <TouchableOpacity 
@@ -135,13 +172,11 @@ export default function CommentSheet() {
                   {isPending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.sendTxt}>Send</Text>}
                 </TouchableOpacity>
               </View>
-              {image && (
-                <View style={s.previewWrap}>
-                  <Image source={{ uri: image }} style={s.preview} resizeMode="cover" />
-                  <TouchableOpacity onPress={() => setImage('')} style={s.removeBtn}>
-                    <Text style={s.removeTxt}>✕</Text>
-                  </TouchableOpacity>
-                </View>
+              {showEmoji && (
+                <EmojiPicker 
+                  themeColors={themeColors} 
+                  onSelect={(emoji) => setContent(prev => prev + emoji)} 
+                />
               )}
             </View>
           </Pressable>
@@ -178,11 +213,11 @@ const s = StyleSheet.create({
   inputBar: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   mediaBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   mediaIcon: { fontSize: 18 },
-  inp: { flex: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, maxHeight: 100, fontSize: 14 },
+  inp: { flex: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, maxHeight: 100, fontSize: 14, minHeight: 40 },
   sendBtn: { backgroundColor: '#C94030', borderRadius: 22, paddingHorizontal: 20, paddingVertical: 10 },
   btnDisabled: { opacity: 0.5 },
   sendTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  previewWrap: { marginTop: 12, width: 60, height: 60, borderRadius: 8, overflow: 'hidden', position: 'relative', borderWidth: 1, borderColor: '#EEE' },
+  previewWrap: { marginBottom: 12, width: '100%', height: 150, borderRadius: 12, overflow: 'hidden', position: 'relative', borderWidth: 1, borderColor: '#EEE', backgroundColor: '#F9F9F9' },
   preview: { width: '100%', height: '100%' },
   removeBtn: { position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   removeTxt: { color: '#fff', fontSize: 10, fontWeight: '700' }

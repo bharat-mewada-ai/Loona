@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
+
+:root {
+  --bg: #0A0A0A;
+  --card: #141414;
+  --card2: #1A1A1A;
+  --txt: #FFFFFF;
+  --txt2: #A1A1AA;
+  --txt3: #71717A;
+  --ogi: #FF453A;
+  --nit: #30D158;
+  --bdr: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--txt);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: 'Syne', sans-serif;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+input {
+  background: var(--card2);
+  border: 1px solid var(--bdr);
+  color: var(--txt);
+  padding: 12px 16px;
+  border-radius: 12px;
+  outline: none;
+}

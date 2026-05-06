@@ -12,22 +12,14 @@ export default function Index() {
 
   useEffect(() => {
     const init = async () => {
-      // Check onboarding first
+      const safetyTimer = setTimeout(() => setIsReady(true), 5000);
+      
       const onboarded = await AsyncStorage.getItem('loona_onboarded_v1');
       setHasOnboarded(!!onboarded);
 
       await loadStoredAuth();
-      // After loading stored auth, validate token against server
-      const { token: storedToken } = useAuthStore.getState();
-      if (storedToken) {
-        try {
-          await client.get('/auth/me');
-          // Token is valid, proceed to feed
-        } catch (e) {
-          // Token is invalid/expired — clear and go to login
-          logout();
-        }
-      }
+      
+      clearTimeout(safetyTimer);
       setIsReady(true);
     };
     init();
@@ -35,8 +27,8 @@ export default function Index() {
 
   if (!isReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0A0A0A' }}>
-        <ActivityIndicator size="large" color="#ffffff" />
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color="#fff" />
       </View>
     );
   }

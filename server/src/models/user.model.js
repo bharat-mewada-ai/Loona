@@ -5,12 +5,22 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
+      unique: true,
       trim: true,
     },
     email: {
       type: String,
       required: true,
       unique: true,
+    },
+    bio: {
+      type: String,
+      maxlength: 150,
+      default: "",
+    },
+    isPrivate: {
+      type: Boolean,
+      default: false,
     },
     googleId: { type: String },
     campus: {
@@ -46,13 +56,23 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    // Password — set to 'google_oauth' placeholder for OAuth users (never exposed)
+    password: { type: String, default: "google_oauth", select: false },
     // Expo push token — stored on login so server can send push notifications
     expoPushToken: { type: String, default: null },
+    notificationsEnabled: { type: Boolean, default: true },
+    isBanned: { type: Boolean, default: false },
+    tags: {
+      type: [String],
+      default: [],
+    },
+    refreshTokens: { type: [String], default: [] },
   },
-  { timestamps: true }
+  { timestamps: true, minimize: false }
 );
 
-userSchema.index({ email: 1 }, { unique: true });
+// Note: email unique index is already declared via { unique: true } on the field above.
+// Only the campus+karma compound index is added here.
 userSchema.index({ campus: 1, karma: -1 });
 
 export default mongoose.model("User", userSchema);

@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "af8c59f6-dcc9-4b59-af85-cecc2d8aa920"
+      }
+    },
+    "android": {
+      "package": "com.loona123.loona"
+    }
+  }
+}

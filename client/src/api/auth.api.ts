@@ -11,6 +11,11 @@ export const authApi = {
     return data;
   },
 
+  refresh: async (refreshToken: string): Promise<{ token: string }> => {
+    const { data } = await client.post('/auth/refresh', { refreshToken });
+    return data;
+  },
+
   // ── Get current user ─────────────────────────────────────────────────────
   me: async (): Promise<User> => {
     const { data } = await client.get<User>('/auth/me');
@@ -31,7 +36,7 @@ export const authApi = {
     return data;
   },
 
-  updateProfile: async (payload: { avatar?: string; name?: string }): Promise<User> => {
+  updateProfile: async (payload: { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[] }): Promise<User> => {
     const { data } = await client.patch<User>('/auth/update-profile', payload);
     return data;
   },
@@ -39,5 +44,9 @@ export const authApi = {
   // ── Register Expo push token ───────────────────────────────────────────
   registerPushToken: async (token: string): Promise<void> => {
     await client.patch('/auth/push-token', { token });
+  },
+  
+  deleteAccount: async (): Promise<void> => {
+    await client.delete('/auth/delete-account');
   },
 };

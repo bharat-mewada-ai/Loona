@@ -17,7 +17,16 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-staging-server.com/api"
+        "EXPO_PUBLIC_API_URL": "https://loona-backend.onrender.com/api"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://loona-backend.onrender.com/api"
       }
     },
     "production": {

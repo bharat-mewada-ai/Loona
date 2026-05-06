@@ -4,6 +4,9 @@ import * as Sentry from "@sentry/node";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
+import { sanitize as mongoSanitize } from "express-mongo-sanitize";
+// NOTE: hpp removed — it writes to req.query which is read-only in Express 5
+import { globalLimiter, authLimiter } from "./middlewares/limiters.js";
 import morgan from "morgan";
 import logger from "./utils/logger.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -11,6 +14,8 @@ import postRoutes from "./routes/postRoutes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
+import redis from "./utils/redis.js";
 
 // ─── CORS allowlist ───────────────────────────────────────────────────────────
 // In production set ALLOWED_ORIGINS to a comma-separated list, e.g.:
@@ -19,10 +24,12 @@ import feedbackRoutes from "./routes/feedback.routes.js";
 const DEV_ORIGINS = [
   "http://localhost:8081",   // Metro bundler (Expo)
   "http://localhost:19000",  // Expo Go (classic)
+  "http://localhost:19001",  // Expo Go (newer)
   "http://localhost:19006",  // Expo web
   "http://localhost:3000",   // Admin dashboard dev
   "http://127.0.0.1:8081",
   "http://127.0.0.1:19000",
+  "http://127.0.0.1:19001",
   "http://127.0.0.1:19006",
   "http://10.126.166.101:8081", // Current local IP (Metro)
   "http://10.126.166.101:5000", // Current local IP (API)
@@ -39,6 +46,10 @@ const allowedOrigins = new Set([
 
 export const corsOptions = {
   origin: (origin, callback) => {
+    logger.info(`[CORS] Origin: ${origin}`);
+    // In development, allow all origins for easier testing with Expo Go
+    if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    
     // Allow requests with no Origin header (native mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     if (allowedOrigins.has(origin)) return callback(null, true);
@@ -50,17 +61,43 @@ export const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
+// Rate limiters moved to middlewares/limiters.js to avoid circular dependencies
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 const app = express();
 
+app.use((req, res, next) => {
+  logger.info(`>>> INCOMING: ${req.method} ${req.url}`);
+  next();
+});
+
+// --- TRUST PROXY ---
+app.set("trust proxy", 1);
+
+// ─── Body Logger (TOP of stack for debugging) ───────────────────────────
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ limit: "1mb", extended: true }));
+
+app.use((req, res, next) => {
+  logger.info(`--- [${req.method}] ${req.path} --- body: ${JSON.stringify(req.body)}`);
+  next();
+});
+
 // ─── Security & Perf middleware ───────────────────────────────────────────────
 app.use(helmet());
+// NoSQL injection prevention — only sanitize req.body (mutates in-place, safe in Express 5).
+// DO NOT pass mongoSanitize() as middleware directly: it reassigns req.query which is
+// a read-only getter in Express 5 and crashes every request with a TypeError.
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === "object") mongoSanitize(req.body);
+  next();
+});
+// HTTP Parameter Pollution (hpp) removed — incompatible with Express 5 (writes to req.query getter).
 app.use(compression());
 app.use(morgan("combined", { stream: logger.stream }));
 app.use(cors(corsOptions));
-
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
+app.use("/api", globalLimiter); // Apply global rate limit to all /api routes
+app.use("/api/auth", authLimiter); // Apply strict limit to auth routes
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/health", (req, res) =>
@@ -73,6 +110,7 @@ app.use("/api/posts", postRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/feedback", feedbackRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ─── Sentry Error Handler (must be AFTER routes but BEFORE other error handlers) ───
 Sentry.setupExpressErrorHandler(app);

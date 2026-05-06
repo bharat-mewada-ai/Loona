@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   SafeAreaView, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView,
-  Animated, Easing, Dimensions, TextInput
+  Animated, Easing, Dimensions, TextInput, Image
 } from 'react-native';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,6 +12,7 @@ import { useGoogleAuth } from '../../src/hooks/useAuth';
 import { Colors } from '../../src/theme/colors';
 import { CAMPUSES_LIST as CAMPUSES } from '../../src/constants';
 import type { Campus } from '../../src/types';
+import AnimatedSplashScreen from '../../src/components/AnimatedSplashScreen';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,6 +25,8 @@ export default function LoginScreen() {
   const [campusOpen, setCampusOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showRedirectUri, setShowRedirectUri] = useState(false);
+  const [isAgeVerified, setIsAgeVerified] = useState(false);
+  const [isTermsAccepted, setIsTermsAccepted] = useState(false);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com',
@@ -54,14 +57,14 @@ export default function LoginScreen() {
     ]).start();
   }, []);
 
+  const authInProgress = useRef(false);
+
   useEffect(() => {
-    if (response?.type === 'success') {
+    if (response?.type === 'success' && !authInProgress.current) {
       const token =
         response?.authentication?.idToken ||
         response?.authentication?.accessToken ||
         (response as any)?.params?.access_token;
-
-      console.log('[Google Auth] token found:', token ? 'YES' : 'NO');
 
       if (!token) {
         setIsAnimating(false);
@@ -69,7 +72,19 @@ export default function LoginScreen() {
         return;
       }
 
+      authInProgress.current = true;
       setIsAnimating(true);
+      setErrorMsg('');
+
+      // --- SAFETY TIMEOUT ---
+      // If nothing happens in 15 seconds, reset the UI
+      const timer = setTimeout(() => {
+        if (authInProgress.current) {
+          authInProgress.current = false;
+          setIsAnimating(false);
+          setErrorMsg('Authentication timed out. Please check your internet and try again.');
+        }
+      }, 15000);
 
       Animated.sequence([
         Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
@@ -85,21 +100,25 @@ export default function LoginScreen() {
 
       googleAuth({ token, campus }, {
         onSuccess: () => {
+          clearTimeout(timer);
           setTimeout(() => {
             router.replace('/(tabs)');
           }, 1300);
         },
         onError: (err: any) => {
+          clearTimeout(timer);
+          authInProgress.current = false;
           setIsAnimating(false);
-          const msg = err?.response?.data?.error || err?.message || 'Authentication failed.';
+          const msg = err?.response?.data?.error || err?.message || 'Authentication failed. Is the server running?';
           setErrorMsg(msg);
         }
       });
-    } else if (response?.type === 'error') {
+    } else if (response?.type === 'error' || response?.type === 'cancel') {
+      authInProgress.current = false;
       setIsAnimating(false);
-      setErrorMsg('Google login failed. ' + (response.error?.message || 'Please check your configuration.'));
-    } else if (response?.type === 'cancel') {
-      setIsAnimating(false);
+      if (response?.type === 'error') {
+        setErrorMsg('Google login failed. ' + (response.error?.message || 'Please check your configuration.'));
+      }
     }
   }, [response]);
 
@@ -108,11 +127,15 @@ export default function LoginScreen() {
       setErrorMsg('Please select your campus first to continue.');
       return;
     }
+    if (!isAgeVerified || !isTermsAccepted) {
+      setErrorMsg('Please accept the age declaration and terms to continue.');
+      return;
+    }
     setErrorMsg('');
     promptAsync();
   };
 
-  const isDisabled = googleLoading || !request;
+  const isDisabled = googleLoading || !request || !isAgeVerified || !isTermsAccepted;
 
   const interpolatedColor = colorAnim.interpolate({
     inputRange: [0, 1],
@@ -122,17 +145,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={s.safe}>
       {isAnimating && (
-        <Animated.View style={[s.animOverlay, { opacity: fadeAnim }]}>
-          <Text style={s.animText}>
-            l
-            <Animated.Text style={[{ color: interpolatedColor, transform: [{ scale: scaleAnim }] }]}>o</Animated.Text>
-            <Animated.Text style={[{ color: interpolatedColor, transform: [{ scale: scaleAnim }] }]}>o</Animated.Text>
-            na
-          </Text>
-          <Animated.Text style={{ marginTop: 24, color: '#fff', fontFamily: 'PlusJakartaSans_500Medium', opacity: colorAnim, fontSize: 16, letterSpacing: 2 }}>
-            AUTHENTICATING
-          </Animated.Text>
-        </Animated.View>
+        <AnimatedSplashScreen mode="full" />
       )}
 
       <KeyboardAvoidingView
@@ -147,9 +160,11 @@ export default function LoginScreen() {
           {/* Logo */}
           <Animated.View style={[s.logoWrap, { opacity: opacityAnim, transform: [{ translateY: slideAnim }] }]}>
             <View style={s.logoContainer}>
-              <Text style={s.logo}>
-                l<Text style={{ color: Colors.ogi }}>oo</Text>na
-              </Text>
+              <Image 
+                source={require('../../assets/logo.png')} 
+                style={s.logoImage}
+                resizeMode="contain"
+              />
               <View style={s.badge}>
                 <Text style={s.badgeText}>BETA</Text>
               </View>
@@ -214,6 +229,33 @@ export default function LoginScreen() {
               </View>
             )}
 
+            {/* Compliance Checkboxes */}
+            <View style={s.complianceContainer}>
+              <TouchableOpacity 
+                style={s.checkRow} 
+                onPress={() => setIsAgeVerified(!isAgeVerified)}
+                activeOpacity={0.7}
+              >
+                <View style={[s.checkbox, isAgeVerified && s.checkboxChecked]}>
+                  {isAgeVerified && <Text style={s.checkboxTick}>✓</Text>}
+                </View>
+                <Text style={s.checkLabel}>I am 18 years of age or older</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={s.checkRow} 
+                onPress={() => setIsTermsAccepted(!isTermsAccepted)}
+                activeOpacity={0.7}
+              >
+                <View style={[s.checkbox, isTermsAccepted && s.checkboxChecked]}>
+                  {isTermsAccepted && <Text style={s.checkboxTick}>✓</Text>}
+                </View>
+                <Text style={s.checkLabel}>
+                  I agree to the <Text style={s.link} onPress={() => router.push('/privacy')}>Privacy Policy</Text> & <Text style={s.link}>Terms</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Google */}
             <TouchableOpacity style={[s.googleBtn, isDisabled && s.btnDisabled]} activeOpacity={0.8} onPress={handleGoogleLogin} disabled={isDisabled}>
               {googleLoading ? (
@@ -258,8 +300,10 @@ const s = StyleSheet.create({
 
   logoWrap: { alignItems: 'center', marginBottom: 40 },
   logoContainer: { flexDirection: 'row', alignItems: 'flex-start' },
-  logo: {
-    fontFamily: 'Syne_700Bold', fontSize: 48, color: Colors.txt, letterSpacing: -2,
+  logoImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
   },
   badge: {
     backgroundColor: 'rgba(255, 69, 58, 0.15)',
@@ -326,6 +370,17 @@ const s = StyleSheet.create({
   ddSub: { fontSize: 11, color: Colors.txt3, marginTop: 2, fontFamily: 'PlusJakartaSans_400Regular' },
   checkMarkWrap: { backgroundColor: 'rgba(255, 69, 58, 0.15)', width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   checkMark: { color: Colors.ogi, fontSize: 12, fontWeight: 'bold' },
+
+  complianceContainer: { marginBottom: 24, gap: 12 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  checkbox: { 
+    width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center'
+  },
+  checkboxChecked: { backgroundColor: Colors.ogi, borderColor: Colors.ogi },
+  checkboxTick: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  checkLabel: { fontSize: 13, color: Colors.txt2, fontFamily: 'PlusJakartaSans_400Regular' },
+  link: { color: Colors.ogi, fontFamily: 'PlusJakartaSans_600SemiBold' },
 
   googleBtn: {
     borderRadius: 14,

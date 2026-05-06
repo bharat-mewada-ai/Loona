@@ -14,6 +14,8 @@ export interface CreatePostDto {
     type: "Point";
     coordinates: [number, number]; // [lon, lat]
   };
+  isPoll?: boolean;
+  pollOptions?: string[];
 }
 
 export const postsApi = {
@@ -68,6 +70,10 @@ export const postsApi = {
   },
   voteBhandara: async (id: string, vote: 'yes' | 'no'): Promise<any> => {
     const { data } = await client.post(`/posts/${id}/bhandara-vote`, { vote });
+    return data;
+  },
+  votePoll: async (id: string, optionIndex: number): Promise<any> => {
+    const { data } = await client.post(`/posts/${id}/poll-vote`, { optionIndex });
     return data;
   },
 

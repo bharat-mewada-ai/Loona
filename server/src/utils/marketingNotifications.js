@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import User from "../models/user.model.js";
-import { sendPush } from "./pushNotifications.js";
+import { sendPushNotification } from "./pushNotifications.js";
 import logger from "./logger.js";
 
 const SPICY_MESSAGES = [
@@ -23,10 +23,15 @@ export const broadcastNotification = async (title, body, data = {}) => {
 
     logger.info(`[Marketing] Broadcasting to ${tokens.length} users: ${title}`);
     
-    // Send in chunks of 100 to avoid Expo limits
+    // Send in chunks of 100 with throttling to prevent server crash/network saturation
     for (let i = 0; i < tokens.length; i += 100) {
       const chunk = tokens.slice(i, i + 100);
-      chunk.forEach(token => sendPush(token, title, body, data));
+      await Promise.all(chunk.map(token => 
+        sendPushNotification(token, title, body, data).catch(e => logger.error(`[Push] Error: ${e.message}`))
+      ));
+      
+      // Small pause between batches to allow the event loop to breathe
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
     
     return tokens.length;
@@ -56,7 +61,7 @@ export const initMarketingBot = () => {
     }).limit(50); // Small chunks to avoid spam
 
     inactiveUsers.forEach(user => {
-      sendPush(
+      sendPushNotification(
         user.expoPushToken, 
         "🏃‍♂️ Kahan chale gaye?", 
         "Campus mein bohot kuch ho gaya aapke bina. Wapas aao!",

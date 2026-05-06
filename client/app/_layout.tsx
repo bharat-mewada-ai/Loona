@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { View } from 'react-native';
-import * as Sentry from '@sentry/react-native';
+import { View, StyleSheet } from 'react-native';
+import '../global.css';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -17,6 +17,10 @@ import * as WebBrowser from 'expo-web-browser';
 import { useAuthStore } from '../src/store/authStore';
 import { useUIStore } from '../src/store/uiStore';
 import ErrorBoundary from '../src/components/ErrorBoundary';
+import OpeningSplashScreen from '../src/components/OpeningSplashScreen';
+import { useState } from 'react';
+import * as Updates from 'expo-updates';
+import { useNotifications } from '../src/hooks/useNotifications';
 
 // Required for web OAuth popup flow to complete
 WebBrowser.maybeCompleteAuthSession();
@@ -25,22 +29,14 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
 
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || "",
-  debug: __DEV__,
-});
-
-import * as Updates from 'expo-updates';
-import { useNotifications } from '../src/hooks/useNotifications';
-import { PostHogProvider } from 'posthog-react-native';
-import { posthog } from '../src/utils/posthog';
-
 function RootLayout() {
   const { loadStoredAuth } = useAuthStore();
   const { isDark } = useUIStore();
   
   useEffect(() => {
     async function onFetchUpdateAsync() {
+      // expo-updates OTA only works in production builds, not in Expo Go / dev
+      if (__DEV__) return;
       try {
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
@@ -64,25 +60,45 @@ function RootLayout() {
     PlusJakartaSans_600SemiBold,
   });
 
+  const [splashVisible, setSplashVisible] = useState(true);
+
   useEffect(() => {
     loadStoredAuth();
   }, []);
 
-  // Don't block render if fonts fail to load (e.g. no internet on web)
-  if (!fontsLoaded && !fontError) return null;
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      setSplashVisible(false);
+    }, 3000); // Force hide after 3s max
+
+    if (fontsLoaded && !fontError) {
+      // Fast boot for daily use (800ms)
+      const timer = setTimeout(() => {
+        setSplashVisible(false);
+        clearTimeout(safetyTimer);
+      }, 800);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(safetyTimer);
+      };
+    }
+    return () => clearTimeout(safetyTimer);
+  }, [fontsLoaded, fontError]);
+
+  if (splashVisible) {
+    return <OpeningSplashScreen />;
+  }
 
   return (
-    <PostHogProvider client={posthog}>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#fff' }}>
-            <StatusBar style={isDark ? 'light' : 'dark'} />
-            <Stack screenOptions={{ headerShown: false }} />
-          </View>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </PostHogProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#fff' }}>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <Stack screenOptions={{ headerShown: false }} />
+        </View>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
-export default Sentry.wrap(RootLayout);
+export default RootLayout;

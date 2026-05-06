@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../api/auth.api';
 import { useAuthStore } from '../store/authStore';
 import { router } from 'expo-router';
@@ -17,7 +18,7 @@ export const useGoogleAuth = () => {
   return useMutation<AuthResponse, Error, { token: string; campus?: string }>({
     mutationFn: (payload) => authApi.googleAuth(payload),
     onSuccess: (data) => {
-      setAuth(data.user, data.token);
+      setAuth(data.user, data.token, data.refreshToken);
     },
   });
 };
@@ -41,18 +42,37 @@ export const useLeaderboard = () => {
 
 export const useMe = () => {
   const setUser = useAuthStore((s) => s.setUser);
-  return useQuery({
+  const query = useQuery({
     queryKey: ['me'],
     queryFn: authApi.me,
   });
+
+  useEffect(() => {
+    if (query.data) {
+      setUser(query.data);
+    }
+  }, [query.data, setUser]);
+
+  return query;
 };
 
 export const useUpdateProfile = () => {
   const setUser = useAuthStore((s) => s.setUser);
-  return useMutation<User, Error, { avatar?: string; name?: string }>({
+  return useMutation<User, Error, { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[] }>({
     mutationFn: (payload) => authApi.updateProfile(payload),
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
+    },
+  });
+};
+
+export const useDeleteAccount = () => {
+  const logout = useAuthStore((s) => s.logout);
+  return useMutation({
+    mutationFn: authApi.deleteAccount,
+    onSuccess: () => {
+      logout();
+      router.replace('/(auth)/login');
     },
   });
 };

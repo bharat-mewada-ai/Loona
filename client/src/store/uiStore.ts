@@ -12,8 +12,6 @@ interface UIState {
   setCampus: (c: Campus) => void;
   setTab: (t: TabFilter) => void;
 
-
-
   // ── Compose sheet (post creation) ─────────────────────────────────────────
   showComposeSheet: boolean;
   composeType: TabFilter;
@@ -44,6 +42,10 @@ interface UIState {
   closeFeedbackSheet: () => void;
   openPrivacySheet: () => void;
   closePrivacySheet: () => void;
+
+  // ── Haptics ────────────────────────────────────────────────────────────────
+  hapticsEnabled: boolean;
+  toggleHaptics: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -56,8 +58,6 @@ export const useUIStore = create<UIState>((set) => ({
   activeTab: 'all',
   setCampus: (activeCampus) => set({ activeCampus }),
   setTab: (activeTab) => set({ activeTab }),
-
-
 
   // Compose sheet
   showComposeSheet: false,
@@ -90,4 +90,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeFeedbackSheet: () => set({ showFeedbackSheet: false }),
   openPrivacySheet: () => set({ showPrivacySheet: true }),
   closePrivacySheet: () => set({ showPrivacySheet: false }),
+
+  // Haptics
+  hapticsEnabled: true,
+  toggleHaptics: () => set((s) => ({ hapticsEnabled: !s.hapticsEnabled })),
 }));

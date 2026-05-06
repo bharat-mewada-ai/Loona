@@ -57,6 +57,7 @@ export default function Feed() {
   const setTab = useUIStore(s => s.setTab);
   const isDark = useUIStore(s => s.isDark);
   const toggleDark = useUIStore(s => s.toggleDark);
+  const openComposeSheet = useUIStore(s => s.openComposeSheet);
 
   const themeColors = getColors(isDark);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -67,6 +68,8 @@ export default function Feed() {
   // Magic Pencil States
   const [showTray, setShowTray] = useState(false);
   const [burn, setBurn] = useState(false);
+  const [isPoll, setIsPoll] = useState(false);
+  const [pollOptions, setPollOptions] = useState(['', '']); // Default 2 options
   const [quickText, setQuickText] = useState('');
   const [imageUri, setImageUri] = useState('');
   const [tempImageUri, setTempImageUri] = useState('');
@@ -109,8 +112,17 @@ export default function Feed() {
   };
 
   const handleQuickPost = async () => {
-    if (!quickText.trim() && !imageUri) return;
+    if (!quickText.trim() && !imageUri && !isPoll) return;
     
+    // Validate poll
+    if (isPoll) {
+      const validOptions = pollOptions.filter(o => o.trim().length > 0);
+      if (validOptions.length < 2) {
+        Alert.alert('Error', 'Poll needs at least 2 options');
+        return;
+      }
+    }
+
     let cdnUrl = '';
     if (imageUri) {
       setImageUploading(true);
@@ -127,7 +139,7 @@ export default function Feed() {
 
     // Parse Title & Body
     const lines = quickText.split('\n');
-    const title = lines[0].trim() || (imageUri ? "Photo Update" : "Update");
+    const title = lines[0].trim() || (isPoll ? "Campus Poll" : (imageUri ? "Photo Update" : "Update"));
     const body = lines.slice(1).join('\n').trim();
 
     createPost({
@@ -137,11 +149,15 @@ export default function Feed() {
       image: cdnUrl || undefined,
       burnAfter24h: burn,
       campus: user?.campus || 'all',
+      isPoll,
+      pollOptions: isPoll ? pollOptions.filter(o => o.trim().length > 0) : undefined
     }, {
       onSuccess: () => {
         setQuickText('');
         setImageUri('');
         setBurn(false);
+        setIsPoll(false);
+        setPollOptions(['', '']);
         setShowTray(false);
       },
       onError: (err: any) => {
@@ -156,8 +172,9 @@ export default function Feed() {
   };
 
   const currentCampusLabel = 
-    activeCampus === "all" ? "All Bhopal Campuses" : 
-    CAMPUSES.find(c => c.value === activeCampus)?.label || "Bhopal";
+    activeCampus === "all" 
+      ? `Sneaking into ${user?.campus === 'ogi' ? 'LNCT' : 'Oriental'}` 
+      : CAMPUSES.find(c => c.value === activeCampus)?.label || "Bhopal";
 
   const campusWar = leaderboardData?.campusWar || [];
   const getKarma = (cid: string) => campusWar.find(c => c._id === cid)?.karma || 0;
@@ -166,11 +183,30 @@ export default function Feed() {
     <SafeAreaView style={[s.safe, { backgroundColor: themeColors.bg }]}>
       {/* Header */}
       <View style={s.header}>
-        <View>
-          <Text style={[s.logo, { color: themeColors.txt }]}>l<Text style={{color: themeColors.ogi}}>oo</Text>na</Text>
-          <Text style={s.subLogo}>BHOPAL CAMPUSES</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Image 
+            source={require('../../assets/logo.png')} 
+            style={s.headerLogo}
+            resizeMode="contain"
+          />
+          <View>
+            <Text style={[s.logoText, { color: themeColors.txt }]}>loona</Text>
+            <Text style={s.subLogo}>BHOPAL CAMPUSES</Text>
+          </View>
         </View>
         <View style={s.hActions}>
+          <TouchableOpacity 
+            style={[s.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}
+            onPress={() => router.push('/search')}
+          >
+            <Text style={s.iconTxt}>🔍</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[s.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}
+            onPress={() => router.push('/notifications')}
+          >
+            <Text style={s.iconTxt}>🔔</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[s.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]} onPress={toggleDark}>
             <Text style={s.iconTxt}>{isDark ? '🌙' : '🌞'}</Text>
           </TouchableOpacity>
@@ -197,7 +233,7 @@ export default function Feed() {
         <TouchableOpacity style={s.modalBg} onPress={() => setDropdownOpen(false)}>
           <View style={[s.modalContent, { backgroundColor: themeColors.card }]}>
             <TouchableOpacity style={s.modalItem} onPress={() => handleSelectCampus('all')}>
-              <Text style={[s.modalItemTxt, { color: themeColors.txt }]}>● All Bhopal Campuses</Text>
+              <Text style={[s.modalItemTxt, { color: themeColors.txt }]}>👁️ Sneak In (Other Campuses)</Text>
             </TouchableOpacity>
             {CAMPUSES.filter(c => c.value !== 'all').map(c => (
               <TouchableOpacity key={c.value} style={s.modalItem} onPress={() => handleSelectCampus(c.value as Campus)}>
@@ -218,7 +254,7 @@ export default function Feed() {
             style={[s.filterBtn, activeTab === 'all' && [s.filterBtnActive, { borderBottomColor: themeColors.txt }]]}
             onPress={() => setTab('all')}
           >
-            <Text style={[s.filterTxt, activeTab === 'all' ? { color: themeColors.txt } : { color: themeColors.txt3 }]}>✦ All</Text>
+            <Text style={[s.filterTxt, activeTab === 'all' ? { color: themeColors.txt } : { color: themeColors.txt3 }]}>✦ Feed</Text>
           </TouchableOpacity>
           
           {POST_TYPES.map(t => (
@@ -234,8 +270,6 @@ export default function Feed() {
           ))}
         </ScrollView>
       </View>
-
-
 
       {/* Feed List */}
       <FlatList
@@ -282,9 +316,7 @@ export default function Feed() {
               </View>
               <Text style={[s.bannerTitle, { color: themeColors.txt }]}>🥔 Campus Patato War</Text>
               <View style={s.bannerStats}>
-                <Text style={{color: themeColors.nit, fontWeight: '700'}}>NIT {getKarma('nit')}🥔</Text>
-                <Text style={{color: themeColors.txt3}}> · </Text>
-                <Text style={{color: themeColors.ogi, fontWeight: '700'}}>OGI {getKarma('ogi')}🥔</Text>
+                <Text style={{color: themeColors.ogi, fontWeight: '700'}}>Oriental {getKarma('ogi')}🥔</Text>
                 <Text style={{color: themeColors.txt3}}> · </Text>
                 <Text style={{color: themeColors.lnct, fontWeight: '700'}}>LNCT {getKarma('lnct')}🥔</Text>
               </View>
@@ -292,81 +324,124 @@ export default function Feed() {
           </>
         }
       />
+
       {/* Magic Pencil Interaction UI */}
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-      >
-        <View style={s.magicContainer}>
-          {!isBarExpanded ? (
-            /* FAB - Magic Pencil (Collapsed) */
-            <TouchableOpacity 
-              style={[s.fab, { backgroundColor: themeColors.ogi }]} 
-              onPress={() => setIsBarExpanded(true)}
-              activeOpacity={0.9}
-            >
-              <Text style={s.fabIcon}>✎</Text>
-            </TouchableOpacity>
-          ) : (
-            /* WhatsApp-Style Permanent Chat Bar (Expanded) */
-            <View style={s.barOuterRow}>
-              <View style={[s.expandedBar, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
-                
-                {/* Image Preview Thumbnail */}
-                {!!imageUri && (
-                  <View style={s.previewWrap}>
-                    <Image source={{ uri: imageUri }} style={s.previewImg} />
-                    <TouchableOpacity style={s.previewClose} onPress={() => setImageUri('')}>
-                      <Text style={s.previewCloseTxt}>✕</Text>
+      {activeCampus !== 'all' && (
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        >
+          <View style={s.magicContainer}>
+            {!isBarExpanded ? (
+              <TouchableOpacity 
+                style={[s.fab, { backgroundColor: themeColors.ogi }]} 
+                onPress={() => setIsBarExpanded(true)}
+                activeOpacity={0.9}
+              >
+                <Text style={s.fabIcon}>✎</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={s.barOuterRow}>
+                <View style={[s.expandedBar, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
+                  {!!imageUri && (
+                    <View style={s.previewWrap}>
+                      <Image source={{ uri: imageUri }} style={s.previewImg} />
+                      <TouchableOpacity style={s.previewClose} onPress={() => setImageUri('')}>
+                        <Text style={s.previewCloseTxt}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  <View style={s.barInputRow}>
+                    <TouchableOpacity style={s.barAction} onPress={() => setShowTray(!showTray)}>
+                      <Text style={s.barActionIcon}>😊</Text>
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[s.barInput, { color: themeColors.txt }]}
+                      placeholder={
+                        activeTab === 'bhandara' ? "Share bhandara info..." :
+                        activeTab === 'events' ? "Post about an event..." :
+                        activeTab === 'confess' ? "Share a secret..." :
+                        "Message..."
+                      }
+                      placeholderTextColor={themeColors.txt3}
+                      multiline
+                      maxHeight={120}
+                      value={quickText}
+                      onChangeText={setQuickText}
+                      onFocus={() => setShowTray(false)}
+                    />
+                    {(activeTab === 'bhandara' || activeTab === 'events') && (
+                      <TouchableOpacity style={[s.barAction, { width: 44 }]} onPress={() => openComposeSheet(activeTab as any)}>
+                        <View style={{ backgroundColor: themeColors.ogi + '20', padding: 6, borderRadius: 8 }}>
+                          <Text style={{ fontSize: 16 }}>{activeTab === 'bhandara' ? '🍛+' : '📅+'}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity style={s.barAction} onPress={pickImage}>
+                      <Text style={[s.barActionIcon, { color: themeColors.txt3, transform: [{ rotate: '45deg' }] }]}>📎</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.barAction} onPress={takePhoto}>
+                      <Text style={[s.barActionIcon, { color: themeColors.txt3 }]}>📷</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.barAction, { width: 38 }]} onPress={() => setIsPoll(!isPoll)}>
+                      <Text style={[s.barActionIcon, { color: isPoll ? themeColors.ogi : themeColors.txt3 }]}>📊</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[s.barAction, { width: 38 }]} onPress={() => setBurn(!burn)}>
+                      <View style={{ alignItems: 'center' }}>
+                        <Text style={[s.barActionIcon, { fontSize: 20 }]}>{burn ? '🔥' : '♾️'}</Text>
+                        <Text style={{ fontSize: 8, color: burn ? themeColors.danger : themeColors.txt3, fontWeight: '700' }}>
+                          {burn ? '24H' : 'PERM'}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   </View>
-                )}
 
-                <View style={s.barInputRow}>
-                  <TouchableOpacity style={s.barAction} onPress={() => setShowTray(!showTray)}>
-                    <Text style={s.barActionIcon}>😊</Text>
-                  </TouchableOpacity>
-                  
-                  <TextInput
-                    style={[s.barInput, { color: themeColors.txt }]}
-                    placeholder="Message"
-                    placeholderTextColor={themeColors.txt3}
-                    multiline
-                    maxHeight={120}
-                    value={quickText}
-                    onChangeText={setQuickText}
-                    onFocus={() => setShowTray(false)}
-                  />
-
-                  <TouchableOpacity style={s.barAction} onPress={pickImage}>
-                    <Text style={[s.barActionIcon, { color: themeColors.txt3, transform: [{ rotate: '45deg' }] }]}>📎</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={s.barAction} onPress={takePhoto}>
-                    <Text style={[s.barActionIcon, { color: themeColors.txt3 }]}>📷</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={[s.barAction, { width: 32 }]} onPress={() => setBurn(!burn)}>
-                    <Text style={[s.barActionIcon, { color: burn ? themeColors.danger : themeColors.txt3, fontSize: 16 }]}>🔥</Text>
-                  </TouchableOpacity>
+                  {isPoll && (
+                    <View style={s.pollInputSection}>
+                      {pollOptions.map((opt, i) => (
+                        <View key={i} style={s.pollOptRow}>
+                          <TextInput
+                            style={[s.pollOptInput, { color: themeColors.txt, borderColor: themeColors.bdr }]}
+                            placeholder={`Option ${i + 1}`}
+                            placeholderTextColor={themeColors.txt3}
+                            value={opt}
+                            onChangeText={(txt) => {
+                              const newOpts = [...pollOptions];
+                              newOpts[i] = txt;
+                              setPollOptions(newOpts);
+                            }}
+                          />
+                          {pollOptions.length > 2 && (
+                            <TouchableOpacity onPress={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))}>
+                              <Text style={{ color: themeColors.danger, fontSize: 18 }}>✕</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                      {pollOptions.length < 4 && (
+                        <TouchableOpacity style={s.addOptBtn} onPress={() => setPollOptions([...pollOptions, ''])}>
+                          <Text style={{ color: themeColors.ogi, fontWeight: '700', fontSize: 12 }}>+ Add Option</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
                 </View>
+                <TouchableOpacity 
+                  style={[s.sendBtnCircle, { backgroundColor: '#25D366', opacity: (quickText.trim() || imageUri) && !isPosting && !imageUploading ? 1 : 0.5 }]}
+                  disabled={(!quickText.trim() && !imageUri) || isPosting || imageUploading}
+                  onPress={handleQuickPost}
+                >
+                  {isPosting || imageUploading ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <Text style={s.sendIconLarge}>✈️</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-
-              <TouchableOpacity 
-                style={[s.sendBtnCircle, { backgroundColor: '#25D366', opacity: (quickText.trim() || imageUri) && !isPosting && !imageUploading ? 1 : 0.5 }]}
-                disabled={(!quickText.trim() && !imageUri) || isPosting || imageUploading}
-                onPress={handleQuickPost}
-              >
-                {isPosting || imageUploading ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <Text style={s.sendIconLarge}>✈️</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </KeyboardAvoidingView>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      )}
 
       {/* Image Confirm Modal */}
       <Modal visible={showConfirmModal} transparent animationType="fade">
@@ -387,7 +462,6 @@ export default function Feed() {
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 }
@@ -395,7 +469,8 @@ export default function Feed() {
 const s = StyleSheet.create({
   safe: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  logo: { fontSize: 28, fontFamily: 'Syne_700Bold', letterSpacing: -1 },
+  headerLogo: { width: 32, height: 32, borderRadius: 8 },
+  logoText: { fontSize: 22, fontFamily: 'Syne_700Bold', letterSpacing: -0.5 },
   subLogo: { fontSize: 10, color: '#888', fontWeight: '800', letterSpacing: 2, marginTop: -4 },
   hActions: { flexDirection: 'row', gap: 10 },
   iconBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
@@ -453,4 +528,8 @@ const s = StyleSheet.create({
   confirmActions: { flexDirection: 'row', gap: 12, width: '100%' },
   confirmBtn: { flex: 1, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   confirmBtnTxt: { fontSize: 16, fontWeight: '700' },
+  pollInputSection: { padding: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', gap: 8 },
+  pollOptRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pollOptInput: { flex: 1, height: 36, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, fontSize: 14 },
+  addOptBtn: { paddingVertical: 4 },
 });

@@ -12,8 +12,12 @@ export interface User {
   avatar: string;      
   badges: string[];
   postCount: number;
-  upvotesReceived: number; // Added missing field from profile.tsx
-  campusRank: number;     // Added missing field from profile.tsx
+  upvotesReceived: number;
+  campusRank: number;
+  isPrivate: boolean;
+  notificationsEnabled: boolean;
+  bio: string;
+  tags: string[];
   createdAt: string;
   role: 'user' | 'admin';
 }
@@ -50,16 +54,38 @@ export interface Post {
   createdAt: string;
   hasVoted?: boolean;
   author: string;   
+  isPoll?: boolean;
+  pollOptions?: { text: string; votes: number }[];
+  userVote?: number | null;
+  bhandaraCountYes?: number;
+  bhandaraCountNo?: number;
 }
 
 export interface AuthResponse {
   token: string;
+  refreshToken: string;
   user: User;
 }
 
 export interface ApiError {
   message: string;
   status: number;
+}
+
+export interface Notification {
+  _id: string;
+  recipient: string;
+  sender?: string;
+  type: "upvote" | "reaction" | "comment" | "mention" | "system";
+  title: string;
+  body: string;
+  data: {
+    postId?: string;
+    commentId?: string;
+    chatId?: string;
+  };
+  read: boolean;
+  createdAt: string;
 }
 
 export interface PaginatedPosts {

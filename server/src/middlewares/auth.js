@@ -35,6 +35,15 @@ export const requireAuth = async (req, res, next) => {
     }
 
     req.user = user;
+    
+    // ─── Ban Check ─────────────────────────────────────────────────────────────
+    if (user.isBanned) {
+      return res.status(403).json({ 
+        error: "Your account has been permanently banned for violating community guidelines.", 
+        code: "USER_BANNED" 
+      });
+    }
+
     next();
   } catch (err) {
     logger.error("Auth Middleware Error:", err.message);

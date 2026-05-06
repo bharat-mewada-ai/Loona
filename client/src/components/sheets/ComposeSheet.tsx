@@ -290,26 +290,30 @@ export default function ComposeSheet() {
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-              {/* Title */}
-              <TextInput
-                style={[s.inp, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, color: themeColors.txt }]}
-                placeholder={composeType === 'confess' ? "What's your secret?" : "Title — what's on your mind?"}
-                placeholderTextColor={themeColors.txt3}
-                value={title}
-                onChangeText={setTitle}
-                maxLength={120}
-              />
-
-              {/* Body */}
-              <TextInput
-                style={[s.inp, s.ta, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, color: themeColors.txt }]}
-                placeholder="More context... (optional)"
-                placeholderTextColor={themeColors.txt3}
-                value={body}
-                onChangeText={setBody}
-                multiline
-                maxLength={500}
-              />
+              {imageUri && (
+                <View style={[s.previewContainer, { backgroundColor: themeColors.bg2, borderColor: themeColors.bdr }]}>
+                  {/* Show local preview immediately; CDN badge appears once uploaded */}
+                  <Image source={{ uri: imageUri }} style={s.preview} resizeMode="contain" />
+                  {cdnUrl ? (
+                    <View style={[s.cdnBadge, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+                      <Text style={s.cdnBadgeTxt}>☁️ Uploaded</Text>
+                    </View>
+                  ) : imageUploading ? (
+                    <View style={[s.cdnBadge, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+                      <ActivityIndicator size="small" color="#fff" />
+                    </View>
+                  ) : null}
+                  <View style={s.previewOverlay}>
+                    <TouchableOpacity
+                      style={s.removeImgBtn}
+                      onPress={() => { setImageUri(''); setCdnUrl(''); }}
+                      disabled={imageUploading}
+                    >
+                      <Text style={s.removeImgTxt}>✕ Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               {/* Image & Camera Picker */}
               <View style={s.mediaBox}>
@@ -332,41 +336,22 @@ export default function ComposeSheet() {
                 {imageUploading && <ActivityIndicator size="small" color={themeColors.ogi} style={{ marginLeft: 8 }} />}
               </View>
 
-              {imageUri && (
-                <View style={[s.previewContainer, { backgroundColor: themeColors.bg2, borderColor: themeColors.bdr }]}>
-                  {/* Show local preview immediately; CDN badge appears once uploaded */}
-                  <Image source={{ uri: imageUri }} style={s.preview} resizeMode="cover" />
-                  {cdnUrl ? (
-                    <View style={[s.cdnBadge, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
-                      <Text style={s.cdnBadgeTxt}>☁️ Uploaded</Text>
-                    </View>
-                  ) : imageUploading ? (
-                    <View style={[s.cdnBadge, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
-                      <ActivityIndicator size="small" color="#fff" />
-                    </View>
-                  ) : null}
-                  <View style={s.previewOverlay}>
-                    <TouchableOpacity
-                      style={s.removeImgBtn}
-                      onPress={() => { setImageUri(''); setCdnUrl(''); }}
-                      disabled={imageUploading}
-                    >
-                      <Text style={s.removeImgTxt}>✕ Remove</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
               {/* Event/Bhandara-specific fields */}
               {(composeType === 'events' || composeType === 'bhandara') && (
-                <View style={s.eventFields}>
+                <View style={[s.eventFields, { backgroundColor: themeColors.ogi + '10', padding: 12, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: themeColors.ogi + '20' }]}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: themeColors.ogi, marginBottom: 8, textTransform: 'uppercase' }}>
+                    {composeType === 'bhandara' ? '🍛 Bhandara Details' : '📅 Event Details'}
+                  </Text>
                   <TouchableOpacity 
-                    style={[s.inp, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, justifyContent: 'center' }]}
+                    style={[s.inp, { backgroundColor: themeColors.card, borderColor: themeColors.bdr, justifyContent: 'center', marginBottom: 10 }]}
                     onPress={handleOpenPicker}
                   >
-                    <Text style={{ color: dateSet ? themeColors.txt : themeColors.txt3, fontWeight: '600' }}>
-                      {dateSet ? eventDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '📅 Set Event Date & Time'}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 18 }}>📅</Text>
+                      <Text style={{ color: dateSet ? themeColors.txt : themeColors.txt3, fontWeight: '700' }}>
+                        {dateSet ? eventDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Set Date & Time'}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                   
                   {Platform.OS === 'ios' && showIosPicker && (
@@ -379,30 +364,58 @@ export default function ComposeSheet() {
                     />
                   )}
 
-                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                    <TextInput
-                      style={[s.inp, { flex: 1, backgroundColor: themeColors.card2, borderColor: themeColors.bdr, color: themeColors.txt, marginBottom: 0 }]}
-                      placeholder="Location (e.g. Auditorium)"
-                      placeholderTextColor={themeColors.txt3}
-                      value={eventLocation}
-                      onChangeText={setEventLocation}
-                    />
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: themeColors.card, borderColor: themeColors.bdr, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12 }}>
+                      <Text style={{ fontSize: 16 }}>📍</Text>
+                      <TextInput
+                        style={{ flex: 1, color: themeColors.txt, paddingVertical: 10, paddingHorizontal: 8, fontSize: 14 }}
+                        placeholder="Location (e.g. Auditorium)"
+                        placeholderTextColor={themeColors.txt3}
+                        value={eventLocation}
+                        onChangeText={setEventLocation}
+                      />
+                    </View>
                     <TouchableOpacity 
-                      style={[s.locBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
+                      style={[s.locBtn, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}
                       onPress={handleGetLocation}
                       disabled={locationLoading}
                     >
-                      {locationLoading ? <ActivityIndicator size="small" color={themeColors.ogi} /> : <Text style={{ fontSize: 18 }}>📍</Text>}
+                      {locationLoading ? <ActivityIndicator size="small" color={themeColors.ogi} /> : <Text style={{ fontSize: 18 }}>🎯</Text>}
                     </TouchableOpacity>
                   </View>
                 </View>
               )}
 
+              {/* Title */}
+              <TextInput
+                style={[s.inp, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, color: themeColors.txt }]}
+                placeholder={composeType === 'confess' ? "What's your secret?" : "Title — what's on your mind?"}
+                placeholderTextColor={themeColors.txt3}
+                value={title}
+                onChangeText={setTitle}
+                maxLength={120}
+              />
+
+              {/* Body */}
+              <TextInput
+                style={[s.inp, s.ta, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, color: themeColors.txt }]}
+                placeholder="More context... (optional)"
+                placeholderTextColor={themeColors.txt3}
+                value={body}
+                onChangeText={setBody}
+                multiline
+                maxLength={500}
+              />
+
               {/* Burn toggle */}
               <View style={[s.burnRow, { backgroundColor: themeColors.card2 }]}>
                 <View>
-                  <Text style={[s.burnLabel, { color: themeColors.txt }]}>🔥 Burn after 24h</Text>
-                  <Text style={[s.burnSub, { color: themeColors.txt3 }]}>Post disappears after one day</Text>
+                  <Text style={[s.burnLabel, { color: burn ? themeColors.danger : themeColors.txt }]}>
+                    {burn ? '🔥 Burn after 24h' : '♾️ Permanent Post'}
+                  </Text>
+                  <Text style={[s.burnSub, { color: themeColors.txt3 }]}>
+                    {burn ? 'Post disappears after one day' : 'Post stays on the feed forever'}
+                  </Text>
                 </View>
                 <Switch
                   value={burn}

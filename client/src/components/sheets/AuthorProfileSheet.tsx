@@ -6,7 +6,7 @@ import { useStartChat } from '../../hooks/useChat';
 import { useRouter } from 'expo-router';
 
 export default function AuthorProfileSheet() {
-  const { authorProfile, closeAuthorProfile, isDark } = useUIStore();
+  const { authorProfile, closeAuthorProfile, activeCampus, isDark } = useUIStore();
   const themeColors = getColors(isDark);
   const router = useRouter();
   
@@ -46,18 +46,34 @@ export default function AuthorProfileSheet() {
           </Text>
 
           {!authorProfile.isSelf ? (
-            <TouchableOpacity 
-              style={[s.dmBtn, { backgroundColor: themeColors.ogi }, isPending && s.btnDisabled]} 
-              onPress={handleStartChat}
-              disabled={isPending}
-            >
-              <Text style={s.dmTxt}>{isPending ? 'Starting Chat...' : '💬 Send a Message'}</Text>
-            </TouchableOpacity>
+            activeCampus !== 'all' ? (
+              <TouchableOpacity 
+                style={[s.dmBtn, { backgroundColor: themeColors.ogi }, isPending && s.btnDisabled]} 
+                onPress={handleStartChat}
+                disabled={isPending}
+              >
+                <Text style={s.dmTxt}>{isPending ? 'Starting Chat...' : '💬 Send a Message'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[s.dmBtn, { backgroundColor: themeColors.bg2 }]}>
+                <Text style={[s.dmTxt, { color: themeColors.txt3 }]}>Cannot message in Sneak In mode</Text>
+              </View>
+            )
           ) : (
             <View style={[s.dmBtn, { backgroundColor: themeColors.bg2 }]}>
               <Text style={[s.dmTxt, { color: themeColors.txt3 }]}>This is you!</Text>
             </View>
           )}
+
+          <TouchableOpacity 
+            style={[s.profileBtn, { borderColor: themeColors.bdr }]} 
+            onPress={() => {
+              closeAuthorProfile();
+              router.push(`/user/${authorProfile.userId}`);
+            }}
+          >
+            <Text style={[s.profileBtnTxt, { color: themeColors.txt }]}>👤 View Profile</Text>
+          </TouchableOpacity>
 
         </Pressable>
       </Pressable>
@@ -78,4 +94,6 @@ const s = StyleSheet.create({
   dmBtn: { width: '100%', paddingVertical: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   dmTxt: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   btnDisabled: { opacity: 0.7 },
+  profileBtn: { width: '100%', paddingVertical: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, marginTop: 12 },
+  profileBtnTxt: { fontSize: 15, fontWeight: '600' },
 });

@@ -5,6 +5,8 @@ import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
 import { useMessages, useSendMessage } from '../../src/hooks/useChat';
 import { useAuthStore } from '../../src/store/authStore';
+import * as ImagePicker from 'expo-image-picker';
+import EmojiPicker from '../../src/components/EmojiPicker';
 
 export default function ChatRoomScreen() {
   const { id } = useLocalSearchParams();
@@ -14,6 +16,8 @@ export default function ChatRoomScreen() {
   const { user } = useAuthStore();
   
   const [inputText, setInputText] = useState('');
+  const [image, setImage] = useState('');
+  const [showEmoji, setShowEmoji] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const { data, isLoading } = useMessages(id as string);
@@ -35,10 +39,40 @@ export default function ChatRoomScreen() {
     }
   }
 
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.6,
+      base64: true,
+    });
+    if (!result.canceled) {
+      setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Allow camera access to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.6,
+      base64: true,
+    });
+    if (!result.canceled) {
+      setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    }
+  };
+
   const handleSend = () => {
-    if (!inputText.trim()) return;
-    sendMessage({ chatId: id as string, content: inputText });
+    if (!inputText.trim() && !image) return;
+    sendMessage({ chatId: id as string, content: inputText, image: image || undefined });
     setInputText('');
+    setImage('');
+    setShowEmoji(false);
   };
 
   if (isLoading) {
@@ -83,6 +117,9 @@ export default function ChatRoomScreen() {
                   s.msgBubble, 
                   isMe ? [s.myBubble, { backgroundColor: themeColors.ogi }] : [s.theirBubble, { backgroundColor: themeColors.card2 }]
                 ]}>
+                  {!!item.image && (
+                    <Image source={{ uri: item.image }} style={s.msgImg} resizeMode="cover" />
+                  )}
                   <Text style={[s.msgText, { color: isMe ? '#FFF' : themeColors.txt }]}>{item.content}</Text>
                 </View>
               </View>
@@ -96,23 +133,52 @@ export default function ChatRoomScreen() {
         />
 
         {/* Input */}
-        <View style={[s.inputWrap, { borderTopColor: themeColors.bdr, backgroundColor: themeColors.card }]}>
-          <TextInput
-            style={[s.input, { color: themeColors.txt, backgroundColor: themeColors.bg2, borderColor: themeColors.bdr }]}
-            placeholder="Type a message..."
-            placeholderTextColor={themeColors.txt3}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity 
-            style={[s.sendBtn, (!inputText.trim() || isPending) && { opacity: 0.5 }, { backgroundColor: themeColors.ogi }]} 
-            onPress={handleSend}
-            disabled={!inputText.trim() || isPending}
-          >
-            <Text style={s.sendTxt}>Send</Text>
-          </TouchableOpacity>
+        <View style={[s.inputWrap, { borderTopColor: themeColors.bdr, backgroundColor: themeColors.card, flexDirection: 'column' }]}>
+          {image && (
+            <View style={s.previewWrap}>
+              <Image source={{ uri: image }} style={s.preview} resizeMode="contain" />
+              <TouchableOpacity onPress={() => setImage('')} style={s.removeBtn}>
+                <Text style={s.removeTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', width: '100%', gap: 8 }}>
+            <TouchableOpacity onPress={() => setShowEmoji(!showEmoji)} style={s.mediaBtn}>
+              <Text style={{ fontSize: 20 }}>{showEmoji ? '⌨️' : '😀'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={pickImage} style={s.mediaBtn}>
+              <Text style={{ fontSize: 20 }}>🖼️</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={takePhoto} style={s.mediaBtn}>
+              <Text style={{ fontSize: 20 }}>📸</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={[s.input, { color: themeColors.txt, backgroundColor: themeColors.bg2, borderColor: themeColors.bdr }]}
+              placeholder="Type a message..."
+              placeholderTextColor={themeColors.txt3}
+              value={inputText}
+              onChangeText={(text) => {
+                setInputText(text);
+                if (showEmoji) setShowEmoji(false);
+              }}
+              onFocus={() => setShowEmoji(false)}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity 
+              style={[s.sendBtn, (!inputText.trim() && !image || isPending) && { opacity: 0.5 }, { backgroundColor: themeColors.ogi }]} 
+              onPress={handleSend}
+              disabled={(!inputText.trim() && !image) || isPending}
+            >
+              <Text style={s.sendTxt}>Send</Text>
+            </TouchableOpacity>
+          </View>
+          {showEmoji && (
+            <EmojiPicker 
+              themeColors={themeColors} 
+              onSelect={(emoji) => setInputText(prev => prev + emoji)} 
+            />
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -133,10 +199,16 @@ const s = StyleSheet.create({
   myBubble: { borderBottomRightRadius: 4 },
   theirBubble: { borderBottomLeftRadius: 4 },
   msgText: { fontSize: 15, lineHeight: 20, fontFamily: 'PlusJakartaSans_400Regular' },
+  msgImg: { width: 200, height: 150, borderRadius: 12, marginBottom: 8 },
   empty: { alignItems: 'center', marginTop: 40 },
   emptyTxt: { color: '#888', fontStyle: 'italic' },
-  inputWrap: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, borderTopWidth: 1, gap: 8 },
+  inputWrap: { padding: 12, borderTopWidth: 1 },
   input: { flex: 1, minHeight: 40, maxHeight: 100, borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15 },
+  mediaBtn: { height: 40, width: 40, justifyContent: 'center', alignItems: 'center' },
   sendBtn: { height: 40, paddingHorizontal: 20, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   sendTxt: { color: '#FFF', fontWeight: '700', fontSize: 15 },
+  previewWrap: { width: '100%', height: 150, borderRadius: 12, overflow: 'hidden', position: 'relative', marginBottom: 12, backgroundColor: '#F9F9F9', borderWidth: 1, borderColor: '#EEE' },
+  preview: { width: '100%', height: '100%' },
+  removeBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  removeTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
 });

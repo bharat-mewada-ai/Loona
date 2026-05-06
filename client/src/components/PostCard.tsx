@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Post } from '../types';
 import { CAMPUS_META, POST_TYPES, VIBE_META } from '../constants';
 import { getColors } from '../theme/colors';
-import { useVote, useReact, useVoteBhandara } from '../hooks/usePosts';
+import { useVote, useReact, useVoteBhandara, useVotePoll, useDeletePost } from '../hooks/usePosts';
 import { useUIStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { formatDistanceToNow } from '../utils/time';
@@ -32,6 +32,8 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
   const { mutate: vote } = useVote();
   const { mutate: react } = useReact();
   const { mutate: voteBhandara } = useVoteBhandara();
+  const { mutate: votePoll } = useVotePoll();
+  const { mutate: deletePost } = useDeletePost();
   const { openReportSheet, openCommentSheet, openAuthorProfile, isDark } = useUIStore();
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
@@ -91,6 +93,26 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
     } catch (e) { Alert.alert('Error', 'Could not set reminder.'); }
   };
 
+  const handlePollVote = (index: number) => {
+    if (post.userVote !== null) return;
+    votePoll({ id: post._id, optionIndex: index });
+  };
+
+  const handleDeletePost = () => {
+    Alert.alert(
+      "Delete Post",
+      "Are you sure you want to delete this post? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: () => deletePost(post._id) 
+        }
+      ]
+    );
+  };
+
   const handleAuthorPress = () => {
     openAuthorProfile({
       userId: post.author,
@@ -127,6 +149,13 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
   if (isConfession && !isAllTab) {
     return (
       <View style={[s.confCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
+        <View style={{ position: 'absolute', top: 12, right: 12 }}>
+          {(post.author === user?._id || user?.role === 'admin') && (
+            <TouchableOpacity onPress={handleDeletePost}>
+              <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <Text style={[s.confText, { color: themeColors.txt }]}>{post.title}</Text>
         <View style={s.confRxns}>
           {reactionList.slice(0, 4).map(r => (
@@ -161,8 +190,18 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
                     <Text style={[s.vibeTxt, { color: vibeEntry.color }]}>{vibeEntry.label}</Text>
                   </View>
                 )}
+                {post.burnAfter24h && (
+                  <View style={[s.burnPill, { backgroundColor: '#FF450020', borderColor: '#FF450040' }]}>
+                    <Text style={s.burnTxt}>🔥 24h</Text>
+                  </View>
+                )}
               </View>
               <Text style={[s.ptime, { color: '#FFF' }]}>{formatDistanceToNow(post.createdAt)}{distanceText}</Text>
+              {(post.author === user?._id || user?.role === 'admin') && (
+                <TouchableOpacity onPress={handleDeletePost} style={{ marginLeft: 10 }}>
+                  <Text style={{ fontSize: 18, color: '#FFF' }}>⋮</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <TouchableOpacity style={s.panon} onPress={handleAuthorPress} activeOpacity={0.7}>
@@ -187,6 +226,30 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
               </TouchableOpacity>
             </View>
             {!!post.body && <Text style={[s.pbody, { color: 'rgba(255,255,255,0.8)' }]}>{post.body}</Text>}
+            
+            {/* Poll in Photo Post */}
+            {post.isPoll && post.pollOptions && (
+              <View style={s.pollContainer}>
+                {post.pollOptions.map((opt, i) => {
+                  const totalVotes = post.pollOptions?.reduce((a, b) => a + b.votes, 0) || 1;
+                  const percent = Math.round((opt.votes / totalVotes) * 100);
+                  const isVoted = post.userVote === i;
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={i} 
+                      style={[s.pollOpt, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: isVoted ? '#FFF' : 'rgba(255,255,255,0.2)' }]}
+                      onPress={() => handlePollVote(i)}
+                      disabled={post.userVote !== null}
+                    >
+                      <View style={[s.pollProgress, { width: `${percent}%`, backgroundColor: isVoted ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)' }]} />
+                      <Text style={[s.pollOptTxt, { color: '#FFF' }]}>{opt.text}</Text>
+                      {post.userVote !== null && <Text style={[s.pollPercent, { color: '#FFF' }]}>{percent}%</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
           </View>
         </View>
       ) : (
@@ -207,8 +270,18 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
                   <Text style={[s.vibeTxt, { color: vibeEntry.color }]}>{vibeEntry.label}</Text>
                 </View>
               )}
+              {post.burnAfter24h && (
+                <View style={[s.burnPill, { backgroundColor: '#FF450010', borderColor: '#FF450030' }]}>
+                  <Text style={[s.burnTxt, { color: '#FF4500' }]}>🔥 24h</Text>
+                </View>
+              )}
             </View>
             <Text style={[s.ptime, { color: themeColors.txt3 }]}>{formatDistanceToNow(post.createdAt)}{distanceText}</Text>
+            {(post.author === user?._id || user?.role === 'admin') && (
+              <TouchableOpacity onPress={handleDeletePost} style={{ marginLeft: 10 }}>
+                <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {hasEventDate && (
@@ -278,6 +351,30 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
             </TouchableOpacity>
           </View>
           {!!post.body && <Text style={[s.pbody, { color: themeColors.txt2 }]}>{post.body}</Text>}
+
+          {/* Poll in Text Post */}
+          {post.isPoll && post.pollOptions && (
+            <View style={[s.pollContainer, { marginHorizontal: 16, marginBottom: 16 }]}>
+              {post.pollOptions.map((opt, i) => {
+                const totalVotes = post.pollOptions?.reduce((a, b) => a + b.votes, 0) || 0;
+                const percent = totalVotes === 0 ? 0 : Math.round((opt.votes / totalVotes) * 100);
+                const isVoted = post.userVote === i;
+                
+                return (
+                  <TouchableOpacity 
+                    key={i} 
+                    style={[s.pollOpt, { backgroundColor: themeColors.card2, borderColor: isVoted ? themeColors.ogi : themeColors.bdr }]}
+                    onPress={() => handlePollVote(i)}
+                    disabled={post.userVote !== null}
+                  >
+                    <View style={[s.pollProgress, { width: `${percent}%`, backgroundColor: isVoted ? themeColors.ogi + '20' : themeColors.bdr + '20' }]} />
+                    <Text style={[s.pollOptTxt, { color: themeColors.txt }]}>{opt.text}</Text>
+                    {post.userVote !== null && <Text style={[s.pollPercent, { color: themeColors.txt3 }]}>{percent}%</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </>
       )}
 
@@ -318,6 +415,8 @@ const s = StyleSheet.create({
   vibeTxt: { fontSize: 10, fontWeight: '700' },
   typePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
   typeTxt: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  burnPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
+  burnTxt: { fontSize: 9, fontWeight: '900', color: '#FFF' },
   ptime: { fontSize: 11 },
   panon: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 8 },
   avatarEmoji: { fontSize: 20 },
@@ -345,4 +444,9 @@ const s = StyleSheet.create({
   remindBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.05)' },
   remindTxt: { fontSize: 12, fontWeight: '800' },
   voteBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)' },
+  pollContainer: { gap: 10, marginTop: 12 },
+  pollOpt: { height: 44, borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden', position: 'relative' },
+  pollOptTxt: { fontSize: 14, fontWeight: '600', zIndex: 1 },
+  pollProgress: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 10 },
+  pollPercent: { fontSize: 12, fontWeight: '800', zIndex: 1 },
 });

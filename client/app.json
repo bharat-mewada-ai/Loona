@@ -69,9 +69,7 @@
           "locationWhenInUsePermission": "Loona uses your location to autofill event venue for posts."
         }
       ],
-      "@react-native-community/datetimepicker",
-      "@sentry/react-native/expo",
-      "@react-native-async-storage/async-storage"
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},

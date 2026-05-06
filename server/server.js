@@ -7,8 +7,16 @@
 //   src/middlewares/auth.js; the old file attached only { id } stub to
 //   req.user, breaking all controllers that call req.user._id / req.user.save().
 
-import dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
+import logger from "./src/utils/logger.js";
+
+// ─── Process-level crash guards (Hoisted to top to catch startup errors) ──────
+process.on("uncaughtException", (err) => {
+  logger.error("💥 Uncaught Exception:", err.message, err.stack);
+});
+process.on("unhandledRejection", (reason) => {
+  logger.error("💥 Unhandled Rejection:", reason);
+});
 
 import * as Sentry from "@sentry/node";
 import { nodeProfilingIntegration } from "@sentry/profiling-node";
@@ -20,22 +28,15 @@ Sentry.init({
   ],
   tracesSampleRate: 1.0,
   profilesSampleRate: 1.0,
+  environment: process.env.NODE_ENV || "development",
+  release: "loona-server@1.0.0",
 });
 
 import mongoose from "mongoose";
-import rateLimit from "express-rate-limit";
-import { RedisStore } from "rate-limit-redis";
-import Redis from "ioredis";
-import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import app, { corsOptions } from "./src/app.js";
-import logger from "./src/utils/logger.js";
-import { initMarketingBot } from "./src/utils/marketingNotifications.js";
 
-// Start Marketing & Engagement Bot
-initMarketingBot();
-
-// ─── Startup env validation ───────────────────────────────────────────────────
+// Startup env validation ───────────────────────────────────────────────────
 const REQUIRED_ENV = ["MONGO_URI", "JWT_SECRET", "GOOGLE_CLIENT_ID"];
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missing.length) {
@@ -43,116 +44,9 @@ if (missing.length) {
   process.exit(1);
 }
 
-const { MONGO_URI, PORT = 5000, REDIS_URL } = process.env;
+const { MONGO_URI, PORT = 5000 } = process.env;
 
-// ─── Redis Setup (Optional for MVP) ──────────────────────────────────────────
-let redisClient = null;
-if (REDIS_URL) {
-  try {
-    redisClient = new Redis(REDIS_URL, {
-      maxRetriesPerRequest: 1,
-      retryStrategy: () => null // Don't retry indefinitely
-    });
-    redisClient.on("error", (err) => logger.warn("⚠️ Redis not available (caching disabled):", err.message));
-    redisClient.on("connect", () => logger.info("✅ Redis connected"));
-  } catch (err) {
-    logger.warn("⚠️ Redis initialization failed:", err.message);
-  }
-} else {
-  logger.warn("⚠️ REDIS_URL not provided, running without cache/external store.");
-}
-
-// ─── Redis Cache Middleware ───────────────────────────────────────────────────
-export const cacheMiddleware = (ttlSeconds) => async (req, res, next) => {
-  if (!redisClient || redisClient.status !== "ready") return next();
-
-  const key = `cache:${req.originalUrl}`;
-  try {
-    const cached = await redisClient.get(key);
-    if (cached) {
-      res.setHeader("X-Cache", "HIT");
-      return res.json(JSON.parse(cached));
-    }
-  } catch (err) {
-    logger.error("Redis Cache GET Error:", err.message);
-  }
-
-  const originalJson = res.json.bind(res);
-  res.json = (data) => {
-    try {
-      if (redisClient && redisClient.status === "ready") {
-        redisClient.setex(key, ttlSeconds, JSON.stringify(data));
-      }
-    } catch (err) {
-      logger.error("Redis Cache SET Error:", err.message);
-    }
-    res.setHeader("X-Cache", "MISS");
-    return originalJson(data);
-  };
-  next();
-};
-
-export const invalidateCache = async (prefix) => {
-  if (!redisClient || redisClient.status !== "ready") return;
-  try {
-    const keys = await redisClient.keys(`cache:${prefix}*`);
-    if (keys.length > 0) {
-      await redisClient.del(...keys);
-    }
-  } catch (err) {
-    logger.error("Redis Cache Invalidate Error:", err.message);
-  }
-};
-
-// ─── Rate limiters ────────────────────────────────────────────────────────────
-const createLimiter = (windowMs, max, message) => rateLimit({
-  windowMs,
-  max,
-  message,
-  store: redisClient?.status === "ready" 
-    ? new RedisStore({ sendCommand: (...args) => redisClient.call(...args) })
-    : undefined, // Falls back to default MemoryStore
-});
-
-const authLimiter = createLimiter(
-  15 * 60 * 1000,
-  50, // Increased for smoother sign in
-  { error: "Too many auth attempts, try later.", code: "RATE_LIMIT" }
-);
-
-const postCreateLimiter = createLimiter(
-  60 * 1000,
-  20,
-  { error: "Slow down! Max 20 posts/min.", code: "RATE_LIMIT" }
-);
-
-const globalLimiter = createLimiter(
-  60 * 1000,
-  200,
-  { error: "Too many requests.", code: "RATE_LIMIT" }
-);
-
-// Attach rate limiters to app routes
-app.use(globalLimiter);
-app.use("/api/auth", authLimiter);
-
-// For POST /api/posts only we inject the stricter limiter via a custom handler:
-// (postRoutes already exist in app.js; we patch via a pre-middleware here)
-app.use("/api/posts", (req, res, next) => {
-  if (req.method === "POST" && req.path === "/") return postCreateLimiter(req, res, next);
-  next();
-});
-
-// ─── Cache GET /api/posts/stats for 5 min ─────────────────────────────────────
-app.use("/api/posts/stats", cacheMiddleware(300));
-// ─── Cache GET feed for 30 seconds ───────────────────────────────────────────
-app.use("/api/posts", (req, res, next) => {
-  if (req.method === "GET" && req.path === "/") return cacheMiddleware(30)(req, res, next);
-  next();
-});
-
-// Cache Leaderboard for 60 seconds
-app.use("/api/auth/leaderboard", cacheMiddleware(60));
+// (Middleware like rate limiting and caching is now handled in src/app.js)
 
 // ─── MongoDB connection (pooled for 5k users) ─────────────────────────────────
 mongoose
@@ -161,12 +55,30 @@ mongoose
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
   })
-  .then(() => {
+  .then(async () => {
     logger.info("✅ MongoDB connected");
+    
+    // Start Marketing & Engagement Bot
+    try {
+      const { initMarketingBot } = await import("./src/utils/marketingNotifications.js");
+      initMarketingBot();
+    } catch (botErr) {
+      logger.warn("⚠️ Marketing Bot failed to start:", botErr.message);
+    }
+
+    // Start Cron Jobs (Weekly Digest, etc.)
+    try {
+      const { initCronJobs } = await import("./src/services/cron.service.js");
+      initCronJobs();
+    } catch (cronErr) {
+      logger.error("⚠️ Cron jobs failed to start:", cronErr.message);
+    }
+
     const server = app.listen(PORT, "0.0.0.0", () => {
       logger.info(`🔥 Server running on http://0.0.0.0:${PORT}`);
     });
 
+    const { Server } = await import("socket.io");
     const io = new Server(server, {
       cors: corsOptions,
     });
@@ -197,7 +109,20 @@ mongoose
       // Join the user's own notification room so DMs reach them anywhere in the app
       socket.join(`user:${socket.data.userId}`);
 
-      socket.on("joinChat", (chatId) => socket.join(chatId));
+      socket.on("joinChat", async (chatId) => {
+        try {
+          const { default: Chat } = await import("./src/models/chat.model.js");
+          const chat = await Chat.findById(chatId).select("participants").lean();
+          if (chat && chat.participants.map(p => p.toString()).includes(socket.data.userId)) {
+            socket.join(chatId);
+            logger.info(`[Socket] User ${socket.data.userId} joined chat ${chatId}`);
+          } else {
+            logger.warn(`[Socket] Unauthorized join attempt for chat ${chatId} by user ${socket.data.userId}`);
+          }
+        } catch (err) {
+          logger.error(`[Socket] Error joining chat ${chatId}:`, err.message);
+        }
+      });
       socket.on("leaveChat", (chatId) => socket.leave(chatId));
       socket.on("disconnect", () =>
         logger.info(`[Socket] Disconnected: ${socket.id} (user: ${socket.data.userId})`)
@@ -209,6 +134,12 @@ mongoose
     // ─── Graceful shutdown ────────────────────────────────────────────────────
     const shutdown = async (signal) => {
       logger.warn(`\n⚠️  ${signal} received — shutting down gracefully…`);
+      try {
+        const { default: redis } = await import("./src/utils/redis.js");
+        if (redis.status !== 'end') await redis.quit();
+        logger.info("✅ Redis connection closed.");
+      } catch (e) {}
+
       server.close(async () => {
         await mongoose.connection.close();
         logger.info("✅ DB connection closed. Bye!");
@@ -217,7 +148,9 @@ mongoose
     };
 
     process.on("SIGTERM", () => shutdown("SIGTERM"));
-    process.on("SIGINT", () => shutdown("SIGINT"));
+    process.on("SIGINT",  () => shutdown("SIGINT"));
+
+
   })
   .catch((err) => {
     logger.error("❌ DB connection failed:", err.message);

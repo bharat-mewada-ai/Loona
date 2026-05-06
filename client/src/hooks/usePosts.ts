@@ -1,17 +1,27 @@
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { postsApi } from '../api/posts.api';
 import { useUIStore } from '../store/uiStore';
+import { useAuthStore } from '../store/authStore';
 
 // ─── usePosts — infinite feed ─────────────────────────────────────────────────
 export const usePosts = () => {
-  const campus = useUIStore((s) => s.activeCampus);
+  const activeCampus = useUIStore((s) => s.activeCampus);
+  const user = useAuthStore((s) => s.user);
   const tab = useUIStore((s) => s.activeTab);
 
+  let targetCampus: string | undefined = activeCampus;
+  if (activeCampus === 'all') {
+    // Mutual Exclusive Sneak In logic:
+    // If I am from Oriental (ogi), Sneak In shows LNCT (lnct)
+    // If I am from LNCT (lnct), Sneak In shows Oriental (ogi)
+    targetCampus = user?.campus === 'ogi' ? 'lnct' : 'ogi';
+  }
+
   return useInfiniteQuery({
-    queryKey: ['posts', campus, tab],
+    queryKey: ['posts', targetCampus, tab],
     queryFn: ({ pageParam = 1 }: { pageParam?: number }) =>
       postsApi.getFeed({
-        campus: campus === 'all' ? undefined : campus,
+        campus: targetCampus,
         type: tab === 'all' ? undefined : tab,
         page: pageParam as number,
         limit: 10,
@@ -48,6 +58,17 @@ export const useVoteBhandara = () => {
   return useMutation({
     mutationFn: ({ id, vote }: { id: string; vote: 'yes' | 'no' }) =>
       postsApi.voteBhandara(id, vote),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['posts'] });
+    },
+  });
+};
+
+export const useVotePoll = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, optionIndex }: { id: string; optionIndex: number }) =>
+      postsApi.votePoll(id, optionIndex),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts'] });
     },
@@ -130,6 +151,18 @@ export const useDeleteComment = () => {
     onSuccess: (_data, { postId }) => {
       qc.invalidateQueries({ queryKey: ['comments', postId] });
       qc.invalidateQueries({ queryKey: ['posts'] });
+    },
+  });
+};
+
+export const useDeletePost = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: postsApi.deletePost,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['posts'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+      qc.invalidateQueries({ queryKey: ['leaderboard'] });
     },
   });
 };

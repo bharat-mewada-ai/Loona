@@ -21,7 +21,7 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
  * @param {string} body - Notification body text
  * @param {object} [data] - Optional extra data payload (available in notification handler)
  */
-export const sendPush = async (token, title, body, data = {}) => {
+export const sendPushNotification = async (token, title, body, data = {}) => {
   if (!token) return; // user hasn't granted push permission yet
   if (!token.startsWith("ExponentPushToken[")) return; // not a valid Expo token
 

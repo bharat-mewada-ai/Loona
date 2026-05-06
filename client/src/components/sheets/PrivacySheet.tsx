@@ -80,7 +80,7 @@ export default function PrivacySheet() {
 
             <Text style={[s.section, { color: themeColors.txt }]}>1. Eligibility</Text>
             <Text style={[s.body, { color: themeColors.txt2 }]}>
-              Loona is available to students currently enrolled at OGI, LNCT, or NIT Bhopal. By using the app, you confirm you are a student at one of these institutions and are at least 13 years of age.
+              Loona is available to students currently enrolled at OGI or LNCT. By using the app, you confirm you are a student at one of these institutions and are at least 18 years of age.
             </Text>
 
             <Text style={[s.section, { color: themeColors.txt }]}>2. Acceptable Use</Text>

@@ -1,11 +1,13 @@
 import { Platform } from 'react-native';
 
 // ─── API URL ──────────────────────────────────────────────────────────────────
-const LOCAL_IP = '10.29.221.101'; 
+// EXPO_PUBLIC_API_URL in client/.env takes priority.
+// LOCAL_IP fallback is your machine's LAN IP (run `ipconfig` to update if it changes).
+const LOCAL_IP = '10.126.166.101';
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${LOCAL_IP}:5000/api`;
 
 // ─── Campus type & data ───────────────────────────────────────────────────────
-export type Campus = 'nit' | 'ogi' | 'lnct' | 'all';
+export type Campus = 'ogi' | 'lnct' | 'all';
 
 export interface CampusOption {
   value: Campus;      // Changed from id to value to match UI usage
@@ -18,10 +20,9 @@ export interface CampusOption {
 }
 
 export const CAMPUSES: CampusOption[] = [
-  { value: 'nit',  label: 'NIT',  full: 'NIT Bhopal',                       color: '#0D6E50', bg: '#EBF7F2', border: '#BFE6D8', dotColor: '#0D6E50' },
-  { value: 'ogi',  label: 'OGI',  full: 'Oriental Group of Institutes',      color: '#C94030', bg: '#FDF1EF', border: '#F2C0B8', dotColor: '#C94030' },
-  { value: 'lnct', label: 'LNCT', full: 'Lakshmi Narain College of Technology', color: '#4D3DBF', bg: '#F0EEFB', border: '#C5BFF0', dotColor: '#4D3DBF' },
-  { value: 'all',  label: 'All',  full: 'All Bhopal Campuses',               color: '#6B6860', bg: '#F5F3EE', border: '#DDD9CE', dotColor: '#6B6860' },
+  { value: 'ogi',  label: 'Oriental',  full: 'Oriental Group of Institutes',      color: '#C94030', bg: '#FDF1EF', border: '#F2C0B8', dotColor: '#C94030' },
+  { value: 'lnct', label: 'LNCT',      full: 'Lakshmi Narain College of Technology', color: '#4D3DBF', bg: '#F0EEFB', border: '#C5BFF0', dotColor: '#4D3DBF' },
+  { value: 'all',  label: 'Sneak In',  full: 'Sneak In to other campuses',               color: '#6B6860', bg: '#F5F3EE', border: '#DDD9CE', dotColor: '#6B6860' },
 ];
 
 // Alias for backwards compatibility with parts of the app using CAMPUSES_LIST
@@ -31,8 +32,7 @@ export const CAMPUS_META: Record<
   Exclude<Campus, 'all'>,
   { label: string; color: string; bg: string; bdr: string; emoji: string }
 > = {
-  nit:  { label: 'NIT',  color: '#0D6E50', bg: '#EBF7F2', bdr: '#BFE6D8', emoji: '🦁' },
-  ogi:  { label: 'OGI',  color: '#C94030', bg: '#FDF1EF', bdr: '#F2C0B8', emoji: '🦊' },
+  ogi:  { label: 'Oriental',  color: '#C94030', bg: '#FDF1EF', bdr: '#F2C0B8', emoji: '🦊' },
   lnct: { label: 'LNCT', color: '#4D3DBF', bg: '#F0EEFB', bdr: '#C5BFF0', emoji: '🌙' },
 };
 

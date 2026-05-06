@@ -1,53 +1,95 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import client from '../api/client';
+import type { Notification as InAppNotification } from '../types';
 import { useAuthStore } from '../store/authStore';
 
+// ─── In-App Notifications Hook ──────────────────────────────────────────────
+export const useInAppNotifications = () => {
+  return useQuery<InAppNotification[]>({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const { data } = await client.get('/notifications');
+      return data;
+    },
+    refetchInterval: 60_000,
+  });
+};
+
+export const useMarkNotificationsRead = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => client.patch('/notifications/read'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+};
+
+// ─── Push Notification Setup & Deep-linking Hook ───────────────────────────
 export const useNotifications = () => {
-  const { user, token } = useAuthStore();
+  const { user } = useAuthStore();
+  const router = useRouter();
+  const notificationListener = useRef<any>();
+  const responseListener = useRef<any>();
 
   useEffect(() => {
-    if (!user || !token) return;
+    if (!user) return;
 
-    const registerForPushNotificationsAsync = async () => {
-      if (Device.isDevice) {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        if (finalStatus !== 'granted') {
-          console.warn('Failed to get push token for push notification!');
-          return;
-        }
-        
-        // Get the token from Expo
-        try {
-          const expoToken = (await Notifications.getExpoPushTokenAsync({
-            projectId: '3796f60c-26e6-42b7-84bc-2989c464979e', // Loona Project ID
-          })).data;
-          
-          // Send to backend
-          await client.patch('/auth/push-token', { token: expoToken });
-          console.log('[Push] Token registered successfully');
-        } catch (error) {
-          console.error('[Push] Error registering token:', error);
-        }
+    // Register token
+    registerForPushNotificationsAsync().then(token => {
+      if (token) {
+        client.patch('/auth/me', { expoPushToken: token }).catch(() => {});
       }
+    });
 
-      if (Platform.OS === 'android') {
-        Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
+    // Handle tapping on notification (Deep-linking)
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      
+      if (data?.postId) {
+        // Navigate to the post (using a query param or separate screen)
+        // For now, since we don't have a dedicated post detail screen, 
+        // we'll just ensure the feed is focused.
+        // In the future, this would be router.push(`/post/${data.postId}`)
+        router.push('/'); 
+      } else if (data?.chatId) {
+        router.push(`/chat/${data.chatId}`);
+      }
+    });
+
+    return () => {
+      if (responseListener.current) {
+        responseListener.current.remove();
       }
     };
-
-    registerForPushNotificationsAsync();
-  }, [user, token]);
+  }, [user]);
 };
+
+async function registerForPushNotificationsAsync() {
+  if (Platform.OS === 'web') return;
+  
+  let token;
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  
+  if (finalStatus !== 'granted') return;
+
+  try {
+    token = (await Notifications.getExpoPushTokenAsync({
+      projectId: '6858e77a-2483-4852-947d-8153b30e0142' // Replace with your Expo project ID
+    })).data;
+  } catch (e) {
+    console.error('Failed to get push token', e);
+  }
+  
+  return token;
+}
