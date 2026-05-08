@@ -3,6 +3,7 @@ import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
 import { generateAnonIdentity } from "../utils/anonIdentity.js";
 import { sendPushNotification } from "../utils/pushNotifications.js";
+import { checkContent } from "../utils/moderation.js";
 
 // Get all chats for the current user
 export const getChats = async (req, res) => {
@@ -119,6 +120,14 @@ export const sendMessage = async (req, res) => {
     const { chatId } = req.params;
     const { content, image } = req.body;
     if (!content && !image) return res.status(400).json({ error: "Message content or image is required" });
+
+    // Content moderation check on messages
+    if (content) {
+      const moderation = checkContent(content);
+      if (moderation.level === 'bad') {
+        return res.status(400).json({ error: 'Message violates community guidelines.' });
+      }
+    }
 
     const chat = await Chat.findOne({ _id: chatId, participants: req.user._id });
     if (!chat) return res.status(404).json({ error: "Chat not found" });

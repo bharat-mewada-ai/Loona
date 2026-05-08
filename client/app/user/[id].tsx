@@ -49,7 +49,7 @@ export default function UserProfileScreen() {
       return;
     }
     startChat(
-      { targetUserId: user._id },
+      { targetUserId: user._id, postId: '' },
       {
         onSuccess: (chat) => {
           closeAuthorProfile();

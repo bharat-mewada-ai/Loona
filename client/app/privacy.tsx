@@ -56,7 +56,7 @@ export default function PrivacyPolicyScreen() {
   );
 }
 
-const Section = ({ title, children, color }) => (
+const Section = ({ title, children, color }: { title: string, children: React.ReactNode, color: string }) => (
   <View style={s.section}>
     <Text style={[s.sectionTitle, { color }]}>{title}</Text>
     <Text style={s.sectionText}>{children}</Text>

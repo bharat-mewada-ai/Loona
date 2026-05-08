@@ -12,12 +12,27 @@ import {
   PlusJakartaSans_400Regular,
   PlusJakartaSans_500Medium,
   PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuthStore } from '../src/store/authStore';
 import { useUIStore } from '../src/store/uiStore';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 import OpeningSplashScreen from '../src/components/OpeningSplashScreen';
+import * as Application from 'expo-application';
+import UpdateRequiredScreen from '../src/components/UpdateRequiredScreen';
+import client from '../src/api/client';
+
+const isVersionLower = (current: string, minimum: string) => {
+  if (!current || !minimum) return false;
+  const c = current.split('.').map(Number);
+  const m = minimum.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((c[i] || 0) < (m[i] || 0)) return true;
+    if ((c[i] || 0) > (m[i] || 0)) return false;
+  }
+  return false;
+};
 import { useState } from 'react';
 import * as Updates from 'expo-updates';
 import { useNotifications } from '../src/hooks/useNotifications';
@@ -30,9 +45,16 @@ const queryClient = new QueryClient({
 });
 
 function RootLayout() {
-  const { loadStoredAuth } = useAuthStore();
-  const { isDark } = useUIStore();
+  const { loadStoredAuth, user } = useAuthStore();
+  const { isDark, setCampus } = useUIStore();
   
+  // Sync UI campus with user campus on login/load
+  useEffect(() => {
+    if (user?.campus) {
+      setCampus(user.campus);
+    }
+  }, [user?._id]);
+
   useEffect(() => {
     async function onFetchUpdateAsync() {
       // expo-updates OTA only works in production builds, not in Expo Go / dev
@@ -58,44 +80,64 @@ function RootLayout() {
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
     PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
   });
 
   const [splashVisible, setSplashVisible] = useState(true);
+  const [updateConfig, setUpdateConfig] = useState<any>(null);
+
+  useEffect(() => {
+    console.log('[RootLayout] State Check:', { fontsLoaded, fontError, splashVisible, hasUpdate: !!updateConfig });
+  }, [fontsLoaded, splashVisible, updateConfig]);
 
   useEffect(() => {
     loadStoredAuth();
   }, []);
 
   useEffect(() => {
+    // Check for force update
+    const checkUpdate = async () => {
+      try {
+        const { data } = await client.get('/config/version');
+        const currentVersion = Application.nativeApplicationVersion || '1.0.0';
+        if (data.forceUpdate || isVersionLower(currentVersion, data.minimumVersion)) {
+          console.log('[RootLayout] Update Required:', data.minimumVersion);
+          setUpdateConfig(data);
+        }
+      } catch (err) {
+        console.warn('[RootLayout] Update check skipped (offline or dev)');
+      }
+    };
+    checkUpdate();
+
+    // Safety: Always hide splash after 5s regardless of fonts
     const safetyTimer = setTimeout(() => {
+      console.log('[RootLayout] Safety Timer triggered - hiding splash');
       setSplashVisible(false);
-    }, 3000); // Force hide after 3s max
+    }, 5000);
 
-    if (fontsLoaded && !fontError) {
-      // Fast boot for daily use (800ms)
-      const timer = setTimeout(() => {
-        setSplashVisible(false);
-        clearTimeout(safetyTimer);
-      }, 800);
-      return () => {
-        clearTimeout(timer);
-        clearTimeout(safetyTimer);
-      };
+    if (fontsLoaded) {
+      setSplashVisible(false);
+      clearTimeout(safetyTimer);
     }
-    return () => clearTimeout(safetyTimer);
-  }, [fontsLoaded, fontError]);
 
-  if (splashVisible) {
-    return <OpeningSplashScreen />;
+    return () => clearTimeout(safetyTimer);
+  }, [fontsLoaded]);
+
+  let content;
+  if (updateConfig) {
+    content = <UpdateRequiredScreen {...updateConfig} />;
+  } else if (splashVisible) {
+    content = <OpeningSplashScreen />;
+  } else {
+    content = <Stack screenOptions={{ headerShown: false }} />;
   }
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#fff' }}>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-          <Stack screenOptions={{ headerShown: false }} />
-        </View>
+        <StatusBar style="light" />
+        {content}
       </QueryClientProvider>
     </ErrorBoundary>
   );

@@ -18,7 +18,7 @@ import { cacheMiddleware } from "../utils/cache.js";
 const router = express.Router();
 
 // ─── Public / Feed routes ──────────────────────────────────────────────────────
-router.get("/",          getPostsRules,    validate, cacheMiddleware(60),  asyncHandler(getPosts));
+router.get("/",          getPostsRules,    validate, cacheMiddleware(120), asyncHandler(getPosts));
 router.get("/stats",                                 cacheMiddleware(300), asyncHandler(getStats));
 router.get("/search/posts",                          asyncHandler(searchPosts));
 router.get("/search/users",                          asyncHandler(searchUsers));

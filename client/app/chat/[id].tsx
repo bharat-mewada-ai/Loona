@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, StyleSheet, SafeAreaView, ActivityIndicator, Image, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
@@ -7,6 +7,7 @@ import { useMessages, useSendMessage } from '../../src/hooks/useChat';
 import { useAuthStore } from '../../src/store/authStore';
 import * as ImagePicker from 'expo-image-picker';
 import EmojiPicker from '../../src/components/EmojiPicker';
+import { uploadToCloudinary } from '../../src/utils/uploadToCloudinary';
 
 export default function ChatRoomScreen() {
   const { id } = useLocalSearchParams();
@@ -17,6 +18,7 @@ export default function ChatRoomScreen() {
   
   const [inputText, setInputText] = useState('');
   const [image, setImage] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
@@ -26,46 +28,58 @@ export default function ChatRoomScreen() {
   const messages = data?.messages || [];
   const chatInfo = data?.chat;
 
-  // Determine other user's identity to show in header
-  let otherName = "Anonymous";
-  let otherAvatar = "👤";
-  
-  if (chatInfo?.identities && user?._id) {
-    const identities = chatInfo.identities;
-    const otherId = Object.keys(identities).find(key => key !== user._id);
-    if (otherId && identities[otherId]) {
-      otherName = identities[otherId].name;
-      otherAvatar = identities[otherId].avatar;
-    }
-  }
-
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.6,
-      base64: true,
-    });
-    if (!result.canceled) {
-      setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setIsUploading(true);
+        const { url } = await uploadToCloudinary(result.assets[0].uri);
+        setImage(url);
+        setIsUploading(false);
+      }
+    } catch (err: any) {
+      setIsUploading(false);
+      Alert.alert('Upload Failed', err.message);
     }
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Allow camera access to take photos.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.6,
-      base64: true,
-    });
-    if (!result.canceled) {
-      setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Allow camera access to take photos.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setIsUploading(true);
+        const { url } = await uploadToCloudinary(result.assets[0].uri);
+        setImage(url);
+        setIsUploading(false);
+      }
+    } catch (err: any) {
+      setIsUploading(false);
+      Alert.alert('Upload Failed', err.message);
     }
   };
+
+  // Determine other user's identity to show in header
+  let otherName = "Anonymous";
+  let otherAvatar = "👤";
+  
+  if (chatInfo?.identities) {
+    otherName = chatInfo.identities.other?.name || "Anonymous";
+    otherAvatar = chatInfo.identities.other?.avatar || "👤";
+  }
 
   const handleSend = () => {
     if (!inputText.trim() && !image) return;
@@ -110,7 +124,7 @@ export default function ChatRoomScreen() {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
           renderItem={({ item }) => {
-            const isMe = item.senderId === user?._id;
+            const isMe = item.senderType === 'me';
             return (
               <View style={[s.msgWrapper, isMe ? s.msgRight : s.msgLeft]}>
                 <View style={[
@@ -166,11 +180,11 @@ export default function ChatRoomScreen() {
               maxLength={500}
             />
             <TouchableOpacity 
-              style={[s.sendBtn, (!inputText.trim() && !image || isPending) && { opacity: 0.5 }, { backgroundColor: themeColors.ogi }]} 
+              style={[s.sendBtn, (!inputText.trim() && !image || isPending || isUploading) && { opacity: 0.5 }, { backgroundColor: themeColors.ogi }]} 
               onPress={handleSend}
-              disabled={(!inputText.trim() && !image) || isPending}
+              disabled={(!inputText.trim() && !image) || isPending || isUploading}
             >
-              <Text style={s.sendTxt}>Send</Text>
+              <Text style={s.sendTxt}>{isUploading ? '...' : 'Send'}</Text>
             </TouchableOpacity>
           </View>
           {showEmoji && (

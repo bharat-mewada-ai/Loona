@@ -4,7 +4,7 @@
     "slug": "loona",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
-    "scheme": "loona",
+    "scheme": ["loona", "com.loona.app"],
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -33,7 +33,7 @@
         "backgroundColor": "#FF6B35"
       },
       "package": "com.loona.app",
-      "versionCode": 3,
+      "versionCode": 10,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

@@ -3,6 +3,7 @@ import Comment from "../models/comment.model.js";
 import User from "../models/user.model.js";
 import Vote from "../models/vote.model.js";
 import BhandaraVote from "../models/bhandaraVote.model.js";
+import redis from "../utils/redis.js";
 import { checkContent } from "../utils/moderation.js";
 import { generateAnonIdentity } from "../utils/anonIdentity.js";
 import { scheduleBurn } from "../utils/burnQueue.js";
@@ -22,6 +23,17 @@ const updatePostScore = (post) => {
 export const createPost = async (req, res) => {
   const { title, body, campus, type, burnAfter24h, image, eventDate, eventLocation, isPoll, pollOptions } = req.body;
   if (!title || !campus) return res.status(400).json({ error: "Title and campus are required" });
+
+  // ─── Double-Post Lock (Idempotency) ──────────────────────────────────────────
+  const lockKey = `lock:post:${req.user._id}`;
+  try {
+    const existing = await redis.set(lockKey, '1', 'EX', 5, 'NX');
+    if (!existing) {
+      return res.status(429).json({ error: 'Please wait a moment before posting again.' });
+    }
+  } catch (err) {
+    // If Redis fails, we still allow the post (don't block users if infrastructure has issues)
+  }
 
   // Strict Restriction: User can only post to their own registered campus
   if (campus !== req.user.campus) {
@@ -131,9 +143,24 @@ export const getPosts = async (req, res) => {
   if (campus && campus !== "all") filter.campus = campus;
   if (type && type !== "all") filter.type = type;
 
+  // ─── Blocked Users Filter ──────────────────────────────────────────────────
+  if (req.user) {
+    try {
+      const { default: Block } = await import("../models/block.model.js");
+      const blocks = await Block.find({ blocker: req.user._id }).select('blocked').lean();
+      if (blocks.length > 0) {
+        const blockedIds = blocks.map(b => b.blocked);
+        filter.author = { $nin: blockedIds };
+      }
+    } catch (err) {
+      logger.error('Error fetching blocks for feed:', err.message);
+    }
+  }
+
   const [posts, total] = await Promise.all([
     Post.find(filter)
-      .select("-author -reports") // Keep pollVoters for identifying user vote but we will filter it in the loop below
+      .hint({ campus: 1, hidden: 1, createdAt: -1 })
+      .select("-author -reports")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
@@ -326,10 +353,13 @@ export const getStats = async (req, res) => {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const [totalPosts, todayPosts, totalUsers, campusBreakdown] = await Promise.all([
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  const [totalPosts, todayPosts, totalUsers, dau, campusBreakdown] = await Promise.all([
     Post.countDocuments({ hidden: false }),
     Post.countDocuments({ createdAt: { $gte: startOfToday }, hidden: false }),
     User.countDocuments(),
+    User.countDocuments({ lastActive: { $gte: twentyFourHoursAgo } }),
     Post.aggregate([
       { $match: { hidden: false } },
       { $group: { _id: "$campus", count: { $sum: 1 } } },
@@ -337,7 +367,7 @@ export const getStats = async (req, res) => {
     ]),
   ]);
 
-  res.json({ totalPosts, todayPosts, totalUsers, campusBreakdown });
+  res.json({ totalPosts, todayPosts, totalUsers, dau, campusBreakdown });
 };
 
 /* ---------------- COMMENTS ---------------- */
@@ -413,7 +443,17 @@ export const deletePost = async (req, res) => {
   if (!post) return res.status(404).json({ error: "Not found" });
   if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin')
     return res.status(403).json({ error: "Unauthorized" });
-  await post.deleteOne();
+
+  const { default: Notification } = await import("../models/notification.model.js");
+
+  await Promise.all([
+    Comment.deleteMany({ postId: post._id }),
+    Vote.deleteMany({ postId: post._id }),
+    BhandaraVote.deleteMany({ postId: post._id }),
+    Notification.deleteMany({ "data.postId": post._id }),
+    post.deleteOne()
+  ]);
+
   invalidateCache("/api/posts");
   res.json({ message: "Deleted" });
 };

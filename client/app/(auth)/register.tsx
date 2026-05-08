@@ -95,7 +95,7 @@ export default function RegisterScreen() {
 
   const interpolatedColor = colorAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [Colors.ogi, Colors.nit]
+    outputRange: [Colors.ogi, Colors.lnct]
   });
 
   return (

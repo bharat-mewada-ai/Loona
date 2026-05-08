@@ -25,7 +25,7 @@ const inject = async () => {
       name: "Fake User",
       email: "fake@loona.app",
       password: "password123",
-      campus: "NIT",
+      campus: "ogi",
       karma: 100,
     });
   }

@@ -1,35 +1,8 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { io, Socket } from 'socket.io-client';
 import { chatApi } from '../api/chat.api';
 import { useAuthStore } from '../store/authStore';
-import { API_URL } from '../constants';
-
-// ─── Singleton Socket.IO client ───────────────────────────────────────────────
-// Created once per app session. Passes JWT so the server's io.use() middleware
-// can verify it before accepting the connection.
-let socket: Socket | null = null;
-
-const getSocket = (token: string): Socket => {
-  if (!socket || !socket.connected) {
-    const baseUrl = API_URL.replace('/api', ''); // strip /api path for socket root
-    socket = io(baseUrl, {
-      auth: { token },               // ← sent as handshake.auth.token on the server
-      transports: ['websocket'],     // skip long-polling, direct websocket
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-    });
-  }
-  return socket;
-};
-
-/** Call this on logout to cleanly disconnect the socket. */
-export const disconnectSocket = () => {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
-  }
-};
+import { getSocket } from '../utils/socket';
 
 // ─── useChats ────────────────────────────────────────────────────────────────
 export const useChats = () => {
@@ -91,8 +64,8 @@ export const useMessages = (chatId: string) => {
 export const useSendMessage = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ chatId, content }: { chatId: string; content: string }) =>
-      chatApi.sendMessage(chatId, content),
+    mutationFn: ({ chatId, content, image }: { chatId: string; content: string; image?: string }) =>
+      chatApi.sendMessage(chatId, content, image),
     onSuccess: (_data, { chatId }) => {
       qc.invalidateQueries({ queryKey: ['messages', chatId] });
       qc.invalidateQueries({ queryKey: ['chats'] });

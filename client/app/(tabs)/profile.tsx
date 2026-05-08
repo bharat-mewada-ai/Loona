@@ -605,6 +605,7 @@ const s = StyleSheet.create({
   emptyTitle: { fontFamily: 'Syne_700Bold', fontSize: 18 },
   emptySub: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 14, textAlign: 'center', marginTop: 6, opacity: 0.6 },
 
+  badgeList: { paddingVertical: 10 },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   badgeCard: { width: (width - 44) / 2, padding: 20, borderRadius: 24, borderWidth: 1, alignItems: 'center', elevation: 2 },
   badgeIconLarge: { fontSize: 40, marginBottom: 10 },

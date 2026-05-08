@@ -22,9 +22,9 @@ export const authApi = {
     return data;
   },
 
-  // ── Logout (server-side is stateless JWT, just signals client) ───────────
-  logout: async (): Promise<void> => {
-    await client.post('/auth/logout');
+  // ── Logout — sends refreshToken to server for revocation ──────────────────
+  logout: async (refreshToken: string): Promise<void> => {
+    await client.post('/auth/logout', { refreshToken });
   },
 
   // ── Campus leaderboard ───────────────────────────────────────────────────
@@ -36,7 +36,7 @@ export const authApi = {
     return data;
   },
 
-  updateProfile: async (payload: { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[] }): Promise<User> => {
+  updateProfile: async (payload: { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[]; notificationsEnabled?: boolean }): Promise<User> => {
     const { data } = await client.patch<User>('/auth/update-profile', payload);
     return data;
   },
@@ -48,5 +48,22 @@ export const authApi = {
   
   deleteAccount: async (): Promise<void> => {
     await client.delete('/auth/delete-account');
+  },
+
+  // ── Blocking ────────────────────────────────────────────────────────────
+  blockUser: async (userId: string): Promise<void> => {
+    await client.post(`/auth/block/${userId}`);
+  },
+  unblockUser: async (userId: string): Promise<void> => {
+    await client.delete(`/auth/unblock/${userId}`);
+  },
+  getBlockedUsers: async (): Promise<User[]> => {
+    const { data } = await client.get('/auth/blocks');
+    return data;
+  },
+
+  getPublicProfile: async (userId: string): Promise<User> => {
+    const { data } = await client.get<User>(`/auth/users/${userId}`);
+    return data;
   },
 };

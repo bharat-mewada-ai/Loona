@@ -36,6 +36,14 @@ export const requireAuth = async (req, res, next) => {
 
     req.user = user;
     
+    // ─── Analytics: Update lastActive (Throttled to once every 4h) ──────────
+    const now = new Date();
+    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+    if (!user.lastActive || user.lastActive < fourHoursAgo) {
+      user.lastActive = now;
+      user.save().catch(e => logger.error("Failed to update lastActive:", e.message));
+    }
+    
     // ─── Ban Check ─────────────────────────────────────────────────────────────
     if (user.isBanned) {
       return res.status(403).json({ 

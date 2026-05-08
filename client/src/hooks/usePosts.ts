@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tansta
 import { postsApi } from '../api/posts.api';
 import { useUIStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
+import { Post, PaginatedPosts } from '../types';
 
 // ─── usePosts — infinite feed ─────────────────────────────────────────────────
 export const usePosts = () => {
@@ -26,7 +27,7 @@ export const usePosts = () => {
         page: pageParam as number,
         limit: 10,
       }),
-    getNextPageParam: (last: any) => (last.hasMore ? last.page + 1 : undefined),
+    getNextPageParam: (last: PaginatedPosts) => (last.hasMore ? last.page + 1 : undefined),
     initialPageParam: 1,
   });
 };
@@ -49,14 +50,15 @@ export const useVote = () => {
       qc.invalidateQueries({ queryKey: ['posts'] });
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
       qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['post'] }); // Invalidate detail view too
     },
   });
 };
 
 export const useVoteBhandara = () => {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, vote }: { id: string; vote: 'yes' | 'no' }) =>
+  return useMutation<{ bhandaraCountYes: number; bhandaraCountNo: number }, Error, { id: string; vote: 'yes' | 'no' }>({
+    mutationFn: ({ id, vote }) =>
       postsApi.voteBhandara(id, vote),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts'] });
@@ -66,9 +68,40 @@ export const useVoteBhandara = () => {
 
 export const useVotePoll = () => {
   const qc = useQueryClient();
+  const campus = useUIStore((s) => s.activeCampus);
+  const tab = useUIStore((s) => s.activeTab);
+
   return useMutation({
     mutationFn: ({ id, optionIndex }: { id: string; optionIndex: number }) =>
       postsApi.votePoll(id, optionIndex),
+    onMutate: async ({ id, optionIndex }) => {
+      const queryKey = ['posts', campus, tab];
+      await qc.cancelQueries({ queryKey });
+      const previousPosts = qc.getQueryData(queryKey);
+
+      qc.setQueryData(queryKey, (old: { pages: PaginatedPosts[] } | undefined) => {
+        if (!old || !old.pages) return old;
+        const newPages = old.pages.map((page) => ({
+          ...page,
+          posts: page.posts.map((post) => {
+            if (post._id === id) {
+              const newOptions = [...(post.pollOptions || [])];
+              if (newOptions[optionIndex]) {
+                newOptions[optionIndex] = { ...newOptions[optionIndex], votes: newOptions[optionIndex].votes + 1 };
+              }
+              return { ...post, userVote: optionIndex, pollOptions: newOptions };
+            }
+            return post;
+          }),
+        }));
+        return { ...old, pages: newPages };
+      });
+
+      return { previousPosts };
+    },
+    onError: (_err, _vars, context: any) => {
+      qc.setQueryData(['posts', campus, tab], context?.previousPosts);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts'] });
     },
@@ -85,6 +118,7 @@ export const useReact = () => {
       qc.invalidateQueries({ queryKey: ['posts'] });
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
       qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['post'] });
     },
   });
 };
@@ -108,7 +142,7 @@ export const useAddComment = () => {
       await qc.cancelQueries({ queryKey: ['comments', newCommentData.id] });
       const previousComments = qc.getQueryData(['comments', newCommentData.id]);
       
-      qc.setQueryData(['comments', newCommentData.id], (old: any) => {
+      qc.setQueryData(['comments', newCommentData.id], (old: { comments: any[]; total: number; hasMore: boolean } | undefined) => {
         const optimistic = {
           _id: Date.now().toString(),
           postId: newCommentData.id,
@@ -138,6 +172,7 @@ export const useAddComment = () => {
     onSettled: (_data, _err, { id }) => {
       qc.invalidateQueries({ queryKey: ['comments', id] });
       qc.invalidateQueries({ queryKey: ['posts'] });
+      qc.invalidateQueries({ queryKey: ['post', id] });
     },
   });
 };
@@ -180,7 +215,7 @@ export const useCreatePost = () => {
       await qc.cancelQueries({ queryKey });
       const previousPosts = qc.getQueryData(queryKey);
 
-      qc.setQueryData(queryKey, (old: any) => {
+      qc.setQueryData(queryKey, (old: { pages: PaginatedPosts[] } | undefined) => {
         if (!old || !old.pages) return old;
         const optimistic = {
           ...newPost,
@@ -198,7 +233,7 @@ export const useCreatePost = () => {
         if (newPages[0]) {
           newPages[0] = {
             ...newPages[0],
-            posts: [optimistic, ...newPages[0].posts],
+            posts: [optimistic as unknown as Post, ...newPages[0].posts],
           };
         }
         return { ...old, pages: newPages };
@@ -212,6 +247,11 @@ export const useCreatePost = () => {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['posts'], exact: false });
       qc.invalidateQueries({ queryKey: ['stats'] });
+      // After posting, ensure user is back in their own campus feed to see the post
+      const user = useAuthStore.getState().user;
+      if (user?.campus) {
+        useUIStore.getState().setCampus(user.campus as any);
+      }
     },
   });
 };
@@ -223,13 +263,23 @@ export const useReport = () => {
       postsApi.report(id, reason),
   });
 };
-// --- useMyPosts - dedicated /mine endpoint, not a feed filter ---
+
+// --- useMyPosts ---
 export const useMyPosts = () => {
   return useInfiniteQuery({
     queryKey: ['myPosts'],
     queryFn: ({ pageParam = 1 }: { pageParam?: number }) =>
       postsApi.getMyPosts(pageParam as number),
-    getNextPageParam: (last: any) => (last.hasMore ? last.page + 1 : undefined),
+    getNextPageParam: (last: PaginatedPosts) => (last.hasMore ? last.page + 1 : undefined),
     initialPageParam: 1,
+  });
+};
+
+// --- usePost (Detail View) ---
+export const usePost = (id: string) => {
+  return useQuery({
+    queryKey: ['post', id],
+    queryFn: () => postsApi.getPostById(id),
+    enabled: !!id,
   });
 };

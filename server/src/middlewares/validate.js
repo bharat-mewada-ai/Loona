@@ -11,7 +11,7 @@
 import { body, param, query, validationResult } from "express-validator";
 
 // ─── Valid enum values ────────────────────────────────────────────────────────
-const VALID_CAMPUSES  = ["nit", "ogi", "lnct", "all"];
+const VALID_CAMPUSES  = ["ogi", "lnct", "all"];
 const VALID_TYPES     = ["thought", "confess", "events", "rumours", "bhandara", "place"];
 const VALID_REACTIONS = ["wow", "fire", "same", "skull", "spicy", "lit", "wholesome", "hmm", "lmao"];
 

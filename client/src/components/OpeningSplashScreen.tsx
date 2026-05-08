@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Dimensions, Image } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, Image, Platform } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -12,13 +12,13 @@ const OpeningSplashScreen = () => {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 1000,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
         friction: 8,
         tension: 40,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, []);

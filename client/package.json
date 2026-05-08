@@ -21,7 +21,7 @@
     "axios": "^1.7.9",
     "expo": "~54.0.0",
     "expo-application": "~7.0.8",
-    "expo-auth-session": "*",
+    "expo-auth-session": "~7.0.11",
     "expo-blur": "~15.0.0",
     "expo-constants": "~18.0.0",
     "expo-crypto": "~15.0.9",
@@ -51,8 +51,7 @@
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.0",
-    "react-native-worklets": "0.5.1",
-    "react-native-worklets-core": "*",
+    "react-native-worklets": "^0.8.3",
     "socket.io-client": "^4.8.3",
     "zustand": "^5.0.5"
   },

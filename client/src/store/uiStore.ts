@@ -17,16 +17,17 @@ interface UIState {
   composeType: TabFilter;
   openComposeSheet: (type: TabFilter) => void;
   closeComposeSheet: () => void;
+  setComposeType: (type: TabFilter) => void;
 
   // ── Report sheet ──────────────────────────────────────────────────────────
   showReportSheet: boolean;
   reportPostId: string | null;
-  authorProfile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean } | null;
+  authorProfile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean; postCampus: string } | null;
 
   openReportSheet: (id: string) => void;
   closeReportSheet: () => void;
   
-  openAuthorProfile: (profile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean }) => void;
+  openAuthorProfile: (profile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean; postCampus: string }) => void;
   closeAuthorProfile: () => void;
 
   // ── Comment sheet ─────────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ export const useUIStore = create<UIState>((set) => ({
   openComposeSheet: (type) =>
     set({ showComposeSheet: true, composeType: type }),
   closeComposeSheet: () => set({ showComposeSheet: false }),
+  setComposeType: (composeType) => set({ composeType }),
 
   // Report sheet
   showReportSheet: false,

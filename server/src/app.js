@@ -15,6 +15,8 @@ import chatRoutes from "./routes/chat.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import uploadRoutes from "./routes/upload.routes.js";
+import configRoutes from "./routes/config.routes.js";
 import redis from "./utils/redis.js";
 
 // ─── CORS allowlist ───────────────────────────────────────────────────────────
@@ -78,10 +80,13 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: true }));
 
-app.use((req, res, next) => {
-  logger.info(`--- [${req.method}] ${req.path} --- body: ${JSON.stringify(req.body)}`);
-  next();
-});
+// ─── Body Logger (DEV ONLY — never log bodies in production for security) ──────
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    logger.info(`--- [${req.method}] ${req.path} --- body: ${JSON.stringify(req.body)}`);
+    next();
+  });
+}
 
 // ─── Security & Perf middleware ───────────────────────────────────────────────
 app.use(helmet());
@@ -111,6 +116,8 @@ app.use("/api/chats", chatRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/config", configRoutes);
 
 // ─── Sentry Error Handler (must be AFTER routes but BEFORE other error handlers) ───
 Sentry.setupExpressErrorHandler(app);

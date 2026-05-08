@@ -31,7 +31,7 @@ interface Props {
 export default function PostCard({ post, isAllTab, userLocation }: Props) {
   const { mutate: vote } = useVote();
   const { mutate: react } = useReact();
-  const { mutate: voteBhandara } = useVoteBhandara();
+  const { mutateAsync: voteBhandaraAsync } = useVoteBhandara();
   const { mutate: votePoll } = useVotePoll();
   const { mutate: deletePost } = useDeletePost();
   const { openReportSheet, openCommentSheet, openAuthorProfile, isDark } = useUIStore();
@@ -62,7 +62,7 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
   };
 
   const handleBhandaraVote = async (v: 'yes' | 'no') => {
-    const res = await voteBhandara({ id: post._id, vote: v });
+    const res = await voteBhandaraAsync({ id: post._id, vote: v });
     if (res?.bhandaraCountYes !== undefined) {
       setBhandaraYesCount(res.bhandaraCountYes);
     }
@@ -119,7 +119,8 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
       postId: post._id,
       anonName: post.anonName,
       anonAvatar: post.anonAvatar || '👤',
-      isSelf: post.author === user?._id
+      isSelf: post.author === user?._id,
+      postCampus: post.campus
     });
   };
 
@@ -170,283 +171,161 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
 
   return (
     <View style={[s.card, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
-      {hasImage ? (
-        /* Immersive Photo Post Layout */
-        <View style={{ backgroundColor: themeColors.card2 }}>
-          <Image source={{ uri: post.image }} style={s.pimg} resizeMode="contain" />
-          <View style={s.imgOverlay}>
-            <View style={s.pmeta}>
-              <View style={s.metaLeft}>
-                <View style={[s.pclg, { backgroundColor: campus.bg, borderColor: campus.bdr }]}>
-                  <Text style={[s.pclgTxt, { color: campus.color }]}>{campus.label}</Text>
-                </View>
-                <View style={[s.typePill, { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.4)' }]}>
-                  <Text style={[s.typeTxt, { color: '#FFF' }]}>
-                    {POST_TYPES.find(p => p.value === post.type)?.label || 'Post'}
-                  </Text>
-                </View>
-                {vibeEntry && (
-                  <View style={[s.vibePill, { backgroundColor: vibeEntry.bg }]}>
-                    <Text style={[s.vibeTxt, { color: vibeEntry.color }]}>{vibeEntry.label}</Text>
-                  </View>
-                )}
-                {post.burnAfter24h && (
-                  <View style={[s.burnPill, { backgroundColor: '#FF450020', borderColor: '#FF450040' }]}>
-                    <Text style={s.burnTxt}>🔥 24h</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={[s.ptime, { color: '#FFF' }]}>{formatDistanceToNow(post.createdAt)}{distanceText}</Text>
-              {(post.author === user?._id || user?.role === 'admin') && (
-                <TouchableOpacity onPress={handleDeletePost} style={{ marginLeft: 10 }}>
-                  <Text style={{ fontSize: 18, color: '#FFF' }}>⋮</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <TouchableOpacity style={s.panon} onPress={handleAuthorPress} activeOpacity={0.7}>
-              <Text style={s.avatarEmoji}>{post.anonAvatar || '👤'}</Text>
-              <Text style={[s.pname, { color: '#FFF' }]}>{post.anonName}</Text>
-            </TouchableOpacity>
-
-            <View style={s.titleRow}>
-              <Text style={[s.ptitle, { color: '#FFF' }]}>{post.title}</Text>
-              <TouchableOpacity
-                style={[s.patatoBtn, votedLocal && { backgroundColor: themeColors.ogibg }]}
-                onPress={handleVote}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                  <Text style={[s.patatoArrow, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>▲</Text>
-                  <Text style={s.patatoEmoji}>🥔</Text>
-                </View>
-                <Text style={[s.patatoCount, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>
-                  {post.upvotes}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            {!!post.body && <Text style={[s.pbody, { color: 'rgba(255,255,255,0.8)' }]}>{post.body}</Text>}
-            
-            {/* Poll in Photo Post */}
-            {post.isPoll && post.pollOptions && (
-              <View style={s.pollContainer}>
-                {post.pollOptions.map((opt, i) => {
-                  const totalVotes = post.pollOptions?.reduce((a, b) => a + b.votes, 0) || 1;
-                  const percent = Math.round((opt.votes / totalVotes) * 100);
-                  const isVoted = post.userVote === i;
-                  
-                  return (
-                    <TouchableOpacity 
-                      key={i} 
-                      style={[s.pollOpt, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: isVoted ? '#FFF' : 'rgba(255,255,255,0.2)' }]}
-                      onPress={() => handlePollVote(i)}
-                      disabled={post.userVote !== null}
-                    >
-                      <View style={[s.pollProgress, { width: `${percent}%`, backgroundColor: isVoted ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)' }]} />
-                      <Text style={[s.pollOptTxt, { color: '#FFF' }]}>{opt.text}</Text>
-                      {post.userVote !== null && <Text style={[s.pollPercent, { color: '#FFF' }]}>{percent}%</Text>}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
+      {/* Post Header */}
+      <View style={s.cardHeader}>
+        <TouchableOpacity style={s.authorRow} onPress={handleAuthorPress} activeOpacity={0.7}>
+          <View style={[s.avatarWrap, { backgroundColor: themeColors.card2 }]}>
+            <Text style={s.avatarEmoji}>{isConfession ? '🕳️' : (post.anonAvatar || '👤')}</Text>
           </View>
+          <View>
+            <Text style={[s.authorName, { color: themeColors.txt }]}>{isConfession ? 'Confession' : post.anonName}</Text>
+            <Text style={[s.authorHandle, { color: themeColors.txt3 }]}>
+              {campus.label} · {formatDistanceToNow(post.createdAt)}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        
+        <View style={s.headerRight}>
+          <View style={[s.statusPill, { backgroundColor: isEvent ? '#3B82F620' : (isConfession ? '#6B728020' : '#FF6B0020') }]}>
+            <Text style={[s.statusTxt, { color: isEvent ? '#3B82F6' : (isConfession ? '#6B7280' : '#FF6B00') }]}>
+              {isEvent ? '🎉 Event' : (isConfession ? '🕳️ Secret' : (post.upvotes > 10 ? '🔥 Hot' : '💬 Thought'))}
+            </Text>
+          </View>
+          {(post.author === user?._id || user?.role === 'admin') && (
+            <TouchableOpacity onPress={handleDeletePost} style={s.moreBtn}>
+              <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      ) : (
-        /* Regular Text Post Layout */
-        <>
-          <View style={s.pmeta}>
-            <View style={s.metaLeft}>
-              <View style={[s.pclg, { backgroundColor: campus.bg, borderColor: campus.bdr }]}>
-                <Text style={[s.pclgTxt, { color: campus.color }]}>{campus.label}</Text>
-              </View>
-              <View style={[s.typePill, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}>
-                <Text style={[s.typeTxt, { color: themeColors.txt3 }]}>
-                  {POST_TYPES.find(p => p.value === post.type)?.label || 'Post'}
-                </Text>
-              </View>
-              {vibeEntry && (
-                <View style={[s.vibePill, { backgroundColor: vibeEntry.bg }]}>
-                  <Text style={[s.vibeTxt, { color: vibeEntry.color }]}>{vibeEntry.label}</Text>
-                </View>
-              )}
-              {post.burnAfter24h && (
-                <View style={[s.burnPill, { backgroundColor: '#FF450010', borderColor: '#FF450030' }]}>
-                  <Text style={[s.burnTxt, { color: '#FF4500' }]}>🔥 24h</Text>
-                </View>
-              )}
-            </View>
-            <Text style={[s.ptime, { color: themeColors.txt3 }]}>{formatDistanceToNow(post.createdAt)}{distanceText}</Text>
-            {(post.author === user?._id || user?.role === 'admin') && (
-              <TouchableOpacity onPress={handleDeletePost} style={{ marginLeft: 10 }}>
-                <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+      </View>
 
-          {hasEventDate && (
-            <View style={[s.eventHeader, { backgroundColor: themeColors.bg2 }]}>
-              <Text style={s.eventEmoji}>{isBhandara ? '🍛' : '📅'}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.eventDate, { color: themeColors.txt }]}>{formattedEventDate}</Text>
-                <Text style={[s.eventLoc, { color: themeColors.txt3 }]}>{post.eventLocation || 'Campus'}</Text>
-              </View>
-              <TouchableOpacity style={[s.remindBtn, reminderSet && { backgroundColor: themeColors.ogi + '20' }]} onPress={handleSetReminder} disabled={reminderSet}>
-                <Text style={[s.remindTxt, reminderSet && { color: themeColors.ogi }]}>{reminderSet ? 'Set ✅' : 'Remind'}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+      {/* Post Content */}
+      <View style={s.contentArea}>
+        <Text style={[s.title, { color: themeColors.txt }]}>{post.title}</Text>
+        {!!post.body && <Text style={[s.body, { color: themeColors.txt2 }]}>{post.body}</Text>}
+      </View>
 
-          {isBhandara && (
-            <View style={[s.eventHeader, { backgroundColor: themeColors.ogi + '10', borderColor: themeColors.ogi + '30', borderWidth: 1, marginHorizontal: 16, borderRadius: 16, marginTop: 8 }]}>
-              <Text style={s.eventEmoji}>🍛</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.eventDate, { color: themeColors.txt, fontSize: 14 }]}>Is it happening now?</Text>
-                <Text style={[s.eventLoc, { color: themeColors.txt3, fontSize: 12 }]}>
-                  {bhandaraYesCount} approved this info
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity 
-                  style={[s.voteBtn, { backgroundColor: themeColors.card2 }]} 
-                  onPress={() => handleBhandaraVote('yes')}
-                >
-                  <Text style={{ color: themeColors.txt, fontSize: 12, fontWeight: '700' }}>Yes 👍</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[s.voteBtn, { backgroundColor: themeColors.card2 }]} 
-                  onPress={() => handleBhandaraVote('no')}
-                >
-                  <Text style={{ color: themeColors.txt, fontSize: 12, fontWeight: '700' }}>No 👎</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          <TouchableOpacity style={s.panon} onPress={handleAuthorPress} activeOpacity={0.7}>
-            {isConfession ? (
-              <Text style={[s.pname, { color: themeColors.txt2, fontStyle: 'italic' }]}>🕳️ Confession</Text>
-            ) : (
-              <>
-                <Text style={s.avatarEmoji}>{post.anonAvatar || '👤'}</Text>
-                <Text style={[s.pname, { color: themeColors.txt2 }]}>{post.anonName}</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          <View style={[s.titleRow, { paddingHorizontal: 16 }]}>
-            <Text style={[s.ptitleInline, { color: themeColors.txt }, (isEvent || isBhandara) && s.eventTitle]}>{post.title}</Text>
-            <TouchableOpacity
-              style={[s.patatoBtn, votedLocal && { backgroundColor: themeColors.ogibg }]}
-              onPress={handleVote}
-              activeOpacity={0.7}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                <Text style={[s.patatoArrow, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>▲</Text>
-                <Text style={s.patatoEmoji}>🥔</Text>
-              </View>
-              <Text style={[s.patatoCount, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>
-                {post.upvotes + (votedLocal ? 1 : 0)}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {!!post.body && <Text style={[s.pbody, { color: themeColors.txt2 }]}>{post.body}</Text>}
-
-          {/* Poll in Text Post */}
-          {post.isPoll && post.pollOptions && (
-            <View style={[s.pollContainer, { marginHorizontal: 16, marginBottom: 16 }]}>
-              {post.pollOptions.map((opt, i) => {
-                const totalVotes = post.pollOptions?.reduce((a, b) => a + b.votes, 0) || 0;
-                const percent = totalVotes === 0 ? 0 : Math.round((opt.votes / totalVotes) * 100);
-                const isVoted = post.userVote === i;
-                
-                return (
-                  <TouchableOpacity 
-                    key={i} 
-                    style={[s.pollOpt, { backgroundColor: themeColors.card2, borderColor: isVoted ? themeColors.ogi : themeColors.bdr }]}
-                    onPress={() => handlePollVote(i)}
-                    disabled={post.userVote !== null}
-                  >
-                    <View style={[s.pollProgress, { width: `${percent}%`, backgroundColor: isVoted ? themeColors.ogi + '20' : themeColors.bdr + '20' }]} />
-                    <Text style={[s.pollOptTxt, { color: themeColors.txt }]}>{opt.text}</Text>
-                    {post.userVote !== null && <Text style={[s.pollPercent, { color: themeColors.txt3 }]}>{percent}%</Text>}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </>
+      {/* Media */}
+      {hasImage && (
+        <View style={[s.mediaWrap, { backgroundColor: themeColors.bg === '#000000' ? '#111' : '#f5f5f5' }]}>
+          <Image source={{ uri: post.image }} style={s.mediaImg} resizeMode="contain" />
+        </View>
       )}
 
-      {/* Common Footer */}
-      <View style={[s.pact, { borderTopColor: themeColors.bdr }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rxnBarInFooter} contentContainerStyle={{ alignItems: 'center', gap: 8, paddingHorizontal: 12 }}>
-          <TouchableOpacity style={s.abtn} onPress={() => openCommentSheet(post._id)}>
-            <Text style={[s.abtnTxt, { color: themeColors.txt3 }]}>💬 {post.commentCount}</Text>
-          </TouchableOpacity>
-          {reactionList.map((r) => (
-            <TouchableOpacity key={r.key} style={[s.rxn, { borderColor: themeColors.bdr, backgroundColor: themeColors.card2 }]} onPress={() => handleReact(r.key)}>
-              <Text style={[s.rxnTxt, { color: themeColors.txt }]}>{r.icon} {reactions[r.key] || 0}</Text>
+      {/* Poll */}
+      {post.isPoll && post.pollOptions && (
+        <View style={s.pollWrap}>
+          {post.pollOptions.map((opt, i) => {
+            const totalVotes = post.pollOptions?.reduce((a, b) => a + b.votes, 0) || 0;
+            const percent = totalVotes === 0 ? 0 : Math.round((opt.votes / totalVotes) * 100);
+            const isVoted = post.userVote === i;
+            return (
+              <TouchableOpacity 
+                key={i} 
+                style={[s.pollOpt, { backgroundColor: themeColors.card2, borderColor: isVoted ? themeColors.ogi : themeColors.bdr }]}
+                onPress={() => handlePollVote(i)}
+                disabled={post.userVote !== null}
+              >
+                <View style={[s.pollProgress, { width: `${percent}%`, backgroundColor: isVoted ? themeColors.ogi + '20' : themeColors.bdr + '20' }]} />
+                <Text style={[s.pollOptTxt, { color: themeColors.txt }]}>{opt.text}</Text>
+                {post.userVote !== null && <Text style={[s.pollPercent, { color: themeColors.txt3 }]}>{percent}%</Text>}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Event Details */}
+      {(hasEventDate || isBhandara) && (
+        <View style={[s.eventPill, { backgroundColor: themeColors.card2 }]}>
+          <Text style={s.eventIcon}>{isBhandara ? '🍛' : '📅'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.eventDate, { color: themeColors.txt }]}>
+              {isBhandara ? 'Bhandara happening now?' : formattedEventDate}
+            </Text>
+            <Text style={[s.eventLoc, { color: themeColors.txt3 }]}>{post.eventLocation || 'Campus'}</Text>
+          </View>
+          {isBhandara ? (
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TouchableOpacity style={s.vBtn} onPress={() => handleBhandaraVote('yes')}><Text style={s.vBtnTxt}>👍</Text></TouchableOpacity>
+              <TouchableOpacity style={s.vBtn} onPress={() => handleBhandaraVote('no')}><Text style={s.vBtnTxt}>👎</Text></TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={s.remindBtn} onPress={handleSetReminder} disabled={reminderSet}>
+              <Text style={[s.remindTxt, { color: reminderSet ? themeColors.ogi : themeColors.txt2 }]}>
+                {reminderSet ? 'Set ✅' : 'Remind'}
+              </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <TouchableOpacity style={[s.abtn, s.abtnReport]} onPress={() => openReportSheet(post._id)}>
-          <Text style={[s.abtnTxt, { color: themeColors.txt3 }]}>⚑ Report</Text>
-        </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Post Footer */}
+      <View style={[s.footer, { borderTopColor: themeColors.bdr }]}>
+        <View style={s.footerLeft}>
+          <TouchableOpacity style={s.actionBtn} onPress={handleVote} activeOpacity={0.7}>
+            <Text style={[s.actionIcon, votedLocal && { color: themeColors.ogi }]}>🥔</Text>
+            <Text style={[s.actionCount, { color: votedLocal ? themeColors.ogi : themeColors.txt2 }]}>
+              {post.upvotes + (votedLocal ? 1 : 0)}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.actionBtn} onPress={() => openCommentSheet(post._id)}>
+            <Text style={s.actionIcon}>💬</Text>
+            <Text style={[s.actionCount, { color: themeColors.txt2 }]}>{post.commentCount}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.actionBtn}>
+            <Text style={s.actionIcon}>📤</Text>
+            <Text style={[s.actionCount, { color: themeColors.txt2 }]}>Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.actionBtn} onPress={() => openReportSheet(post._id)}>
+            <Text style={s.actionIcon}>⚑</Text>
+            <Text style={[s.actionCount, { color: themeColors.txt3 }]}>Report</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: 24, padding: 0, marginBottom: 16, overflow: 'hidden', elevation: 3 },
-  confCard: { borderWidth: 1, borderRadius: 24, padding: 24, marginBottom: 16, alignItems: 'center' },
-  confText: { fontSize: 18, fontFamily: 'Syne_700Bold', textAlign: 'center', marginBottom: 20 },
-  confRxns: { flexDirection: 'row', gap: 10 },
-  confBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  confBtnTxt: { fontSize: 12, fontWeight: '700' },
-  pimg: { width: '100%', height: 450, backgroundColor: 'rgba(0,0,0,0.03)' },
-  imgOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(0,0,0,0.5)', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
-  pmeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingBottom: 8 },
-  metaLeft: { flexDirection: 'row', gap: 8 },
-  pclg: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
-  pclgTxt: { fontSize: 10, fontWeight: '800' },
-  vibePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  vibeTxt: { fontSize: 10, fontWeight: '700' },
-  typePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
-  typeTxt: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  burnPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, flexDirection: 'row', alignItems: 'center' },
-  burnTxt: { fontSize: 9, fontWeight: '900', color: '#FFF' },
-  ptime: { fontSize: 11 },
-  panon: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 8 },
-  avatarEmoji: { fontSize: 20 },
-  pname: { fontSize: 13, fontWeight: '700' },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
-  ptitle: { fontSize: 20, fontFamily: 'Syne_700Bold', flex: 1, lineHeight: 26 },
-  ptitleInline: { fontSize: 18, fontFamily: 'Syne_700Bold', flex: 1, lineHeight: 24 },
-  pbody: { fontSize: 14, paddingHorizontal: 16, marginTop: 8, marginBottom: 16, lineHeight: 20 },
-  patatoBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.05)' },
-  patatoArrow: { fontSize: 12 },
-  patatoEmoji: { fontSize: 16 },
-  patatoCount: { fontSize: 14, fontWeight: '800' },
-  pact: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderTopWidth: 1 },
-  rxnBarInFooter: { flex: 1 },
-  abtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 4 },
-  abtnTxt: { fontSize: 12, fontWeight: '700' },
-  abtnReport: { opacity: 0.6 },
-  rxn: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
-  rxnTxt: { fontSize: 11, fontWeight: '700' },
-  eventHeader: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, marginHorizontal: 16, marginBottom: 12, gap: 12 },
-  eventEmoji: { fontSize: 24 },
-  eventDate: { fontSize: 13, fontWeight: '700' },
-  eventLoc: { fontSize: 12 },
-  eventTitle: { fontSize: 16 },
-  remindBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.05)' },
-  remindTxt: { fontSize: 12, fontWeight: '800' },
-  voteBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.1)' },
-  pollContainer: { gap: 10, marginTop: 12 },
-  pollOpt: { height: 44, borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden', position: 'relative' },
+  card: { borderRadius: 28, marginBottom: 16, overflow: 'hidden', borderWidth: 1 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingBottom: 8 },
+  authorRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  avatarWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  avatarEmoji: { fontSize: 24 },
+  authorName: { fontSize: 15, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
+  authorHandle: { fontSize: 11, marginTop: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  statusTxt: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  moreBtn: { padding: 4 },
+  contentArea: { paddingHorizontal: 16, paddingVertical: 8 },
+  title: { fontSize: 17, fontWeight: '600', lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold' },
+  body: { fontSize: 14, marginTop: 6, lineHeight: 20 },
+  mediaWrap: { width: '100%', height: 320, marginTop: 8 },
+  mediaImg: { width: '100%', height: '100%' },
+  pollWrap: { paddingHorizontal: 16, gap: 8, marginTop: 12 },
+  pollOpt: { height: 44, borderRadius: 14, borderWidth: 1, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden', position: 'relative' },
   pollOptTxt: { fontSize: 14, fontWeight: '600', zIndex: 1 },
-  pollProgress: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 10 },
+  pollProgress: { position: 'absolute', left: 0, top: 0, bottom: 0 },
   pollPercent: { fontSize: 12, fontWeight: '800', zIndex: 1 },
+  eventPill: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 12, padding: 12, borderRadius: 16 },
+  eventIcon: { fontSize: 20 },
+  eventDate: { fontSize: 13, fontWeight: '700' },
+  eventLoc: { fontSize: 11 },
+  remindBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  remindTxt: { fontSize: 12, fontWeight: '700' },
+  vBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+  vBtnTxt: { fontSize: 14 },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderTopWidth: 0.5, marginTop: 8 },
+  footerLeft: { flexDirection: 'row', gap: 16, alignItems: 'center' },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  actionIcon: { fontSize: 18 },
+  actionCount: { fontSize: 13, fontWeight: '600' },
+  reportBtn: { padding: 4 },
+  confCard: { borderRadius: 20, padding: 24, marginBottom: 16, borderWidth: 1, backgroundColor: '#0A0A0A', alignItems: 'center' },
+  confText: { fontSize: 16, lineHeight: 24, marginBottom: 20, fontFamily: 'PlusJakartaSans_500Medium', textAlign: 'center' },
+  confRxns: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  confBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderWidth: 1 },
+  confBtnTxt: { fontSize: 12, fontWeight: '800' },
 });

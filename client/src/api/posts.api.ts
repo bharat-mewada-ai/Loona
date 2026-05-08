@@ -104,7 +104,7 @@ export const postsApi = {
     id: string,
     page = 1
   ): Promise<{ comments: any[]; total: number; hasMore: boolean }> => {
-    const { data } = await client.get(`/posts/${id}/comments`, { params: { page } });
+    const { data } = await client.get<{ comments: any[]; total: number; hasMore: boolean }>(`/posts/${id}/comments`, { params: { page } });
     return data;
   },
 
@@ -115,6 +115,11 @@ export const postsApi = {
   // ── My posts ──────────────────────────────────────────────────────────────
   getMyPosts: async (page = 1): Promise<PaginatedPosts> => {
     const { data } = await client.get<PaginatedPosts>('/posts/mine', { params: { page } });
+    return data;
+  },
+
+  getUserPosts: async (userId: string, page = 1): Promise<PaginatedPosts> => {
+    const { data } = await client.get<PaginatedPosts>(`/posts/user/${userId}`, { params: { page } });
     return data;
   },
 };

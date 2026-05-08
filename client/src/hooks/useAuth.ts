@@ -26,9 +26,20 @@ export const useGoogleAuth = () => {
 // ─── useLogout ────────────────────────────────────────────────────────────────
 export const useLogout = (): (() => void) => {
   const logout = useAuthStore((s) => s.logout);
-  return () => {
-    logout();
-    router.replace('/(auth)/login');
+  const refreshToken = useAuthStore((s) => s.refreshToken);
+
+  return async () => {
+    try {
+      // Revoke refresh token on server so stolen devices can't re-auth
+      if (refreshToken) {
+        await authApi.logout(refreshToken);
+      }
+    } catch {
+      // Always log out locally even if server call fails
+    } finally {
+      logout();
+      router.replace('/(auth)/login');
+    }
   };
 };
 
@@ -58,7 +69,7 @@ export const useMe = () => {
 
 export const useUpdateProfile = () => {
   const setUser = useAuthStore((s) => s.setUser);
-  return useMutation<User, Error, { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[] }>({
+  return useMutation<User, Error, { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[]; notificationsEnabled?: boolean }>({
     mutationFn: (payload) => authApi.updateProfile(payload),
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
@@ -74,5 +85,34 @@ export const useDeleteAccount = () => {
       logout();
       router.replace('/(auth)/login');
     },
+  });
+};
+
+// ─── Blocking Hooks ─────────────────────────────────────────────────────────
+export const useBlockUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => authApi.blockUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
+    },
+  });
+};
+
+export const useUnblockUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => authApi.unblockUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
+    },
+  });
+};
+
+export const useBlockedUsers = () => {
+  return useQuery({
+    queryKey: ['blocked-users'],
+    queryFn: authApi.getBlockedUsers,
   });
 };

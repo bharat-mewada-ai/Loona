@@ -10,11 +10,21 @@ import { getColors } from '../src/theme/colors';
 export default function NotificationsScreen() {
   const isDark = useUIStore((s) => s.isDark);
   const themeColors = getColors(isDark);
-  const { data: notifications, isLoading, refetch } = useInAppNotifications();
+  const { 
+    data, 
+    isLoading, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage,
+    refetch 
+  } = useInAppNotifications();
+  
   const { mutate: markRead } = useMarkNotificationsRead();
 
+  // Flatten the pages into a single array for the FlatList
+  const notifications = data?.pages.flatMap(page => page.notifications) || [];
+
   useEffect(() => {
-    // Mark as read when screen is opened
     markRead();
   }, []);
 
@@ -30,8 +40,6 @@ export default function NotificationsScreen() {
 
   const handlePress = (notif: any) => {
     if (notif.data?.postId) {
-      // In a real app, we'd navigate to the post detail screen
-      // For now, we'll just go to the feed or alert
       console.log('Navigate to post:', notif.data.postId);
     }
   };
@@ -48,9 +56,9 @@ export default function NotificationsScreen() {
 
       {isLoading ? (
         <View style={s.center}>
-          <ActivityIndicator color={Colors.ogi} />
+          <ActivityIndicator color={themeColors.ogi || '#4A90E2'} />
         </View>
-      ) : notifications?.length === 0 ? (
+      ) : notifications.length === 0 ? (
         <View style={s.center}>
           <Text style={[s.empty, { color: themeColors.txt3 }]}>No notifications yet</Text>
         </View>
@@ -60,6 +68,17 @@ export default function NotificationsScreen() {
           keyExtractor={(item) => item._id}
           onRefresh={refetch}
           refreshing={isLoading}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={() => 
+            isFetchingNextPage ? (
+              <ActivityIndicator style={{ marginVertical: 20 }} color={themeColors.ogi} />
+            ) : null
+          }
           renderItem={({ item }) => (
             <TouchableOpacity 
               style={[s.item, { borderBottomColor: themeColors.bdr }]}

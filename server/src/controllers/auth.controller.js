@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 import { checkContent } from "../utils/moderation.js";
+import logger from "../utils/logger.js";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -119,13 +120,21 @@ export const getMe = async (req, res) => {
 
 // --- LOGOUT ------------------------------------------------------------------
 export const logout = async (req, res) => {
-  // Stateless JWT doesn't need server-side logout, but we can invalidate if needed
-  res.json({ message: "Logged out" });
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken && req.user) {
+      req.user.refreshTokens = req.user.refreshTokens.filter(t => t !== refreshToken);
+      await req.user.save();
+    }
+    res.json({ message: "Logged out" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
 // --- CAMPUS LIST -------------------------------------------------------------
 export const getCampuses = async (req, res) => {
-  res.json(["nit", "ogi", "lnct"]);
+  res.json(["ogi", "lnct"]);
 };
 
 // --- LEADERBOARD -------------------------------------------------------------
@@ -165,17 +174,16 @@ export const updateProfile = async (req, res) => {
     if (tags !== undefined) user.tags = tags;
     if (req.body.notificationsEnabled !== undefined) user.notificationsEnabled = req.body.notificationsEnabled;
 
-    console.log('--- SAVING USER WITH TAGS ---', user.tags);
     await user.save();
 
     const userObj = user.toObject();
     delete userObj.password;
     if (!userObj.tags) userObj.tags = [];
-    
-    console.log('--- PROFILE UPDATED ---', { email: userObj.email, tags: userObj.tags });
+
+    logger.info('Profile updated', { userId: req.user._id });
     res.json(userObj);
   } catch (err) {
-    console.error('Update Profile Error:', err);
+    logger.error('Update Profile Error:', { message: err.message });
     res.status(500).json({ error: err.message });
   }
 };
@@ -184,12 +192,88 @@ export const updateProfile = async (req, res) => {
 export const deleteAccount = async (req, res) => {
   try {
     const userId = req.user._id;
+
+    // Import models needed for cascade delete
+    const [
+      { default: Post },
+      { default: Comment },
+      { default: Chat },
+      { default: Vote },
+      { default: BhandaraVote },
+      { default: Notification },
+    ] = await Promise.all([
+      import('../models/post.model.js'),
+      import('../models/comment.model.js'),
+      import('../models/chat.model.js'),
+      import('../models/vote.model.js'),
+      import('../models/bhandaraVote.model.js'),
+      import('../models/notification.model.js'),
+    ]);
+
+    // Cascade delete all user-generated content
+    await Promise.all([
+      Post.deleteMany({ author: userId }),
+      Comment.deleteMany({ author: userId }),
+      Chat.deleteMany({ participants: userId }),
+      Vote.deleteMany({ userId }),
+      BhandaraVote.deleteMany({ userId }),
+      Notification.deleteMany({ recipient: userId }),
+      User.findByIdAndDelete(userId),
+    ]);
+
+    logger.info('Account deleted with full cascade', { userId });
+    res.json({ message: "Account and all associated data deleted successfully." });
+  } catch (err) {
+    logger.error('Delete Account Error:', { message: err.message });
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// --- BLOCK USER -------------------------------------------------------------
+export const blockUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (userId === req.user._id.toString()) {
+      return res.status(400).json({ error: "You cannot block yourself." });
+    }
+
+    const { default: Block } = await import("../models/block.model.js");
     
-    // In a production app, you might want to also delete their posts/comments
-    // or at least anonymize them. For this implementation, we'll just delete the user.
-    await User.findByIdAndDelete(userId);
+    // Use upsert-like logic to avoid duplicate errors
+    await Block.findOneAndUpdate(
+      { blocker: req.user._id, blocked: userId },
+      { blocker: req.user._id, blocked: userId },
+      { upsert: true }
+    );
+
+    res.json({ message: "User blocked successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// --- UNBLOCK USER -----------------------------------------------------------
+export const unblockUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { default: Block } = await import("../models/block.model.js");
     
-    res.json({ message: "Account deleted successfully" });
+    await Block.findOneAndDelete({ blocker: req.user._id, blocked: userId });
+    res.json({ message: "User unblocked successfully." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// --- GET BLOCKED USERS ------------------------------------------------------
+export const getBlockedUsers = async (req, res) => {
+  try {
+    const { default: Block } = await import("../models/block.model.js");
+    const blocks = await Block.find({ blocker: req.user._id })
+      .populate("blocked", "name avatar campus")
+      .lean();
+    
+    res.json(blocks.map(b => b.blocked));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

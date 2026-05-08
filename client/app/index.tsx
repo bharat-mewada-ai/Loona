@@ -1,4 +1,4 @@
-import { Redirect } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
@@ -6,40 +6,31 @@ import client from '../src/api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Index() {
-  const { token, loadStoredAuth, logout } = useAuthStore();
+  const { token, user } = useAuthStore();
+  const router = useRouter();
   const [isReady, setIsReady] = useState(false);
-  const [hasOnboarded, setHasOnboarded] = useState(true); // default true avoids flash
 
   useEffect(() => {
-    const init = async () => {
-      const safetyTimer = setTimeout(() => setIsReady(true), 5000);
-      
-      const onboarded = await AsyncStorage.getItem('loona_onboarded_v1');
-      setHasOnboarded(!!onboarded);
-
-      await loadStoredAuth();
-      
-      clearTimeout(safetyTimer);
-      setIsReady(true);
-    };
-    init();
+    // Small delay to ensure navigation stack is mounted
+    const timer = setTimeout(() => setIsReady(true), 100);
+    return () => clearTimeout(timer);
   }, []);
 
-  if (!isReady) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color="#fff" />
-      </View>
-    );
-  }
+  useEffect(() => {
+    if (!isReady) return;
 
-  if (!hasOnboarded) {
-    return <Redirect href="/onboarding" />;
-  }
+    // Direct imperative navigation is more stable on Web than <Redirect />
+    if (token) {
+      router.replace('/(tabs)');
+    } else {
+      router.replace('/(auth)/login');
+    }
+  }, [isReady, token]);
 
-  if (token) {
-    return <Redirect href="/(tabs)" />;
-  }
-
-  return <Redirect href="/(auth)/login" />;
+  // Render a matching background while navigating to avoid "White Flash"
+  return (
+    <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+      <ActivityIndicator color="#fff" />
+    </View>
+  );
 }

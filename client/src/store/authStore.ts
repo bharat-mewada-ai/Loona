@@ -1,13 +1,15 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage';
-import { disconnectSocket } from '../hooks/useChat';
+import { disconnectSocket } from '../utils/socket';
+import { User } from '../types';
+import { authApi } from '../api/auth.api';
 
 interface AuthState {
-  user: any;
+  user: User | null;
   token: string | null;
   refreshToken: string | null;
-  setAuth: (user: any, token: string, refreshToken: string) => void;
-  setUser: (user: any) => void;
+  setAuth: (user: User, token: string, refreshToken: string) => void;
+  setUser: (user: User) => void;
   setToken: (token: string) => void;
   logout: () => void;
   loadStoredAuth: () => Promise<void>;
@@ -36,6 +38,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    const { refreshToken } = useAuthStore.getState();
+    if (refreshToken) {
+      authApi.logout(refreshToken).catch((err) => console.log('Server logout failed:', err));
+    }
     disconnectSocket();           // tear down the authenticated socket immediately
     set({ user: null, token: null, refreshToken: null });
     storage.deleteItem('loona_token');

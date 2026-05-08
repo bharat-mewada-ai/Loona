@@ -60,8 +60,8 @@ export const authLimiter = rateLimit({
 
 export const postLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 1,
-  message: { error: "Slow down! You can only post once per minute." },
+  max: process.env.NODE_ENV === 'development' ? 10 : 2,
+  message: { error: "Slow down! You can only post twice per minute." },
   store: createDynamicStore('post'),
   keyGenerator: (req) => req.user?._id?.toString() || req.ip,
   skip: (req) => req.method !== "POST",

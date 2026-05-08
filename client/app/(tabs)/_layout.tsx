@@ -14,14 +14,14 @@ function TabBar({ state, navigation }: any) {
   const { isDark } = useUIStore();
   const themeColors = getColors(isDark);
   const tabs = [
-    { name: 'index', icon: '🏠', label: 'FEED' },
-    { name: 'leaderboard', icon: '⚡', label: 'RANKS' },
-    { name: 'chats', icon: '💬', label: 'CHATS' },
-    { name: 'profile', icon: '👤', label: 'ME' },
+    { name: 'index', icon: '🏠', label: 'Feed' },
+    { name: 'leaderboard', icon: '⚡', label: 'Ranks' },
+    { name: 'chats', icon: '💬', label: 'Chats' },
+    { name: 'profile', icon: '👤', label: 'Profile' },
   ];
 
   return (
-    <View style={[s.bar, { backgroundColor: themeColors.card, borderTopColor: themeColors.bdr }]}>
+    <View style={[s.bar, { backgroundColor: themeColors.bg, borderTopColor: themeColors.bdr }]}>
       {tabs.map((tab, i) => {
         const focused = state.index === i;
         return (
@@ -31,8 +31,10 @@ function TabBar({ state, navigation }: any) {
             onPress={() => navigation.navigate(tab.name)}
             activeOpacity={0.7}
           >
-            <Text style={[s.niIcon, focused && s.niIconOn]}>{tab.icon}</Text>
-            <Text style={[s.niLabel, { color: themeColors.txt3 }, focused && { color: themeColors.ogi }]}>{tab.label}</Text>
+            <View style={[s.iconWrap, focused && { borderTopWidth: 2, borderTopColor: themeColors.ogi }]}>
+              <Text style={[s.niIcon, { color: focused ? themeColors.ogi : themeColors.txt3 }]}>{tab.icon}</Text>
+              <Text style={[s.niLabel, { color: focused ? themeColors.ogi : themeColors.txt3 }]}>{tab.label}</Text>
+            </View>
           </TouchableOpacity>
         );
       })}
@@ -71,26 +73,23 @@ const s = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderTopWidth: 1,
-    borderTopColor: Colors.bdr,
+    borderTopWidth: 0.5,
     paddingBottom: 12,
-    paddingTop: 5,
   },
   ni: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
-    paddingVertical: 4,
   },
-  niIcon: { fontSize: 17, opacity: 0.4 },
-  niIconOn: { opacity: 1 },
+  iconWrap: {
+    alignItems: 'center',
+    gap: 4,
+    paddingTop: 8,
+    width: '100%',
+  },
+  niIcon: { fontSize: 20 },
   niLabel: {
-    fontSize: 8,
-    color: Colors.txt3,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.4,
-    fontFamily: 'Syne_700Bold',
+    fontFamily: 'PlusJakartaSans_700Bold',
   },
-  niLabelOn: { color: Colors.ogi },
 });

@@ -1,20 +1,22 @@
 import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import client from '../api/client';
 import type { Notification as InAppNotification } from '../types';
 import { useAuthStore } from '../store/authStore';
 
-// ─── In-App Notifications Hook ──────────────────────────────────────────────
+// ─── In-App Notifications Hook (Infinite Scroll) ──────────────────────────────
 export const useInAppNotifications = () => {
-  return useQuery<InAppNotification[]>({
+  return useInfiniteQuery({
     queryKey: ['notifications'],
-    queryFn: async () => {
-      const { data } = await client.get('/notifications');
+    queryFn: async ({ pageParam = 1 }) => {
+      const { data } = await client.get(`/notifications?page=${pageParam}&limit=20`);
       return data;
     },
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+    initialPageParam: 1,
     refetchInterval: 60_000,
   });
 };
@@ -33,8 +35,8 @@ export const useMarkNotificationsRead = () => {
 export const useNotifications = () => {
   const { user } = useAuthStore();
   const router = useRouter();
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -47,19 +49,17 @@ export const useNotifications = () => {
     });
 
     // Handle tapping on notification (Deep-linking)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      
-      if (data?.postId) {
-        // Navigate to the post (using a query param or separate screen)
-        // For now, since we don't have a dedicated post detail screen, 
-        // we'll just ensure the feed is focused.
-        // In the future, this would be router.push(`/post/${data.postId}`)
-        router.push('/'); 
-      } else if (data?.chatId) {
-        router.push(`/chat/${data.chatId}`);
-      }
-    });
+    if (Platform.OS !== 'web') {
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        const data = response.notification.request.content.data;
+        
+        if (data?.postId) {
+          router.push(`/post/${data.postId}`); 
+        } else if (data?.chatId) {
+          router.push(`/chat/${data.chatId}`);
+        }
+      });
+    }
 
     return () => {
       if (responseListener.current) {

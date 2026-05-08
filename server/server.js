@@ -10,12 +10,24 @@
 import "dotenv/config";
 import logger from "./src/utils/logger.js";
 
-// ─── Process-level crash guards (Hoisted to top to catch startup errors) ──────
-process.on("uncaughtException", (err) => {
-  logger.error("💥 Uncaught Exception:", err.message, err.stack);
+// ─── CRASH HANDLERS ──────────────────────────────────────────────────────────
+// Prevent the server from dying on unhandled errors (essential for production)
+process.on('unhandledRejection', (reason, promise) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  logger.error('💥 Unhandled Rejection:', msg);
+  if (reason instanceof Error && reason.stack) {
+    logger.error(reason.stack);
+  }
 });
-process.on("unhandledRejection", (reason) => {
-  logger.error("💥 Unhandled Rejection:", reason);
+
+process.on('uncaughtException', (err) => {
+  const msg = err instanceof Error ? err.message : String(err);
+  logger.error('☣️ Uncaught Exception:', msg);
+  if (err instanceof Error && err.stack) {
+    logger.error(err.stack);
+  }
+  // Optional: exit if the state is too corrupted
+  // process.exit(1);
 });
 
 import * as Sentry from "@sentry/node";
@@ -26,10 +38,24 @@ Sentry.init({
   integrations: [
     nodeProfilingIntegration(),
   ],
-  tracesSampleRate: 1.0,
-  profilesSampleRate: 1.0,
+  // Adjust sampling rates based on environment to save quota and reduce noise
+  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
+  profilesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
   environment: process.env.NODE_ENV || "development",
   release: "loona-server@1.0.0",
+  
+  // Custom filter to ignore noise
+  beforeSend(event, hint) {
+    const error = hint.originalException;
+    
+    // Ignore 401 (Expired/Missing Token) and 422 (Validation Failures) 
+    // these are common client-side issues, not server crashes.
+    if (error && (error.status === 401 || error.status === 422)) {
+      return null;
+    }
+    
+    return event;
+  },
 });
 
 import mongoose from "mongoose";

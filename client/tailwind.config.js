@@ -2,6 +2,7 @@
 module.exports = {
   content: ['./app/**/*.{js,ts,jsx,tsx}', './src/**/*.{js,ts,jsx,tsx}'],
   presets: [require('nativewind/preset')],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -21,11 +22,8 @@ module.exports = {
         lnct:     '#4D3DBF',
         lnctbg:   '#F0EEFB',
         lnctbdr:  '#C5BFF0',
-        nit:      '#0D6E50',
-        nitbg:    '#EBF7F2',
-        nitbdr:   '#A8DECE',
         // ── Status colours ─────────────────────────────────────────────────
-        ok:       '#2E7D32',   // slightly deeper green (distinct from nit)
+        ok:       '#2E7D32',   // Status success green
         okbg:     '#F1F8F1',   // soft green tint
         okbdr:    '#A5D6A7',   // green border
         gold:     '#9A6E00',

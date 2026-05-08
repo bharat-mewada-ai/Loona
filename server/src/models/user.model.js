@@ -67,6 +67,7 @@ const userSchema = new mongoose.Schema(
       default: [],
     },
     refreshTokens: { type: [String], default: [] },
+    lastActive: { type: Date, default: Date.now },
   },
   { timestamps: true, minimize: false }
 );

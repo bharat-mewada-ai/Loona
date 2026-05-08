@@ -4,6 +4,7 @@ export const light = {
   bg3: "#E4E1D8",
   card: "#FFFFFF",
   card2: "#F5F3EE",
+  card3: "#EDEAE3",
   bdr: "#DDD9CE",
   bdr2: "#C8C4B7",
   txt: "#18170F",
@@ -15,9 +16,6 @@ export const light = {
   lnct: "#4D3DBF",
   lnctbg: "#F0EEFB",
   lnctbdr: "#C7C2F3",
-  nit: "#0D6E50",
-  nitbg: "#EBF7F2",
-  nitbdr: "#BFE6D8",
   gold: "#9A6E00",
   goldbg: "#FDF6E3",
   danger: "#B83030",
@@ -30,34 +28,32 @@ export const light = {
 };
 
 export const dark: typeof light = {
-  bg: "#0F0F0D",
-  bg2: "#181714",
-  bg3: "#1E1D18",
-  card: "#1C1B16",
-  card2: "#242319",
-  bdr: "#2E2D26",
-  bdr2: "#3E3D34",
-  txt: "#F0EEE5",
-  txt2: "#8A8880",
-  txt3: "#545248",
-  ogi: "#E86050",
-  ogibg: "#2A1A18",
-  ogibdr: "#3A2522",
+  bg: "#000000",
+  bg2: "#0A0A0A",
+  bg3: "#121212",
+  card: "#161616",
+  card2: "#1F1F1F",
+  card3: "#2A2A2A",
+  bdr: "#262626",
+  bdr2: "#333333",
+  txt: "#FFFFFF",
+  txt2: "#A0A0A0",
+  txt3: "#666666",
+  ogi: "#FF6B00",
+  ogibg: "#1A0D00",
+  ogibdr: "#331A00",
   lnct: "#7B6CE8",
   lnctbg: "#1C1A2E",
   lnctbdr: "#2C2950",
-  nit: "#2DB885",
-  nitbg: "#0F2520",
-  nitbdr: "#1F3D35",
-  gold: "#D4A030",
-  goldbg: "#241E0A",
-  danger: "#E06050",
-  dangerbg: "#2A1515",
-  warn: "#D4A030",
-  warnbg: "#241E0A",
-  ok: "#2DB885",
-  okbg: "#0F2520",
-  okbdr: "#1F3D35",
+  gold: "#FFB800",
+  goldbg: "#1A1500",
+  danger: "#FF4444",
+  dangerbg: "#1A0000",
+  warn: "#FFB800",
+  warnbg: "#1A1500",
+  ok: "#00C853",
+  okbg: "#001A07",
+  okbdr: "#00330E",
 };
 
 export type ThemeColors = typeof light;
@@ -71,23 +67,19 @@ export const getColors = (isDark: boolean) => isDark ? dark : light;
 
 export const campusColor = (c: string) =>
   c === 'ogi' ? Colors.ogi :
-  c === 'lnct' ? Colors.lnct :
-  Colors.nit;
+  Colors.lnct;
 
 export const campusBg = (c: string) =>
   c === 'ogi' ? Colors.ogibg :
-  c === 'lnct' ? Colors.lnctbg :
-  Colors.nitbg;
+  Colors.lnctbg;
 
 export const campusBdr = (c: string) =>
   c === 'ogi' ? Colors.ogibdr :
-  c === 'lnct' ? Colors.lnctbdr :
-  Colors.nitbdr;
+  Colors.lnctbdr;
 
 export const campusLabel = (c: string) =>
-  c === 'ogi' ? 'OGI' :
-  c === 'lnct' ? 'LNCT' :
-  'NIT';
+  c === 'ogi' ? 'Oriental' :
+  'LNCT';
 
 export const vibeStyle = (vibe: string) => {
   if (!vibe) return null;

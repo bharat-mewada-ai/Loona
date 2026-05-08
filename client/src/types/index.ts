@@ -1,4 +1,4 @@
-export type Campus = "nit" | "ogi" | "lnct" | "all";
+export type Campus = "ogi" | "lnct" | "all";
 export type TabFilter = "all" | "thought" | "confess" | "events" | "bhandara" | "place";
 export type Vibe = "spicy" | "wholesome" | "funny" | "serious" | "rant" | "job" | "food" | "general";
 
@@ -93,4 +93,25 @@ export interface PaginatedPosts {
   total: number;
   page: number;
   hasMore: boolean;
+}
+export interface Chat {
+  _id: string;
+  participants: string[];
+  lastMessage?: string;
+  unreadCount?: number;
+  identities?: {
+    me: { name: string; avatar: string };
+    other: { name: string; avatar: string };
+  };
+  updatedAt: string;
+}
+
+export interface Message {
+  _id: string;
+  chatId: string;
+  senderId: string;
+  content: string;
+  image?: string;
+  senderType: 'me' | 'other';
+  createdAt: string;
 }

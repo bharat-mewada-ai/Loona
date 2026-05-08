@@ -11,16 +11,16 @@ const seed = async () => {
   
   const dummyPosts = [
     {
-      title: "NIT canteen bhaiya gives extra samosa if you say \"bhaiya jai hind\"",
-      body: "Tried it 3 times. 3 for 3. You are welcome.",
-      campus: "nit",
-      type: "confess",
-      vibe: "funny",
-      anonName: "EagleNIT_01",
-      anonAvatar: "🦅",
-      upvotes: 342,
-      commentCount: 87,
-      reactions: ["😂", "🔥", "👀"],
+      title: "OGI library 2nd floor AC is finally fixed!",
+      body: "Summer exams just got 10x better. See you guys there at 10 AM.",
+      campus: "ogi",
+      type: "thought",
+      vibe: "wholesome",
+      anonName: "CoolReader_OGI",
+      anonAvatar: "📚",
+      upvotes: 156,
+      commentCount: 24,
+      reactions: ["💖", "🧊"],
       isHot: true,
       createdAt: new Date(Date.now() - 12 * 60000) // 12 mins ago
     },

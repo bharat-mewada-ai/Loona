@@ -10,19 +10,19 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${LOCAL_IP}:50
 export type Campus = 'ogi' | 'lnct' | 'all';
 
 export interface CampusOption {
-  value: Campus;      // Changed from id to value to match UI usage
+  value: Campus;
   label: string;
-  full?: string;      // Added optional full name
+  full?: string;
   color: string;
   bg: string;
   border: string;
-  dotColor?: string;  // Added optional dotColor
+  dotColor?: string;
 }
 
 export const CAMPUSES: CampusOption[] = [
-  { value: 'ogi',  label: 'Oriental',  full: 'Oriental Group of Institutes',      color: '#C94030', bg: '#FDF1EF', border: '#F2C0B8', dotColor: '#C94030' },
+  { value: 'ogi',  label: 'Oriental',  full: 'Oriental Group of Institutes',         color: '#C94030', bg: '#FDF1EF', border: '#F2C0B8', dotColor: '#C94030' },
   { value: 'lnct', label: 'LNCT',      full: 'Lakshmi Narain College of Technology', color: '#4D3DBF', bg: '#F0EEFB', border: '#C5BFF0', dotColor: '#4D3DBF' },
-  { value: 'all',  label: 'Sneak In',  full: 'Sneak In to other campuses',               color: '#6B6860', bg: '#F5F3EE', border: '#DDD9CE', dotColor: '#6B6860' },
+  { value: 'all',  label: 'Sneak In',  full: 'Sneak into the other campus',          color: '#6B6860', bg: '#F5F3EE', border: '#DDD9CE', dotColor: '#6B6860' },
 ];
 
 // Alias for backwards compatibility with parts of the app using CAMPUSES_LIST
@@ -32,8 +32,8 @@ export const CAMPUS_META: Record<
   Exclude<Campus, 'all'>,
   { label: string; color: string; bg: string; bdr: string; emoji: string }
 > = {
-  ogi:  { label: 'Oriental',  color: '#C94030', bg: '#FDF1EF', bdr: '#F2C0B8', emoji: '🦊' },
-  lnct: { label: 'LNCT', color: '#4D3DBF', bg: '#F0EEFB', bdr: '#C5BFF0', emoji: '🌙' },
+  ogi:  { label: 'Oriental', color: '#C94030', bg: '#FDF1EF', bdr: '#F2C0B8', emoji: '🦊' },
+  lnct: { label: 'LNCT',    color: '#4D3DBF', bg: '#F0EEFB', bdr: '#C5BFF0', emoji: '🌙' },
 };
 
 // ─── Post types ───────────────────────────────────────────────────────────────

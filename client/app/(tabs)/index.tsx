@@ -191,40 +191,45 @@ export default function Feed() {
           />
           <View>
             <Text style={[s.logoText, { color: themeColors.txt }]}>loona</Text>
-            <Text style={s.subLogo}>BHOPAL CAMPUSES</Text>
+            <Text style={s.subLogo}>CAMPUS FEED</Text>
           </View>
         </View>
         <View style={s.hActions}>
           <TouchableOpacity 
-            style={[s.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}
+            style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
             onPress={() => router.push('/search')}
           >
             <Text style={s.iconTxt}>🔍</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[s.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}
+            style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
             onPress={() => router.push('/notifications')}
           >
             <Text style={s.iconTxt}>🔔</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]} onPress={toggleDark}>
-            <Text style={s.iconTxt}>{isDark ? '🌙' : '🌞'}</Text>
-          </TouchableOpacity>
           <TouchableOpacity 
-            style={[s.iconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}
-            onPress={() => router.push('/profile')}
+            style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
+            onPress={toggleDark}
           >
-            <Text style={s.iconTxt}>👤</Text>
+            <Text style={s.iconTxt}>{isDark ? '🌙' : '🌞'}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Campus Dropdown */}
+      {/* Campus Selector - Top Dropdown */}
       <View style={s.dropdownWrap}>
         <TouchableOpacity style={[s.dropdownBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]} onPress={() => setDropdownOpen(true)}>
           <View style={[s.dot, { backgroundColor: activeCampus === 'all' ? '#888' : (CAMPUSES.find(c => c.value === activeCampus)?.dotColor || '#888') }]} />
-          <Text style={[s.dropdownTxt, { color: themeColors.txt }]}>{currentCampusLabel}</Text>
-          <Text style={s.dropdownArrow}>▼</Text>
+          <Text style={[s.dropdownTxt, { color: themeColors.txt }]}>
+            {activeCampus === 'all' 
+              ? '👁️ Sneaking into others...' 
+              : (activeCampus !== user?.campus 
+                  ? `👁️ Sneaking into ${CAMPUSES.find(c => c.value === activeCampus)?.label || 'others'}...`
+                  : CAMPUSES.find(c => c.value === activeCampus)?.label || 'CAMPUS'
+                )
+            }
+          </Text>
+          <Text style={{ fontSize: 10, color: themeColors.txt3 }}>▼</Text>
         </TouchableOpacity>
       </View>
 
@@ -248,22 +253,22 @@ export default function Feed() {
       </Modal>
 
       {/* Filter Tabs */}
-      <View style={[s.filtersWrap, { backgroundColor: themeColors.card, borderBottomColor: themeColors.bdr }]}>
+      <View style={[s.filtersWrap, { backgroundColor: themeColors.bg }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filtersScroll}>
           <TouchableOpacity 
-            style={[s.filterBtn, activeTab === 'all' && [s.filterBtnActive, { borderBottomColor: themeColors.txt }]]}
+            style={[s.filterPill, activeTab === 'all' && { backgroundColor: themeColors.ogi }]}
             onPress={() => setTab('all')}
           >
-            <Text style={[s.filterTxt, activeTab === 'all' ? { color: themeColors.txt } : { color: themeColors.txt3 }]}>✦ Feed</Text>
+            <Text style={[s.filterPillTxt, { color: activeTab === 'all' ? '#FFF' : themeColors.txt2 }]}>✦ Feed</Text>
           </TouchableOpacity>
           
           {POST_TYPES.map(t => (
             <TouchableOpacity 
               key={t.value} 
-              style={[s.filterBtn, activeTab === t.value && [s.filterBtnActive, { borderBottomColor: themeColors.txt }]]}
+              style={[s.filterPill, activeTab === t.value && { backgroundColor: themeColors.ogi }]}
               onPress={() => setTab(t.value as TabFilter)}
             >
-              <Text style={[s.filterTxt, activeTab === t.value ? { color: themeColors.txt } : { color: themeColors.txt3 }]}>
+              <Text style={[s.filterPillTxt, { color: activeTab === t.value ? '#FFF' : themeColors.txt2 }]}>
                 {t.icon + ' ' + t.label}
               </Text>
             </TouchableOpacity>
@@ -300,168 +305,18 @@ export default function Feed() {
             </View>
           )
         }
-        ListHeaderComponent={
-          <>
-            {activeTab === 'confess' && (
-              <View style={[s.confBanner, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}>
-                <Text style={s.confBannerTitle}>CONFESSION BOOTH 🕳️</Text>
-                <Text style={[s.confBannerSub, { color: themeColors.txt3 }]}>Anonymous confessions. Reactions only. Identity hidden even from admins.</Text>
-              </View>
-            )}
-
-            {/* Campus Patato War Banner */}
-            <View style={[s.banner, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
-              <View style={[s.livePill, { backgroundColor: themeColors.dangerbg }]}>
-                <Text style={[s.liveTxt, { color: themeColors.danger }]}>LIVE</Text>
-              </View>
-              <Text style={[s.bannerTitle, { color: themeColors.txt }]}>🥔 Campus Patato War</Text>
-              <View style={s.bannerStats}>
-                <Text style={{color: themeColors.ogi, fontWeight: '700'}}>Oriental {getKarma('ogi')}🥔</Text>
-                <Text style={{color: themeColors.txt3}}> · </Text>
-                <Text style={{color: themeColors.lnct, fontWeight: '700'}}>LNCT {getKarma('lnct')}🥔</Text>
-              </View>
-            </View>
-          </>
-        }
       />
 
-      {/* Magic Pencil Interaction UI */}
-      {activeCampus !== 'all' && (
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      {/* FAB - Hide if sneaking */}
+      {(activeCampus === 'all' || activeCampus === user?.campus) && (
+        <TouchableOpacity 
+          style={[s.fab, { backgroundColor: themeColors.ogi }]} 
+          onPress={() => openComposeSheet('thought')}
+          activeOpacity={0.9}
         >
-          <View style={s.magicContainer}>
-            {!isBarExpanded ? (
-              <TouchableOpacity 
-                style={[s.fab, { backgroundColor: themeColors.ogi }]} 
-                onPress={() => setIsBarExpanded(true)}
-                activeOpacity={0.9}
-              >
-                <Text style={s.fabIcon}>✎</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={s.barOuterRow}>
-                <View style={[s.expandedBar, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
-                  {!!imageUri && (
-                    <View style={s.previewWrap}>
-                      <Image source={{ uri: imageUri }} style={s.previewImg} />
-                      <TouchableOpacity style={s.previewClose} onPress={() => setImageUri('')}>
-                        <Text style={s.previewCloseTxt}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  <View style={s.barInputRow}>
-                    <TouchableOpacity style={s.barAction} onPress={() => setShowTray(!showTray)}>
-                      <Text style={s.barActionIcon}>😊</Text>
-                    </TouchableOpacity>
-                    <TextInput
-                      style={[s.barInput, { color: themeColors.txt }]}
-                      placeholder={
-                        activeTab === 'bhandara' ? "Share bhandara info..." :
-                        activeTab === 'events' ? "Post about an event..." :
-                        activeTab === 'confess' ? "Share a secret..." :
-                        "Message..."
-                      }
-                      placeholderTextColor={themeColors.txt3}
-                      multiline
-                      maxHeight={120}
-                      value={quickText}
-                      onChangeText={setQuickText}
-                      onFocus={() => setShowTray(false)}
-                    />
-                    {(activeTab === 'bhandara' || activeTab === 'events') && (
-                      <TouchableOpacity style={[s.barAction, { width: 44 }]} onPress={() => openComposeSheet(activeTab as any)}>
-                        <View style={{ backgroundColor: themeColors.ogi + '20', padding: 6, borderRadius: 8 }}>
-                          <Text style={{ fontSize: 16 }}>{activeTab === 'bhandara' ? '🍛+' : '📅+'}</Text>
-                        </View>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity style={s.barAction} onPress={pickImage}>
-                      <Text style={[s.barActionIcon, { color: themeColors.txt3, transform: [{ rotate: '45deg' }] }]}>📎</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.barAction} onPress={takePhoto}>
-                      <Text style={[s.barActionIcon, { color: themeColors.txt3 }]}>📷</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[s.barAction, { width: 38 }]} onPress={() => setIsPoll(!isPoll)}>
-                      <Text style={[s.barActionIcon, { color: isPoll ? themeColors.ogi : themeColors.txt3 }]}>📊</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[s.barAction, { width: 38 }]} onPress={() => setBurn(!burn)}>
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={[s.barActionIcon, { fontSize: 20 }]}>{burn ? '🔥' : '♾️'}</Text>
-                        <Text style={{ fontSize: 8, color: burn ? themeColors.danger : themeColors.txt3, fontWeight: '700' }}>
-                          {burn ? '24H' : 'PERM'}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-
-                  {isPoll && (
-                    <View style={s.pollInputSection}>
-                      {pollOptions.map((opt, i) => (
-                        <View key={i} style={s.pollOptRow}>
-                          <TextInput
-                            style={[s.pollOptInput, { color: themeColors.txt, borderColor: themeColors.bdr }]}
-                            placeholder={`Option ${i + 1}`}
-                            placeholderTextColor={themeColors.txt3}
-                            value={opt}
-                            onChangeText={(txt) => {
-                              const newOpts = [...pollOptions];
-                              newOpts[i] = txt;
-                              setPollOptions(newOpts);
-                            }}
-                          />
-                          {pollOptions.length > 2 && (
-                            <TouchableOpacity onPress={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))}>
-                              <Text style={{ color: themeColors.danger, fontSize: 18 }}>✕</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      ))}
-                      {pollOptions.length < 4 && (
-                        <TouchableOpacity style={s.addOptBtn} onPress={() => setPollOptions([...pollOptions, ''])}>
-                          <Text style={{ color: themeColors.ogi, fontWeight: '700', fontSize: 12 }}>+ Add Option</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  )}
-                </View>
-                <TouchableOpacity 
-                  style={[s.sendBtnCircle, { backgroundColor: '#25D366', opacity: (quickText.trim() || imageUri) && !isPosting && !imageUploading ? 1 : 0.5 }]}
-                  disabled={(!quickText.trim() && !imageUri) || isPosting || imageUploading}
-                  onPress={handleQuickPost}
-                >
-                  {isPosting || imageUploading ? (
-                    <ActivityIndicator color="#FFF" size="small" />
-                  ) : (
-                    <Text style={s.sendIconLarge}>✈️</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </KeyboardAvoidingView>
+          <Text style={s.fabIcon}>+</Text>
+        </TouchableOpacity>
       )}
-
-      {/* Image Confirm Modal */}
-      <Modal visible={showConfirmModal} transparent animationType="fade">
-        <View style={s.confirmOverlay}>
-          <View style={[s.confirmBox, { backgroundColor: themeColors.card }]}>
-            <Text style={[s.confirmTitle, { color: themeColors.txt }]}>Attach this photo?</Text>
-            <View style={s.confirmImgWrap}>
-              <Image source={{ uri: tempImageUri }} style={s.confirmImg} />
-            </View>
-            <View style={s.confirmActions}>
-              <TouchableOpacity style={[s.confirmBtn, { backgroundColor: themeColors.card2 }]} onPress={() => setShowConfirmModal(false)}>
-                <Text style={[s.confirmBtnTxt, { color: themeColors.txt3 }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.confirmBtn, { backgroundColor: '#25D366' }]} onPress={() => { setImageUri(tempImageUri); setShowConfirmModal(false); }}>
-                <Text style={[s.confirmBtnTxt, { color: '#FFF' }]}>Attach</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -469,67 +324,28 @@ export default function Feed() {
 const s = StyleSheet.create({
   safe: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  headerLogo: { width: 32, height: 32, borderRadius: 8 },
+  headerLogo: { width: 32, height: 32, borderRadius: 10 },
   logoText: { fontSize: 22, fontFamily: 'Syne_700Bold', letterSpacing: -0.5 },
-  subLogo: { fontSize: 10, color: '#888', fontWeight: '800', letterSpacing: 2, marginTop: -4 },
-  hActions: { flexDirection: 'row', gap: 10 },
-  iconBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  subLogo: { fontSize: 9, color: '#888', fontWeight: '800', letterSpacing: 1, marginTop: -2 },
+  hActions: { flexDirection: 'row', gap: 8 },
+  iconBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   iconTxt: { fontSize: 18 },
-  dropdownWrap: { alignItems: 'center', marginBottom: 12 },
-  dropdownBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, borderWidth: 1, gap: 8 },
+  dropdownWrap: { alignItems: 'center', marginBottom: 8 },
+  dropdownBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, gap: 8 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  dropdownTxt: { fontSize: 14, fontWeight: '700' },
-  dropdownArrow: { fontSize: 10, color: '#888' },
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: 260, borderRadius: 20, padding: 10 },
+  dropdownTxt: { fontSize: 13, fontWeight: '700' },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { width: 240, borderRadius: 24, padding: 10 },
   modalItem: { paddingVertical: 14, paddingHorizontal: 16 },
   modalItemTxt: { fontSize: 15, fontWeight: '600' },
-  filtersWrap: { borderBottomWidth: 1 },
-  filtersScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 14 },
-  filterBtn: { paddingBottom: 6 },
-  filterBtnActive: { borderBottomWidth: 2 },
-  filterTxt: { fontSize: 14, fontWeight: '700' },
-  listContent: { padding: 12, paddingBottom: 120 },
-  banner: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 16, gap: 10 },
-  livePill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  liveTxt: { fontSize: 10, fontWeight: '900' },
-  bannerTitle: { fontSize: 14, fontWeight: '700', flex: 1 },
-  bannerStats: { flexDirection: 'row', alignItems: 'center' },
+  filtersWrap: { paddingVertical: 12 },
+  filtersScroll: { paddingHorizontal: 16, gap: 10 },
+  filterPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)' },
+  filterPillTxt: { fontSize: 13, fontWeight: '700' },
+  listContent: { padding: 16, paddingBottom: 100 },
   emptyContainer: { alignItems: 'center', marginTop: 80 },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTxt: { fontSize: 15, fontFamily: 'PlusJakartaSans_400Regular' },
-  confBanner: { padding: 24, borderRadius: 20, marginBottom: 16, borderWidth: 1, alignItems: 'center' },
-  confBannerTitle: { fontSize: 14, fontFamily: 'Syne_700Bold', color: '#888', letterSpacing: 2, marginBottom: 8 },
-  confBannerSub: { fontSize: 12, textAlign: 'center', lineHeight: 20, fontFamily: 'PlusJakartaSans_400Regular' },
-  magicContainer: { position: 'absolute', bottom: 10, left: 10, right: 10, zIndex: 999 },
-  fab: { width: 56, height: 56, borderRadius: 28, position: 'absolute', bottom: 10, right: 0, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-  fabIcon: { color: '#FFF', fontSize: 24 },
-  barOuterRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  expandedBar: { flex: 1, borderRadius: 25, borderWidth: 1, paddingHorizontal: 4, paddingVertical: 4, overflow: 'hidden' },
-  previewWrap: { height: 120, width: '100%', marginBottom: 4, borderRadius: 15, overflow: 'hidden', position: 'relative' },
-  previewImg: { width: '100%', height: '100%', resizeMode: 'cover' },
-  previewClose: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  previewCloseTxt: { color: '#FFF', fontSize: 14, fontWeight: '700' },
-  barInputRow: { flexDirection: 'row', alignItems: 'center' },
-  barAction: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
-  barActionIcon: { fontSize: 22 },
-  barInput: { flex: 1, minHeight: 44, paddingHorizontal: 8, fontSize: 16, fontWeight: '400' },
-  sendBtnCircle: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', elevation: 2 },
-  sendIconLarge: { color: '#FFF', fontSize: 20 },
-  tray: { position: 'absolute', bottom: 60, left: 0, right: 0, borderRadius: 24, borderWidth: 1, flexDirection: 'row', padding: 12, gap: 16, justifyContent: 'center', elevation: 5 },
-  trayBtn: { alignItems: 'center', gap: 4 },
-  trayIcon: { fontSize: 22 },
-  trayLabel: { fontSize: 10, fontWeight: '700' },
-  confirmOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  confirmBox: { width: '100%', borderRadius: 24, padding: 20, alignItems: 'center' },
-  confirmTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16 },
-  confirmImgWrap: { width: '100%', height: 350, borderRadius: 15, overflow: 'hidden', marginBottom: 20 },
-  confirmImg: { width: '100%', height: '100%', resizeMode: 'contain' },
-  confirmActions: { flexDirection: 'row', gap: 12, width: '100%' },
-  confirmBtn: { flex: 1, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
-  confirmBtnTxt: { fontSize: 16, fontWeight: '700' },
-  pollInputSection: { padding: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', gap: 8 },
-  pollOptRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pollOptInput: { flex: 1, height: 36, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, fontSize: 14 },
-  addOptBtn: { paddingVertical: 4 },
+  fab: { width: 60, height: 60, borderRadius: 30, position: 'absolute', bottom: 24, right: 24, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  fabIcon: { color: '#FFF', fontSize: 32, fontWeight: '300' },
 });

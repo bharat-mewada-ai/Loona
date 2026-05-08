@@ -1,21 +1,27 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, Alert } from 'react-native';
 import { getColors } from '../../theme/colors';
 import { useUIStore } from '../../store/uiStore';
 import { useStartChat } from '../../hooks/useChat';
 import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../store/authStore';
+import { useBlockUser } from '../../hooks/useAuth';
 
 export default function AuthorProfileSheet() {
-  const { authorProfile, closeAuthorProfile, activeCampus, isDark } = useUIStore();
+  const { authorProfile, closeAuthorProfile, isDark } = useUIStore();
+  const user = useAuthStore((s) => s.user);
   const themeColors = getColors(isDark);
   const router = useRouter();
   
   const { mutate: startChat, isPending } = useStartChat();
+  const { mutate: blockUser, isPending: isBlocking } = useBlockUser();
 
   if (!authorProfile) return null;
 
+  const isSameCampus = authorProfile.postCampus === user?.campus;
+
   const handleStartChat = () => {
-    if (isPending) return;
+    if (isPending || !isSameCampus) return;
     startChat(
       { targetUserId: authorProfile.userId, postId: authorProfile.postId },
       {
@@ -24,6 +30,28 @@ export default function AuthorProfileSheet() {
           router.push(`/chat/${chat._id}`);
         },
       }
+    );
+  };
+
+  const handleBlock = () => {
+    Alert.alert(
+      "Block User?",
+      `Are you sure you want to block ${authorProfile.anonName}? You will no longer see their posts in your feed.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Block", 
+          style: "destructive",
+          onPress: () => {
+            blockUser(authorProfile.userId, {
+              onSuccess: () => {
+                closeAuthorProfile();
+                Alert.alert("Blocked", "User has been blocked.");
+              }
+            });
+          }
+        }
+      ]
     );
   };
 
@@ -37,7 +65,7 @@ export default function AuthorProfileSheet() {
             <Text style={s.avatar}>{authorProfile.anonAvatar}</Text>
             <Text style={[s.name, { color: themeColors.txt }]}>{authorProfile.anonName}</Text>
             <View style={[s.badge, { backgroundColor: themeColors.ogibg }]}>
-              <Text style={[s.badgeTxt, { color: themeColors.ogi }]}>Anonymous User</Text>
+              <Text style={[s.badgeTxt, { color: themeColors.ogi }]}>{authorProfile.postCampus.toUpperCase()} User</Text>
             </View>
           </View>
 
@@ -46,19 +74,31 @@ export default function AuthorProfileSheet() {
           </Text>
 
           {!authorProfile.isSelf ? (
-            activeCampus !== 'all' ? (
+            <>
+              {isSameCampus ? (
+                <TouchableOpacity 
+                  style={[s.dmBtn, { backgroundColor: themeColors.ogi }, isPending && s.btnDisabled]} 
+                  onPress={handleStartChat}
+                  disabled={isPending}
+                >
+                  <Text style={s.dmTxt}>{isPending ? 'Starting Chat...' : '💬 Send a Message'}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[s.dmBtn, { backgroundColor: themeColors.bg2, opacity: 0.8 }]}>
+                  <Text style={[s.dmTxt, { color: themeColors.txt3 }]}>🚫 Cannot message other campuses</Text>
+                </View>
+              )}
+
               <TouchableOpacity 
-                style={[s.dmBtn, { backgroundColor: themeColors.ogi }, isPending && s.btnDisabled]} 
-                onPress={handleStartChat}
-                disabled={isPending}
+                style={[s.blockBtn, { borderColor: themeColors.danger }]} 
+                onPress={handleBlock}
+                disabled={isBlocking}
               >
-                <Text style={s.dmTxt}>{isPending ? 'Starting Chat...' : '💬 Send a Message'}</Text>
+                <Text style={[s.blockBtnTxt, { color: themeColors.danger }]}>
+                  {isBlocking ? 'Blocking...' : '🚫 Block User'}
+                </Text>
               </TouchableOpacity>
-            ) : (
-              <View style={[s.dmBtn, { backgroundColor: themeColors.bg2 }]}>
-                <Text style={[s.dmTxt, { color: themeColors.txt3 }]}>Cannot message in Sneak In mode</Text>
-              </View>
-            )
+            </>
           ) : (
             <View style={[s.dmBtn, { backgroundColor: themeColors.bg2 }]}>
               <Text style={[s.dmTxt, { color: themeColors.txt3 }]}>This is you!</Text>
@@ -96,4 +136,6 @@ const s = StyleSheet.create({
   btnDisabled: { opacity: 0.7 },
   profileBtn: { width: '100%', paddingVertical: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, marginTop: 12 },
   profileBtnTxt: { fontSize: 15, fontWeight: '600' },
+  blockBtn: { width: '100%', paddingVertical: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, marginTop: 12 },
+  blockBtnTxt: { fontSize: 15, fontWeight: '600' },
 });

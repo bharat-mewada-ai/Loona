@@ -2,12 +2,24 @@ import Notification from "../models/notification.model.js";
 
 export const getNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find({ recipient: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean();
-    
-    res.json(notifications);
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [notifications, total] = await Promise.all([
+      Notification.find({ recipient: req.user._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Notification.countDocuments({ recipient: req.user._id }),
+    ]);
+
+    res.json({
+      notifications,
+      total,
+      page: parseInt(page),
+      hasMore: total > skip + notifications.length,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

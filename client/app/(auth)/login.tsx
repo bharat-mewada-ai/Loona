@@ -5,6 +5,7 @@ import {
   Animated, Easing, Dimensions, TextInput, Image
 } from 'react-native';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
@@ -34,6 +35,7 @@ export default function LoginScreen() {
     iosClientId: '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com',
     clientId: '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com',
     redirectUri: AuthSession.makeRedirectUri({
+      native: 'com.loona.app:/oauth2redirect/google',
       scheme: 'loona',
       path: 'login'
     }),
@@ -44,16 +46,19 @@ export default function LoginScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const colorAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(Platform.OS === 'web' ? 0 : 50)).current;
+  const opacityAnim = useRef(new Animated.Value(Platform.OS === 'web' ? 1 : 0)).current;
 
   const selectedCampus = CAMPUSES.find((c) => c.value === campus);
+
+  // If for some reason the animation is stuck, we still want to render the UI
+  // but we wait for essential hooks to initialize.
 
   useEffect(() => {
     // Initial load animation
     Animated.parallel([
-      Animated.timing(opacityAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 800, easing: Easing.out(Easing.exp), useNativeDriver: true })
+      Animated.timing(opacityAnim, { toValue: 1, duration: 800, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 800, easing: Easing.out(Easing.exp), useNativeDriver: Platform.OS !== 'web' })
     ]).start();
   }, []);
 
@@ -139,45 +144,24 @@ export default function LoginScreen() {
 
   const interpolatedColor = colorAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [Colors.ogi, Colors.nit]
+    outputRange: [Colors.ogi, Colors.lnct]
   });
 
   return (
-    <SafeAreaView style={s.safe}>
-      {isAnimating && (
-        <AnimatedSplashScreen mode="full" />
-      )}
+    <SafeAreaView style={[s.safe, { backgroundColor: '#F5F3EE' }]}>
+      <StatusBar style="dark" />
+      
+      <View style={{ flex: 1, padding: 24, justifyContent: 'center' }}>
+        {/* Simple Header */}
+        <View style={{ alignItems: 'center', marginBottom: 40 }}>
+          <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#C94030' }}>LOONA</Text>
+          <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>CAMPUS UNDERGROUND</Text>
+        </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={s.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Logo */}
-          <Animated.View style={[s.logoWrap, { opacity: opacityAnim, transform: [{ translateY: slideAnim }] }]}>
-            <View style={s.logoContainer}>
-              <Image 
-                source={require('../../assets/logo.png')} 
-                style={s.logoImage}
-                resizeMode="contain"
-              />
-              <View style={s.badge}>
-                <Text style={s.badgeText}>BETA</Text>
-              </View>
-            </View>
-            <Text style={s.logoSub}>CAMPUS UNDERGROUND</Text>
-            <Text style={s.tagline}>Anonymous. Real. Yours.</Text>
-          </Animated.View>
-
-          {/* Card */}
-          <Animated.View style={[s.card, { opacity: opacityAnim, transform: [{ translateY: slideAnim }] }]}>
-            <Text style={s.cardTitle}>Welcome 👋</Text>
-            <Text style={s.cardSub}>Join your anonymous campus feed directly with your Gmail ID</Text>
-
+        {/* Card */}
+        <View style={{ backgroundColor: '#FFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 }}>
+          <Text style={{ fontSize: 20, fontWeight: '700', marginBottom: 8, color: '#333' }}>Welcome 👋</Text>
+          <Text style={{ fontSize: 14, color: '#666', marginBottom: 24 }}>Join your anonymous campus feed directly with your Gmail ID</Text>
             {/* Error */}
             {errorMsg ? (
               <View style={s.errBox}>
@@ -267,14 +251,13 @@ export default function LoginScreen() {
                 </View>
               )}
             </TouchableOpacity>
-          </Animated.View>
+          </View>
 
           {/* Privacy */}
-          <Animated.Text style={[s.privacy, { opacity: opacityAnim }]}>
+          <Text style={[s.privacy, { color: '#888', marginTop: 20 }]}>
             Your real identity is never shown to other students.{'\n'}Loona is anonymous by design.
-          </Animated.Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </Text>
+        </View>
     </SafeAreaView>
   );
 }
