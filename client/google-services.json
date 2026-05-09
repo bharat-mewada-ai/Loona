@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "329290971821",
+    "project_id": "loona-2e009",
+    "storage_bucket": "loona-2e009.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:329290971821:android:de4d59863d911c2c2a2424",
+        "android_client_info": {
+          "package_name": "com.loona.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKnVptRuBb0spcLTj46-SJUBLvfzCNrhI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

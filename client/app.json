@@ -4,10 +4,7 @@
     "slug": "loona",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
-    "scheme": [
-      "loona",
-      "com.loona.app"
-    ],
+    "scheme": "loona",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -36,15 +33,17 @@
         "backgroundColor": "#FF6B35"
       },
       "package": "com.loona.app",
-      "versionCode": 11,
+      "versionCode": 12,
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "READ_EXTERNAL_STORAGE",
-        "CAMERA",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
-      ]
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",
@@ -72,17 +71,18 @@
           "locationWhenInUsePermission": "Loona uses your location to autofill event venue for posts."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "af8c59f6-dcc9-4b59-af85-cecc2d8aa920"
+        "projectId": "205832d2-b843-4d50-8c80-5d2d9b1b130a"
       }
     },
     "updates": {
-      "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/af8c59f6-dcc9-4b59-af85-cecc2d8aa920"
-    }
+      "fallbackToCacheTimeout": 0
+    },
+    "owner": "loona309s-organization"
   }
 }
