@@ -81,28 +81,35 @@ export default function LoginScreen() {
 
     try {
       await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      const token = userInfo.idToken;
+      const response = await GoogleSignin.signIn();
+      
+      if (response.type === 'success') {
+        const token = response.data.idToken;
 
-      if (!token) {
-        throw new Error('No ID token received from Google');
+        if (!token) {
+          throw new Error('No ID token received from Google');
+        }
+
+        triggerLoadingAnimation();
+
+        googleAuth({ token, campus }, {
+          onSuccess: () => {
+            authInProgress.current = false;
+            setTimeout(() => router.replace('/(tabs)'), 1300);
+          },
+          onError: (err: any) => {
+            authInProgress.current = false;
+            setIsAnimating(false);
+            const msg = err?.response?.data?.error || err?.message || 'Authentication failed.';
+            setErrorMsg(msg);
+            GoogleSignin.signOut(); // Clean up session on backend error
+          },
+        });
+      } else {
+        // Handle cancelled response
+        authInProgress.current = false;
+        setIsAnimating(false);
       }
-
-      triggerLoadingAnimation();
-
-      googleAuth({ token, campus }, {
-        onSuccess: () => {
-          authInProgress.current = false;
-          setTimeout(() => router.replace('/(tabs)'), 1300);
-        },
-        onError: (err: any) => {
-          authInProgress.current = false;
-          setIsAnimating(false);
-          const msg = err?.response?.data?.error || err?.message || 'Authentication failed.';
-          setErrorMsg(msg);
-          GoogleSignin.signOut(); // Clean up session on backend error
-        },
-      });
 
     } catch (error: any) {
       authInProgress.current = false;
