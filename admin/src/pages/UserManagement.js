@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { UserX, UserCheck, ShieldAlert, Search } from 'lucide-react';
+import { ShieldAlert, Search } from 'lucide-react';
 
 const UserManagement = () => {
-  const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // In a real app, we'd have a get all users endpoint or search endpoint
-    // For now, we'll fetch stats which includes totalUsers and maybe later add a user list endpoint
-    setLoading(false);
   }, []);
 
   const handleBan = async (userId) => {

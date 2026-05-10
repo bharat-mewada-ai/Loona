@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { AlertTriangle, CheckCircle, Trash2, ExternalLink } from 'lucide-react';
+import { CheckCircle, Trash2 } from 'lucide-react';
 
 const ReportedPosts = () => {
   const [posts, setPosts] = useState([]);
