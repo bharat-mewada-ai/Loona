@@ -42,7 +42,7 @@ const createDynamicStore = (prefix) => ({
 
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'development' ? 1000 : 200,
+  max: process.env.NODE_ENV === 'development' ? 2000 : 1000,
   message: { error: "Too many requests from this IP, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -51,7 +51,7 @@ export const globalLimiter = rateLimit({
 
 export const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: process.env.NODE_ENV === 'development' ? 100 : 20,
+  max: process.env.NODE_ENV === 'development' ? 200 : 50,
   message: { error: "Too many login/register attempts, please try again in an hour." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -60,8 +60,8 @@ export const authLimiter = rateLimit({
 
 export const postLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: process.env.NODE_ENV === 'development' ? 10 : 2,
-  message: { error: "Slow down! You can only post twice per minute." },
+  max: process.env.NODE_ENV === 'development' ? 20 : 10,
+  message: { error: "Slow down! You can only post 10 times per minute." },
   store: createDynamicStore('post'),
   keyGenerator: (req) => req.user?._id?.toString() || req.ip,
   skip: (req) => req.method !== "POST",

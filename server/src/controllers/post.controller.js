@@ -2,6 +2,7 @@ import Post from "../models/post.model.js";
 import Comment from "../models/comment.model.js";
 import User from "../models/user.model.js";
 import Vote from "../models/vote.model.js";
+import Report from "../models/report.model.js";
 import BhandaraVote from "../models/bhandaraVote.model.js";
 import redis from "../utils/redis.js";
 import { checkContent } from "../utils/moderation.js";
@@ -277,32 +278,49 @@ export const votePost = async (req, res) => {
   res.json({ upvotes: post.upvotes, score: post.score, hasVoted: !existingVote });
 };
 
-/* ---------------- VOTE POLL ---------------- */
+/* ---------------- VOTE POLL (Atomic) ---------------- */
 export const votePoll = async (req, res) => {
   const { optionIndex } = req.body;
-  const post = await Post.findById(req.params.id);
-  
-  if (!post || !post.isPoll) return res.status(404).json({ error: "Poll not found" });
-  
+  const postId = req.params.id;
   const userId = req.user._id.toString();
-  
-  // Check if user already voted
-  if (post.pollVoters.has(userId)) {
-    return res.status(400).json({ error: "You have already voted in this poll" });
-  }
-  
-  if (optionIndex < 0 || optionIndex >= post.pollOptions.length) {
+
+  if (optionIndex === undefined || optionIndex < 0) {
     return res.status(400).json({ error: "Invalid option index" });
   }
-  
-  // Increment vote count
-  post.pollOptions[optionIndex].votes += 1;
-  post.pollVoters.set(userId, optionIndex);
-  
-  await post.save();
-  
-  invalidateCache("/api/posts");
-  res.json({ pollOptions: post.pollOptions, userVote: optionIndex });
+
+  try {
+    // 1. Check if post exists and is a poll
+    const post = await Post.findById(postId).select('isPoll pollVoters pollOptions');
+    if (!post || !post.isPoll) return res.status(404).json({ error: "Poll not found" });
+
+    // 2. Check if user already voted
+    if (post.pollVoters.has(userId)) {
+      return res.status(400).json({ error: "You have already voted in this poll" });
+    }
+
+    if (optionIndex >= post.pollOptions.length) {
+      return res.status(400).json({ error: "Invalid option index" });
+    }
+
+    // 3. Atomic update: increment votes[index] and set pollVoters[userId]
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: postId, [`pollVoters.${userId}`]: { $exists: false } },
+      { 
+        $inc: { [`pollOptions.${optionIndex}.votes`]: 1 },
+        $set: { [`pollVoters.${userId}`]: optionIndex }
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedPost) {
+      return res.status(400).json({ error: "Voting failed (maybe you already voted?)" });
+    }
+
+    invalidateCache("/api/posts");
+    res.json({ pollOptions: updatedPost.pollOptions, userVote: optionIndex });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
 /* ---------------- VOTE BHANDARA (Yes/No verification) ---------------- */
@@ -505,23 +523,36 @@ export const reactPost = async (req, res) => {
 
 /* ---------------- REPORT ---------------- */
 export const reportPost = async (req, res) => {
-  const post = await Post.findById(req.params.id);
-  if (!post) return res.status(404).json({ error: "Not found" });
-
-  // Prevent duplicate reports from same user
-  const alreadyReported = post.reports.some(
-    (r) => r.reporter?.toString() === req.user._id.toString()
-  );
-  if (alreadyReported) {
-    return res.status(400).json({ error: "Already reported", code: "DUPLICATE_REPORT" });
-  }
-
   const { reason } = req.body;
-  post.reports.push({ reason, reporter: req.user._id });
-  post.reportCount = (post.reportCount || 0) + 1;
-  if (post.reportCount >= 5) post.hidden = true;
-  await post.save();
-  res.json({ message: "Reported" });
+  const postId = req.params.id;
+  const userId = req.user._id;
+
+  if (!reason) return res.status(400).json({ error: "Reason is required" });
+
+  try {
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    // 1. Create a dedicated report entry
+    await Report.create({
+      targetType: "post",
+      targetId: postId,
+      reporter: userId,
+      reason
+    });
+
+    // 2. Increment report count in the post itself for auto-hide logic
+    post.reportCount = (post.reportCount || 0) + 1;
+    if (post.reportCount >= 5) post.hidden = true;
+    
+    // Also keep a local reference in reports array for backward compatibility/admin views
+    post.reports.push({ reason, reporter: userId });
+    
+    await post.save();
+    res.json({ message: "Reported successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 /* ---------------- MY POSTS ---------------- */

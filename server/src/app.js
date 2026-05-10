@@ -110,6 +110,14 @@ app.get("/health", (req, res) =>
 );
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    uptime: process.uptime()
+  });
+});
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/chats", chatRoutes);

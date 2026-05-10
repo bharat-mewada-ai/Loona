@@ -266,13 +266,13 @@ const s = StyleSheet.create({
   complianceContainer: { marginBottom: 24, gap: 12 },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   checkbox: {
-    width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center',
+    width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.05)', alignItems: 'center', justifyContent: 'center',
   },
-  checkboxChecked: { backgroundColor: Colors.ogi, borderColor: Colors.ogi },
+  checkboxChecked: { backgroundColor: '#C94030', borderColor: '#C94030' },
   checkboxTick: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  checkLabel: { fontSize: 13, color: Colors.txt2 },
-  link: { color: Colors.ogi, fontWeight: '600' },
+  checkLabel: { fontSize: 13, color: '#444' },
+  link: { color: '#C94030', fontWeight: '600' },
   googleBtn: {
     borderRadius: 14, padding: 16, alignItems: 'center', backgroundColor: '#fff',
     shadowColor: '#fff', shadowOpacity: 0.1, shadowRadius: 8, shadowOffset: { width: 0, height: 0 },
