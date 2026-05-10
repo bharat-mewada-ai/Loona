@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../utils/api';
 import { saveAuthToken } from '../utils/auth';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -16,7 +14,7 @@ export default function Login({ onLogin }) {
     setError('');
     try {
       // Note: We use the same auth endpoint as the main app, but we verify role after login
-      const res = await axios.post(`${API_URL}/auth/login`, { email, password });
+      const res = await api.post('/auth/login', { email, password });
       const { user, token } = res.data;
       
       if (user.role !== 'admin') {

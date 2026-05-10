@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../utils/api';
 import { AlertTriangle, CheckCircle, Trash2, ExternalLink } from 'lucide-react';
 
 const ReportedPosts = () => {
@@ -9,7 +9,7 @@ const ReportedPosts = () => {
   const fetchReported = async () => {
     try {
       // In production, this needs the admin JWT
-      const { data } = await axios.get('http://localhost:5000/api/posts/reported');
+      const { data } = await api.get('/posts/reported');
       setPosts(data);
     } catch (err) {
       console.error('Failed to fetch reported posts', err);
@@ -24,7 +24,7 @@ const ReportedPosts = () => {
 
   const handleDismiss = async (id) => {
     try {
-      await axios.patch(`http://localhost:5000/api/posts/${id}/dismiss-reports`);
+      await api.patch(`/posts/${id}/dismiss-reports`);
       setPosts(posts.filter(p => p._id !== id));
     } catch (err) {
       alert('Failed to dismiss reports');
@@ -34,7 +34,7 @@ const ReportedPosts = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to PERMANENTLY delete this post?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/posts/${id}`);
+      await api.delete(`/posts/${id}`);
       setPosts(posts.filter(p => p._id !== id));
     } catch (err) {
       alert('Failed to delete post');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../utils/api';
 import { UserX, UserCheck, ShieldAlert, Search } from 'lucide-react';
 
 const UserManagement = () => {
@@ -16,7 +16,7 @@ const UserManagement = () => {
   const handleBan = async (userId) => {
     if (!window.confirm('Ban this user permanently? They will lose all access.')) return;
     try {
-      await axios.post(`http://localhost:5000/api/admin/users/${userId}/ban`);
+      await api.post(`/admin/users/${userId}/ban`);
       alert('User banned');
     } catch (err) {
       alert('Failed to ban user');
@@ -25,7 +25,7 @@ const UserManagement = () => {
 
   const handleUnban = async (userId) => {
     try {
-      await axios.post(`http://localhost:5000/api/admin/users/${userId}/unban`);
+      await api.post(`/admin/users/${userId}/unban`);
       alert('User unbanned');
     } catch (err) {
       alert('Failed to unban user');
