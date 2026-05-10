@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 import { checkContent } from "../utils/moderation.js";
