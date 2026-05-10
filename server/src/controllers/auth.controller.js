@@ -23,6 +23,10 @@ export const googleLogin = async (req, res) => {
     try {
       logger.info('[GoogleLogin] Verifying ID Token...');
       
+      // DEBUG: Log the actual audience from the token
+      const decoded = jwt.decode(token);
+      logger.info(`[GoogleLogin] DEBUG - Token Audience (aud): ${decoded?.aud}`);
+
       // On Android, the audience can sometimes be the Android Client ID instead of the Web Client ID
       const androidClientId = "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com";
       const webClientId = process.env.GOOGLE_CLIENT_ID;
