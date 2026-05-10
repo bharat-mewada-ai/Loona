@@ -15,7 +15,7 @@ import type { Campus } from '../../src/types';
 WebBrowser.maybeCompleteAuthSession();
 
 // ─── Native Google Sign-In Configuration ──────────────────────────────────────
-const WEB_CLIENT_ID = '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com';
+const WEB_CLIENT_ID = '329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com';
 
 GoogleSignin.configure({
   webClientId: WEB_CLIENT_ID,

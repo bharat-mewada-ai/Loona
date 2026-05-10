@@ -12,7 +12,20 @@
           "package_name": "com.loona.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.loona.app",
+            "certificate_hash": "1983b83d2e378b172b22aa4149de83d7b3f53fe6"
+          }
+        },
+        {
+          "client_id": "329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCKnVptRuBb0spcLTj46-SJUBLvfzCNrhI"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
