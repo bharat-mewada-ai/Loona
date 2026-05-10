@@ -22,12 +22,17 @@ export const googleLogin = async (req, res) => {
     let payload;
     try {
       logger.info('[GoogleLogin] Verifying ID Token...');
+      
+      // On Android, the audience can sometimes be the Android Client ID instead of the Web Client ID
+      const androidClientId = "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com";
+      const webClientId = process.env.GOOGLE_CLIENT_ID;
+
       const ticket = await client.verifyIdToken({
         idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: [webClientId, androidClientId], 
       });
       payload = ticket.getPayload();
-      logger.info(`[GoogleLogin] ID Token Verified. Email: ${payload.email}`);
+      logger.info(`[GoogleLogin] ID Token Verified. Email: ${payload.email}, Audience: ${payload.aud}`);
     } catch (err) {
       logger.warn(`[GoogleLogin] ID Token verify failed: ${err.message}. Trying access token fallback...`);
       // Fallback: Try verifying as Access Token (common on Web)
