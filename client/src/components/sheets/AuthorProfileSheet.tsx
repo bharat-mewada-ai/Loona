@@ -63,14 +63,17 @@ export default function AuthorProfileSheet() {
           
           <View style={s.profileHeader}>
             <Text style={s.avatar}>{authorProfile.anonAvatar}</Text>
-            <Text style={[s.name, { color: themeColors.txt }]}>{authorProfile.anonName}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[s.name, { color: themeColors.txt }]}>{authorProfile.anonName}</Text>
+              {authorProfile.isVerified && <Text style={{ fontSize: 20 }}>✅</Text>}
+            </View>
             <View style={[s.badge, { backgroundColor: themeColors.ogibg }]}>
               <Text style={[s.badgeTxt, { color: themeColors.ogi }]}>{authorProfile.postCampus.toUpperCase()} User</Text>
             </View>
           </View>
 
           <Text style={[s.desc, { color: themeColors.txt3 }]}>
-            This identity is randomly generated for this specific post to protect the author's privacy.
+            {authorProfile.bio || "This identity is randomly generated for this specific post to protect the author's privacy."}
           </Text>
 
           {!authorProfile.isSelf ? (

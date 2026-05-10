@@ -15,6 +15,7 @@ export interface User {
   upvotesReceived: number;
   campusRank: number;
   isPrivate: boolean;
+  isVerified: boolean;
   notificationsEnabled: boolean;
   bio: string;
   tags: string[];
@@ -53,7 +54,11 @@ export interface Post {
   hidden?: boolean;      // Requested field
   createdAt: string;
   hasVoted?: boolean;
-  author: string;   
+  author: {
+    _id: string;
+    bio?: string;
+    isVerified?: boolean;
+  };   
   isPoll?: boolean;
   pollOptions?: { text: string; votes: number }[];
   userVote?: number | null;

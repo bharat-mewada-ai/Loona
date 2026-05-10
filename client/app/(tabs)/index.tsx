@@ -191,7 +191,14 @@ export default function Feed() {
           />
           <View>
             <Text style={[s.logoText, { color: themeColors.txt }]}>loona</Text>
-            <Text style={s.subLogo}>CAMPUS FEED</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={s.subLogo}>CAMPUS FEED</Text>
+              {user?.campusRank && (
+                <View style={[s.rankPill, { backgroundColor: themeColors.ogi }]}>
+                  <Text style={s.rankTxt}>#{user.campusRank}</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
         <View style={s.hActions}>
@@ -348,4 +355,6 @@ const s = StyleSheet.create({
   emptyTxt: { fontSize: 15, fontFamily: 'PlusJakartaSans_400Regular' },
   fab: { width: 60, height: 60, borderRadius: 30, position: 'absolute', bottom: 24, right: 24, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   fabIcon: { color: '#FFF', fontSize: 32, fontWeight: '300' },
+  rankPill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, marginTop: -2 },
+  rankTxt: { color: '#FFF', fontSize: 9, fontWeight: '900' },
 });

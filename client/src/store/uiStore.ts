@@ -22,12 +22,12 @@ interface UIState {
   // ── Report sheet ──────────────────────────────────────────────────────────
   showReportSheet: boolean;
   reportPostId: string | null;
-  authorProfile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean; postCampus: string } | null;
+  authorProfile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean; postCampus: string; bio?: string; isVerified?: boolean } | null;
 
   openReportSheet: (id: string) => void;
   closeReportSheet: () => void;
   
-  openAuthorProfile: (profile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean; postCampus: string }) => void;
+  openAuthorProfile: (profile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean; postCampus: string; bio?: string; isVerified?: boolean }) => void;
   closeAuthorProfile: () => void;
 
   // ── Comment sheet ─────────────────────────────────────────────────────────

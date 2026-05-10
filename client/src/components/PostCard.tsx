@@ -115,12 +115,14 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
 
   const handleAuthorPress = () => {
     openAuthorProfile({
-      userId: post.author,
+      userId: post.author?._id,
       postId: post._id,
       anonName: post.anonName,
       anonAvatar: post.anonAvatar || '👤',
-      isSelf: post.author === user?._id,
-      postCampus: post.campus
+      isSelf: post.author?._id === user?._id,
+      postCampus: post.campus,
+      bio: post.author?.bio,
+      isVerified: post.author?.isVerified
     });
   };
 
@@ -151,7 +153,7 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
     return (
       <View style={[s.confCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
         <View style={{ position: 'absolute', top: 12, right: 12 }}>
-          {(post.author === user?._id || user?.role === 'admin') && (
+          {(post.author?._id === user?._id || user?.role === 'admin') && (
             <TouchableOpacity onPress={handleDeletePost}>
               <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
             </TouchableOpacity>
@@ -178,9 +180,12 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
             <Text style={s.avatarEmoji}>{isConfession ? '🕳️' : (post.anonAvatar || '👤')}</Text>
           </View>
           <View>
-            <Text style={[s.authorName, { color: themeColors.txt }]}>{isConfession ? 'Confession' : post.anonName}</Text>
-            <Text style={[s.authorHandle, { color: themeColors.txt3 }]}>
-              {campus.label} · {formatDistanceToNow(post.createdAt)}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={[s.authorName, { color: themeColors.txt }]}>{isConfession ? 'Confession' : post.anonName}</Text>
+              {post.author?.isVerified && <Text style={{ fontSize: 14 }}>✅</Text>}
+            </View>
+            <Text style={[s.authorHandle, { color: themeColors.txt3 }]} numberOfLines={1}>
+              {(isConfession ? campus.label : (post.author?.bio || campus.label)) + ' · ' + formatDistanceToNow(post.createdAt)}
             </Text>
           </View>
         </TouchableOpacity>
@@ -191,7 +196,7 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
               {isEvent ? '🎉 Event' : (isConfession ? '🕳️ Secret' : (post.upvotes > 10 ? '🔥 Hot' : '💬 Thought'))}
             </Text>
           </View>
-          {(post.author === user?._id || user?.role === 'admin') && (
+          {(post.author?._id === user?._id || user?.role === 'admin') && (
             <TouchableOpacity onPress={handleDeletePost} style={s.moreBtn}>
               <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
             </TouchableOpacity>

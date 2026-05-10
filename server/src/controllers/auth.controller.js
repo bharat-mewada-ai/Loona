@@ -170,6 +170,14 @@ export const refresh = async (req, res) => {
 export const getMe = async (req, res) => {
   const userObj = req.user.toObject();
   if (!userObj.tags) userObj.tags = [];
+
+  // Calculate campus rank
+  const rank = await User.countDocuments({
+    campus: req.user.campus,
+    karma: { $gt: req.user.karma }
+  }) + 1;
+
+  userObj.campusRank = rank;
   res.json(userObj);
 };
 

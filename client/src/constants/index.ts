@@ -44,11 +44,9 @@ export interface PostType {
 }
 
 export const POST_TYPES: PostType[] = [
-  { value: 'thought', label: 'Discussion',  icon: '💬' },
   { value: 'confess', label: 'Confessions', icon: '🕳️' },
   { value: 'events',  label: 'Events',      icon: '📅' },
   { value: 'bhandara',label: 'Bhandara',    icon: '🍛' },
-  { value: 'place',   label: 'Placement',   icon: '💼' },
 ];
 
 // ─── Vibe metadata ────────────────────────────────────────────────────────────

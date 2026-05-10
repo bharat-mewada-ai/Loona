@@ -161,7 +161,8 @@ export const getPosts = async (req, res) => {
   const [posts, total] = await Promise.all([
     Post.find(filter)
       .hint({ campus: 1, hidden: 1, createdAt: -1 })
-      .select("-author -reports")
+      .populate("author", "bio isVerified")
+      .select("-reports")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit))

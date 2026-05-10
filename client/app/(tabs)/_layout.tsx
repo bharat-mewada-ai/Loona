@@ -15,7 +15,7 @@ function TabBar({ state, navigation }: any) {
   const themeColors = getColors(isDark);
   const tabs = [
     { name: 'index', icon: '🏠', label: 'Feed' },
-    { name: 'leaderboard', icon: '⚡', label: 'Ranks' },
+    { name: 'nearby', icon: '📍', label: 'Nearby' },
     { name: 'chats', icon: '💬', label: 'Chats' },
     { name: 'profile', icon: '👤', label: 'Profile' },
   ];
@@ -55,7 +55,7 @@ export default function TabsLayout() {
         screenOptions={{ headerShown: false }}
       >
         <Tabs.Screen name="index" />
-        <Tabs.Screen name="leaderboard" />
+        <Tabs.Screen name="nearby" />
         <Tabs.Screen name="chats" />
         <Tabs.Screen name="profile" />
       </Tabs>
