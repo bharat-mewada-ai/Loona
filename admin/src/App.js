@@ -11,7 +11,7 @@ function App() {
   const [authenticated, setAuthenticated] = useState(null);
 
   useEffect(() => {
-    setAuthenticated(checkIsAdmin());
+    setAuthenticated(!!checkIsAdmin());
   }, []);
 
   const handleLogout = () => {
