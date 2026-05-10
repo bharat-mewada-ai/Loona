@@ -54,6 +54,7 @@ client.interceptors.response.use(
       const { refreshToken, logout, setToken } = useAuthStore.getState();
 
       if (!refreshToken) {
+        isRefreshing = false;
         logout();
         router.replace('/(auth)/login');
         return Promise.reject(err);
