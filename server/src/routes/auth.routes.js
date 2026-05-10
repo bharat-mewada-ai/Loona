@@ -1,5 +1,5 @@
 import express from "express";
-import { googleLogin, getMe, logout, getLeaderboard, updateProfile, registerPushToken, getCampuses, getPublicProfile, refresh, deleteAccount, blockUser, unblockUser, getBlockedUsers } from "../controllers/auth.controller.js";
+import { googleLogin, login, getMe, logout, getLeaderboard, updateProfile, registerPushToken, getCampuses, getPublicProfile, refresh, deleteAccount, blockUser, unblockUser, getBlockedUsers } from "../controllers/auth.controller.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { validate, googleLoginRules, updateProfileRules } from "../middlewares/validate.js";
@@ -8,6 +8,7 @@ const router = express.Router();
 
 // ─── Public routes ─────────────────────────────────────────────────────────────
 router.post("/google",      googleLoginRules,    validate, asyncHandler(googleLogin));
+router.post("/login",                                      asyncHandler(login));
 router.post("/refresh",                                    asyncHandler(refresh));
 router.get("/leaderboard",                                 asyncHandler(getLeaderboard));
 router.get("/campuses",                                    asyncHandler(getCampuses));

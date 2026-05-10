@@ -107,6 +107,37 @@ export const googleLogin = async (req, res) => {
   }
 };
 
+// --- STANDARD LOGIN (FOR ADMIN) ----------------------------------------------
+export const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+
+    // Explicitly select password field
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
+
+    const accessToken = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: "30d" });
+
+    user.refreshTokens.push(refreshToken);
+    if (user.refreshTokens.length > 5) user.refreshTokens.shift();
+    await user.save();
+
+    const userObj = user.toObject();
+    delete userObj.password;
+    delete userObj.refreshTokens;
+
+    res.json({ token: accessToken, refreshToken, user: userObj });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 // --- REFRESH TOKEN -----------------------------------------------------------
 export const refresh = async (req, res) => {
   try {
