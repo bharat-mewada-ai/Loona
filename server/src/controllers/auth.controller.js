@@ -29,7 +29,9 @@ export const googleLogin = async (req, res) => {
 
       // On Android, the audience can sometimes be the Android Client ID instead of the Web Client ID
       const androidClientId = "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com";
-      const webClientId = process.env.GOOGLE_CLIENT_ID;
+      const webClientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
+
+      logger.info(`[GoogleLogin] Comparing token aud [${decoded?.aud}] with required audiences [${webClientId}] and [${androidClientId}]`);
 
       const ticket = await client.verifyIdToken({
         idToken: token,
