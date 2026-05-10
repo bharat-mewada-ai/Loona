@@ -43,7 +43,7 @@ const createDynamicStore = (prefix) => ({
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'development' ? 1000 : 200,
-  message: "Too many requests from this IP, please try again later.",
+  message: { error: "Too many requests from this IP, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
   store: createDynamicStore('global'),
@@ -52,7 +52,7 @@ export const globalLimiter = rateLimit({
 export const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: process.env.NODE_ENV === 'development' ? 100 : 20,
-  message: "Too many login/register attempts, please try again in an hour.",
+  message: { error: "Too many login/register attempts, please try again in an hour." },
   standardHeaders: true,
   legacyHeaders: false,
   store: createDynamicStore('auth'),

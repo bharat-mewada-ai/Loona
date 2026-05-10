@@ -9,38 +9,50 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // --- GOOGLE OAUTH LOGIN -----------------------------------------------------
 export const googleLogin = async (req, res) => {
+  const { token, campus } = req.body;
+  logger.info(`[GoogleLogin] Start - Token exists: ${!!token}, Campus: ${campus}`);
+
   try {
-    const { token, campus } = req.body;
-    if (!token) return res.status(400).json({ error: "Google token is required" });
+    if (!token) {
+      logger.warn('[GoogleLogin] No token provided');
+      return res.status(400).json({ error: "Google token is required" });
+    }
 
     // ─── Verify Google Token ──────────────────────────────────────────────────
     let payload;
     try {
-      // Try verifying as ID Token first
+      logger.info('[GoogleLogin] Verifying ID Token...');
       const ticket = await client.verifyIdToken({
         idToken: token,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
       payload = ticket.getPayload();
+      logger.info(`[GoogleLogin] ID Token Verified. Email: ${payload.email}`);
     } catch (err) {
+      logger.warn(`[GoogleLogin] ID Token verify failed: ${err.message}. Trying access token fallback...`);
       // Fallback: Try verifying as Access Token (common on Web)
       try {
         const { data } = await axios.get(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`);
         if (data.aud !== process.env.GOOGLE_CLIENT_ID && data.azp !== process.env.GOOGLE_CLIENT_ID) {
+          logger.error(`[GoogleLogin] Access Token aud mismatch: ${data.aud} vs ${process.env.GOOGLE_CLIENT_ID}`);
           throw new Error("Token audience mismatch");
         }
         payload = {
           sub: data.sub,
           email: data.email,
         };
+        logger.info(`[GoogleLogin] Access Token Verified. Email: ${payload.email}`);
       } catch (accessErr) {
+        logger.error(`[GoogleLogin] Auth failed (both ID and Access): ${accessErr.message}`);
         return res.status(401).json({ error: "Invalid Google token (ID or Access)" });
       }
     }
 
     const { sub: googleId, email } = payload;
+    logger.info(`[GoogleLogin] Looking for user with googleId: ${googleId}`);
 
     let user = await User.findOne({ googleId });
+
 
     if (!user) {
       // Check if user exists with the same email but no googleId (or different one)
