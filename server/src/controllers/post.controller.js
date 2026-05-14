@@ -676,8 +676,8 @@ export const deletePost = async (req, res) => {
       performedBy: req.user._id,
       targetId: post._id,
       targetType: "Post",
-      details: `Deleted reported post by user ID: ${post.author}`,
-      metadata: { authorId: post.author, content: post.content?.substring(0, 50) }
+      details: `Deleted post by ${post.author}. Content: "${post.content?.substring(0, 40)}..."`,
+      metadata: { authorId: post.author, content: post.content }
     });
   }
 

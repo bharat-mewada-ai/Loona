@@ -85,6 +85,11 @@ const Developer = () => {
                     <span style={{ color: '#FF453A', margin: '0 8px', fontWeight: 'bold' }}>{log.action}</span>
                     <span style={{ color: '#32D74B' }}>by {log.performedBy?.name}</span>
                     <p style={{ color: '#AAA', marginTop: '4px', fontSize: '11px' }}>{log.details}</p>
+                    {log.metadata?.content && (
+                      <div style={{ color: '#71717A', fontSize: '10px', marginTop: '4px', fontStyle: 'italic', background: 'rgba(255,255,255,0.02)', padding: '4px 8px', borderRadius: '4px' }}>
+                        Full Content: {log.metadata.content}
+                      </div>
+                    )}
                  </div>
                ))}
             </div>
