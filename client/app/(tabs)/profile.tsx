@@ -12,6 +12,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useUIStore } from '../../src/store/uiStore';
 import { useLogout, useUpdateProfile, useMe, useDeleteAccount } from '../../src/hooks/useAuth';
 import { useMyPosts, useSavedPosts } from '../../src/hooks/usePosts';
+import { useAnalytics } from '../../src/hooks/useAnalytics';
 import { Ionicons } from '@expo/vector-icons';
 import { triggerHaptic } from '../../src/utils/haptics';
 import StandardCard from '../../src/components/cards/StandardCard';
@@ -26,6 +27,7 @@ const AVATAR_OPTIONS = [
 ];
 
 export default function ProfileScreen() {
+  useAnalytics('profile');
   const router = useRouter();
   const { user } = useAuthStore();
   const { isDark, toggleDark, openFeedbackSheet, openPrivacySheet, hapticsEnabled, toggleHaptics } = useUIStore();
@@ -290,7 +292,7 @@ export default function ProfileScreen() {
               <Text style={s.groupLabel}>PREFERENCES</Text>
               <View style={[s.settingsGroup, { backgroundColor: themeColors.card }]}>
                 <SettingRow icon="moon-outline" label="Appearance" value={isDark ? "Dark Mode" : "Light Mode"} onPress={toggleDark} />
-                <SettingRow icon="notifications-outline" label="Push Notifications" isSwitch switchValue={user?.notificationsEnabled} onSwitchChange={(val: boolean) => updateProfile({ notificationsEnabled: val })} />
+                <SettingRow icon="notifications-outline" label="Go to Notifications" onPress={() => { setSettingsVisible(false); router.push('/notifications'); }} />
                 <SettingRow icon="phone-portrait-outline" label="Haptic Feedback" isSwitch switchValue={hapticsEnabled} onSwitchChange={toggleHaptics} />
               </View>
 
@@ -301,7 +303,7 @@ export default function ProfileScreen() {
                 }} />
                 <SettingRow icon="document-outline" label="Privacy Policy" onPress={openPrivacySheet} />
                 <SettingRow icon="chatbubble-outline" label="Give Feedback" onPress={openFeedbackSheet} />
-                <SettingRow icon="log-out-outline" label="Logout" onPress={handleLogout} />
+                <SettingRow icon="log-out-outline" label="Log Out" onPress={handleLogout} />
                 <SettingRow icon="trash-outline" label="Delete Account" destructive onPress={() => deleteAccount()} />
               </View>
               <View style={{ height: 40 }} />

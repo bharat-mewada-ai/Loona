@@ -21,6 +21,7 @@ import { triggerHaptic } from "../../src/utils/haptics";
 import { usePosts, useCreatePost } from "../../src/hooks/usePosts";
 import { requestLocation } from "../../src/hooks/useLocation";
 import { useLeaderboard } from "../../src/hooks/useAuth";
+import { useAnalytics } from "../../src/hooks/useAnalytics";
 import { useUIStore } from "../../src/store/uiStore";
 import { useAuthStore } from "../../src/store/authStore";
 import { getColors } from "../../src/theme/colors";
@@ -34,6 +35,7 @@ import EventsView from "../../src/components/EventsView";
 import { useDeletePost } from "../../src/hooks/usePosts";
 
 export default function Feed() {
+  useAnalytics('home');
   const router = useRouter();
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = usePosts();
   const { mutate: deletePost } = useDeletePost();
