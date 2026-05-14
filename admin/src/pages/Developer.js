@@ -85,9 +85,15 @@ const Developer = () => {
                     <span style={{ color: '#FF453A', margin: '0 8px', fontWeight: 'bold' }}>{log.action}</span>
                     <span style={{ color: '#32D74B' }}>by {log.performedBy?.name}</span>
                     <p style={{ color: '#AAA', marginTop: '4px', fontSize: '11px' }}>{log.details}</p>
-                    {log.metadata?.content && (
-                      <div style={{ color: '#71717A', fontSize: '10px', marginTop: '4px', fontStyle: 'italic', background: 'rgba(255,255,255,0.02)', padding: '4px 8px', borderRadius: '4px' }}>
-                        Full Content: {log.metadata.content}
+                    {(log.metadata?.body || log.metadata?.image) && (
+                      <div style={{ color: '#71717A', fontSize: '10px', marginTop: '4px', fontStyle: 'italic', background: 'rgba(255,255,255,0.02)', padding: '8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        {log.metadata.body && <div style={{ marginBottom: log.metadata.image ? '8px' : '0' }}>Full Text: {log.metadata.body}</div>}
+                        {log.metadata.image && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                             <span style={{ color: '#FF453A' }}>[IMAGE]</span>
+                             <a href={log.metadata.image} target="_blank" rel="noreferrer" style={{ color: '#0A84FF', textDecoration: 'underline' }}>View Image</a>
+                          </div>
+                        )}
                       </div>
                     )}
                  </div>

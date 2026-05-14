@@ -9,19 +9,19 @@ async function promoteUsers() {
     await mongoose.connect(process.env.MONGO_URI);
     console.log('Connected to DB');
 
-    // 1. Promote Super Admins
-    const superAdmins = ['bharatmewada652@gmail.com', 'bharatmewada477@gmail.com'];
+    // Promote all three to Super Admin
+    const superAdmins = [
+      'bharatmewada652@gmail.com', 
+      'bharatmewada477@gmail.com',
+      'piyushpatelyt@gmail.com'
+    ];
+    
     await User.updateMany(
       { email: { $in: superAdmins } },
       { role: 'admin' }
     );
-    console.log('Super Admins promoted');
-
-    // 2. Promote Piyush
-    const piyushEmail = 'piyushpatelyt@gmail.com';
-    await User.findOneAndUpdate({ email: piyushEmail }, { role: 'moderator' });
-    console.log(`Piyush (${piyushEmail}) promoted to Moderator`);
-
+    
+    console.log('All three users are now Super Admins!');
     process.exit(0);
   } catch (err) {
     console.error(err);

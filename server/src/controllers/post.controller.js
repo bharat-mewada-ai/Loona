@@ -671,13 +671,19 @@ export const deletePost = async (req, res) => {
 
   if (isStaff && post.author.toString() !== req.user._id.toString()) {
     const { default: AuditLog } = await import("../models/auditLog.model.js");
+    const contentSnippet = `${post.title || ""}${post.body ? ": " + post.body.substring(0, 40) : ""}`;
     await AuditLog.create({
       action: "POST_DELETE",
       performedBy: req.user._id,
       targetId: post._id,
       targetType: "Post",
-      details: `Deleted post by ${post.author}. Content: "${post.content?.substring(0, 40)}..."`,
-      metadata: { authorId: post.author, content: post.content }
+      details: `Deleted post by ${post.author}. Content: "${contentSnippet}..."`,
+      metadata: { 
+        authorId: post.author, 
+        title: post.title,
+        body: post.body,
+        image: post.image 
+      }
     });
   }
 
