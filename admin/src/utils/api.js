@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { getAuthToken } from './auth';
 
-let API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
-if (API_URL.endsWith('/api')) API_URL += '/v1';
+let API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Remove trailing slash if exists, then ensure it ends with /v1
+API_URL = API_URL.replace(/\/$/, '');
+if (!API_URL.endsWith('/v1')) {
+  API_URL += '/v1';
+}
 
 const api = axios.create({
   baseURL: API_URL,
