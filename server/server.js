@@ -77,7 +77,7 @@ const { MONGO_URI, PORT = 5000 } = process.env;
 // ─── MongoDB connection (pooled for 5k users) ─────────────────────────────────
 mongoose
   .connect(MONGO_URI, {
-    maxPoolSize: 20,
+    maxPoolSize: 50,
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
   })
@@ -105,9 +105,17 @@ mongoose
     });
 
     const { Server } = await import("socket.io");
+    const { createAdapter } = await import("@socket.io/redis-adapter");
+    const { default: redisClient } = await import("./src/utils/redis.js");
+
     const io = new Server(server, {
       cors: corsOptions,
     });
+    
+    if (redisClient.status === 'ready' || redisClient.status === 'connecting') {
+      const subClient = redisClient.duplicate();
+      io.adapter(createAdapter(redisClient, subClient));
+    }
 
     // ─── Socket.IO JWT authentication middleware ────────────────────────────────────
     // Runs before the "connection" event for every incoming socket.

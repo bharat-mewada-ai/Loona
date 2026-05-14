@@ -9,20 +9,19 @@ import { checkContent } from "../utils/moderation.js";
 export const getChats = async (req, res) => {
   try {
     const chats = await Chat.find({ participants: req.user._id })
+      .populate("participants", "name avatar")
       .populate("lastMessage")
       .sort({ lastMessageAt: -1 })
       .lean();
 
     // Format for the client
     const formattedChats = chats.map((chat) => {
-      // Find the "other" participant's identity without exposing their real ID
-      const otherId = chat.participants.find((p) => p.toString() !== req.user._id.toString());
-      const otherIdentity = chat.anonIdentities[otherId?.toString()] || { name: "Anonymous", avatar: "👤" };
-
+      const otherUser = chat.participants.find((p) => p._id.toString() !== req.user._id.toString());
+      
       return {
         _id: chat._id,
-        avatar: otherIdentity.avatar,
-        name: otherIdentity.name,
+        avatar: otherUser?.avatar || "👤",
+        name: otherUser?.name || "Anonymous",
         preview: chat.lastMessage ? chat.lastMessage.content : "No messages yet",
         time: chat.lastMessageAt,
         unread: chat.unreadCounts ? (chat.unreadCounts[req.user._id.toString()] || 0) : 0,
@@ -48,15 +47,17 @@ export const startChat = async (req, res) => {
     });
 
     if (!chat) {
-      // Create new chat and generate identities based on the post
-      const user1Identity = generateAnonIdentity(req.user._id.toString(), postId);
-      const user2Identity = generateAnonIdentity(targetUserId, postId);
+      // Get real names and avatars for both participants
+      const [u1, u2] = await Promise.all([
+        User.findById(req.user._id).select('name avatar'),
+        User.findById(targetUserId).select('name avatar')
+      ]);
 
       chat = await Chat.create({
         participants: [req.user._id, targetUserId],
         anonIdentities: {
-          [req.user._id.toString()]: user1Identity,
-          [targetUserId.toString()]: user2Identity,
+          [req.user._id.toString()]: { name: u1.name, avatar: u1.avatar },
+          [targetUserId.toString()]: { name: u2.name, avatar: u2.avatar },
         },
         unreadCounts: {
           [req.user._id.toString()]: 0,
@@ -75,7 +76,7 @@ export const startChat = async (req, res) => {
 export const getMessages = async (req, res) => {
   try {
     const { chatId } = req.params;
-    const chat = await Chat.findOne({ _id: chatId, participants: req.user._id });
+    const chat = await Chat.findOne({ _id: chatId, participants: req.user._id }).populate("participants", "name avatar");
     if (!chat) return res.status(404).json({ error: "Chat not found" });
 
     // Mark messages as read
@@ -88,18 +89,24 @@ export const getMessages = async (req, res) => {
       .sort({ createdAt: 1 })
       .lean();
 
-    // Map senderId to an opaque 'senderType' (me/other) to hide real IDs
-    const formattedMessages = messages.map(msg => ({
-      ...msg,
-      senderType: msg.senderId.toString() === req.user._id.toString() ? "me" : "other",
-      senderId: undefined, // Strip the real ID
-    }));
+    // Map senderId to an opaque 'senderType' and attach identity
+    const formattedMessages = messages.map(msg => {
+      const sender = chat.participants.find(p => p._id.toString() === msg.senderId.toString());
+      return {
+        ...msg,
+        senderType: msg.senderId.toString() === req.user._id.toString() ? "me" : "other",
+        senderName: sender?.name || "Anonymous",
+        senderAvatar: sender?.avatar || "👤",
+        senderId: undefined,
+      };
+    });
 
-    // Mask identities Map to use 'me'/'other' keys
-    const otherId = chat.participants.find(p => p.toString() !== req.user._id.toString());
+    // Mask identities to use 'me'/'other' keys
+    const otherUser = chat.participants.find(p => p._id.toString() !== req.user._id.toString());
+    const meUser = chat.participants.find(p => p._id.toString() === req.user._id.toString());
     const identities = {
-      me: chat.anonIdentities[req.user._id.toString()],
-      other: chat.anonIdentities[otherId.toString()]
+      me: { name: meUser?.name, avatar: meUser?.avatar, id: meUser?._id },
+      other: { name: otherUser?.name, avatar: otherUser?.avatar, id: otherUser?._id }
     };
 
     res.json({
@@ -140,6 +147,9 @@ export const sendMessage = async (req, res) => {
       readBy: [req.user._id],
     });
 
+    // Fetch user info for socket emission
+    const user = await User.findById(req.user._id).select("name avatar");
+
     // Update chat
     chat.lastMessage = message._id;
     chat.lastMessageAt = Date.now();
@@ -170,7 +180,7 @@ export const sendMessage = async (req, res) => {
 
     // Send Push Notification (non-blocking)
     const targetUser = await User.findById(otherId).select("expoPushToken").lean();
-    const senderIdentity = chat.anonIdentities[req.user._id.toString()] || { name: "Someone", avatar: "👤" };
+    const senderIdentity = chat.anonIdentities.get(req.user._id.toString()) || { name: "Someone", avatar: "👤" };
     
     sendPushNotification(
       targetUser?.expoPushToken,
@@ -183,6 +193,8 @@ export const sendMessage = async (req, res) => {
     const formattedMessage = {
       ...message.toObject(),
       senderType: "me",
+      senderName: user.name,
+      senderAvatar: user.avatar,
       senderId: undefined
     };
 

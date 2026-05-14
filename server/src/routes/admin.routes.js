@@ -11,12 +11,12 @@ const router = express.Router();
  * POST /api/admin/broadcast
  */
 router.post("/broadcast", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-  const { title, body } = req.body;
+  const { title, body, campus } = req.body;
   if (!title || !body) {
     return res.status(400).json({ error: "Title and body are required" });
   }
 
-  const count = await broadcastNotification(title, body, { type: "admin_broadcast" });
+  const count = await broadcastNotification(title, body, { type: "admin_broadcast" }, campus);
   res.json({ message: `Successfully broadcasted to ${count || 0} users`, count });
 }));
 
@@ -38,6 +38,18 @@ router.post("/users/:userId/unban", requireAuth, requireAdmin, asyncHandler(asyn
   const user = await User.findByIdAndUpdate(req.params.userId, { isBanned: false }, { new: true });
   if (!user) return res.status(404).json({ error: "User not found" });
   res.json({ message: "User unbanned successfully", user });
+}));
+
+router.post("/users/:userId/verify", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(req.params.userId, { isVerified: true }, { new: true });
+  if (!user) return res.status(404).json({ error: "User not found" });
+  res.json({ message: "User verified successfully", user });
+}));
+
+router.post("/users/:userId/unverify", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(req.params.userId, { isVerified: false }, { new: true });
+  if (!user) return res.status(404).json({ error: "User not found" });
+  res.json({ message: "User unverified", user });
 }));
 
 export default router;

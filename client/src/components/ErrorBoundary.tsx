@@ -1,6 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
 import * as Updates from 'expo-updates';
+
+const { width } = Dimensions.get('window');
 
 interface Props {
   children: ReactNode;
@@ -10,11 +12,6 @@ interface State {
   hasError: boolean;
 }
 
-/**
- * GlobalErrorBoundary
- * Prevents the entire app from crashing (white screen) if a sub-component fails.
- * Shows a user-friendly "Oops" screen with a reload button.
- */
 export default class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -30,7 +27,6 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   private handleReload = async () => {
     try {
-      // expo-updates reloadAsync forces a fresh app restart
       await Updates.reloadAsync();
     } catch {
       this.setState({ hasError: false });
@@ -41,15 +37,17 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <SafeAreaView style={s.container}>
+          <View style={s.glow} />
           <View style={s.content}>
-            <Text style={s.emoji}>🛰️</Text>
-            <Text style={s.title}>Lost in Space?</Text>
+            <Text style={s.emoji}>🦊</Text>
+            <Text style={s.title}>Oops! Even the fox gets lost sometimes.</Text>
             <Text style={s.desc}>
-              Loona ran into an unexpected glitch. We've logged the error and our engineers are on it.
+              Something went wrong in the lunar orbit. Don't worry, your secrets are safe. 
+              Let's get you back to the feed.
             </Text>
             
-            <TouchableOpacity style={s.btn} onPress={this.handleReload}>
-              <Text style={s.btnTxt}>Try Reloading</Text>
+            <TouchableOpacity style={s.btn} onPress={this.handleReload} activeOpacity={0.8}>
+              <Text style={s.btnTxt}>Restart Loona</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -61,11 +59,64 @@ export default class ErrorBoundary extends Component<Props, State> {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
-  content: { padding: 40, alignItems: 'center' },
-  emoji: { fontSize: 80, marginBottom: 24 },
-  title: { fontSize: 28, fontWeight: '700', color: '#FFF', marginBottom: 12, textAlign: 'center' },
-  desc: { fontSize: 16, color: '#AAA', textAlign: 'center', lineHeight: 24, marginBottom: 32 },
-  btn: { backgroundColor: '#4D3DBF', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 16 },
-  btnTxt: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000', 
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  glow: {
+    position: 'absolute',
+    top: '30%',
+    width: width * 0.8,
+    height: width * 0.8,
+    backgroundColor: '#F97316',
+    borderRadius: width * 0.4,
+    opacity: 0.15,
+    transform: [{ scale: 1.5 }],
+  },
+  content: { 
+    padding: 32, 
+    alignItems: 'center',
+    zIndex: 1 
+  },
+  emoji: { 
+    fontSize: 72, 
+    marginBottom: 24,
+    textShadowColor: 'rgba(249, 115, 22, 0.5)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20
+  },
+  title: { 
+    fontSize: 26, 
+    fontFamily: 'Syne_700Bold', 
+    color: '#FFF', 
+    marginBottom: 16, 
+    textAlign: 'center',
+    lineHeight: 32
+  },
+  desc: { 
+    fontSize: 15, 
+    color: '#888', 
+    textAlign: 'center', 
+    lineHeight: 22, 
+    marginBottom: 40,
+    paddingHorizontal: 20
+  },
+  btn: { 
+    backgroundColor: '#F97316', 
+    paddingHorizontal: 40, 
+    paddingVertical: 18, 
+    borderRadius: 30,
+    shadowColor: '#F97316',
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 6 }
+  },
+  btnTxt: { 
+    color: '#000', 
+    fontSize: 16, 
+    fontWeight: '900',
+    letterSpacing: 0.5
+  },
 });

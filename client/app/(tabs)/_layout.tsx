@@ -3,22 +3,28 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors, getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
 
-import ComposeSheet from '../../src/components/sheets/ComposeSheet';
-import ReportSheet from '../../src/components/sheets/ReportSheet';
-import CommentSheet from '../../src/components/sheets/CommentSheet';
-import AuthorProfileSheet from '../../src/components/sheets/AuthorProfileSheet';
-import FeedbackSheet from '../../src/components/sheets/FeedbackSheet';
-import PrivacySheet from '../../src/components/sheets/PrivacySheet';
+import { Ionicons } from '@expo/vector-icons';
+
+const THEME = {
+  bg: '#0a0a0f',
+  active: '#ff6b35', // Premium Orange
+  inactive: '#44444a',
+  border: 'rgba(255,255,255,0.05)',
+};
 
 function TabBar({ state, navigation }: any) {
   const { isDark } = useUIStore();
   const themeColors = getColors(isDark);
+
   const tabs = [
-    { name: 'index', icon: '🏠', label: 'Feed' },
-    { name: 'nearby', icon: '📍', label: 'Nearby' },
-    { name: 'chats', icon: '💬', label: 'Chats' },
-    { name: 'profile', icon: '👤', label: 'Profile' },
+    { name: 'index', icon: 'home-outline', label: 'Feed' },
+    { name: 'nearby', icon: 'location-outline', label: 'Nearby' },
+    { name: 'chats', icon: 'chatbubble-outline', label: 'Chats' },
+    { name: 'profile', icon: 'person-outline', label: 'Profile' },
   ];
+
+  const activeColor = themeColors.ogi; // Loona Orange/Lime depending on theme
+  const inactiveColor = isDark ? '#44444a' : '#999';
 
   return (
     <View style={[s.bar, { backgroundColor: themeColors.bg, borderTopColor: themeColors.bdr }]}>
@@ -30,10 +36,20 @@ function TabBar({ state, navigation }: any) {
             style={s.ni}
             onPress={() => navigation.navigate(tab.name)}
             activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityLabel={`${tab.label} tab`}
+            accessibilityState={{ selected: focused }}
           >
-            <View style={[s.iconWrap, focused && { borderTopWidth: 2, borderTopColor: themeColors.ogi }]}>
-              <Text style={[s.niIcon, { color: focused ? themeColors.ogi : themeColors.txt3 }]}>{tab.icon}</Text>
-              <Text style={[s.niLabel, { color: focused ? themeColors.ogi : themeColors.txt3 }]}>{tab.label}</Text>
+            {/* Top Indicator Line */}
+            {focused && <View style={[s.indicator, { backgroundColor: activeColor, shadowColor: activeColor }]} />}
+            
+            <View style={s.iconWrap}>
+              <Ionicons 
+                name={tab.icon as any} 
+                size={24} 
+                color={focused ? activeColor : inactiveColor} 
+              />
+              <Text style={[s.niLabel, { color: focused ? activeColor : inactiveColor }]}>{tab.label}</Text>
             </View>
           </TouchableOpacity>
         );
@@ -43,13 +59,10 @@ function TabBar({ state, navigation }: any) {
 }
 
 export default function TabsLayout() {
-  const { 
-    showComposeSheet, showReportSheet, showCommentSheet, 
-    showFeedbackSheet, showPrivacySheet, isDark 
-  } = useUIStore();
+  const { isDark } = useUIStore();
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? '#000' : '#fff' }}>
+    <View style={{ flex: 1, backgroundColor: THEME.bg }}>
       <Tabs
         tabBar={(props) => <TabBar {...props} />}
         screenOptions={{ headerShown: false }}
@@ -59,12 +72,6 @@ export default function TabsLayout() {
         <Tabs.Screen name="chats" />
         <Tabs.Screen name="profile" />
       </Tabs>
-      {showComposeSheet && <ComposeSheet />}
-      {showReportSheet && <ReportSheet />}
-      {showCommentSheet && <CommentSheet />}
-      {showFeedbackSheet && <FeedbackSheet />}
-      {showPrivacySheet && <PrivacySheet />}
-      <AuthorProfileSheet />
     </View>
   );
 }
@@ -73,23 +80,40 @@ const s = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopWidth: 0.5,
-    paddingBottom: 12,
+    backgroundColor: THEME.bg,
+    borderTopWidth: 1,
+    borderTopColor: THEME.border,
+    paddingBottom: 10, // Standard padding
+    height: 60, // Standard height
   },
   ni: {
     flex: 1,
     alignItems: 'center',
+    height: '100%',
+    justifyContent: 'center',
+  },
+  indicator: {
+    position: 'absolute',
+    top: -1,
+    width: '50%',
+    height: 3,
+    backgroundColor: THEME.active,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+    shadowColor: THEME.active,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
   iconWrap: {
     alignItems: 'center',
-    gap: 4,
-    paddingTop: 8,
-    width: '100%',
+    gap: 6,
+    marginTop: 8,
   },
-  niIcon: { fontSize: 20 },
   niLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: 'Syne_700Bold',
+    letterSpacing: 0.3,
   },
 });

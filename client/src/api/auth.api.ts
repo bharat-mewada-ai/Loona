@@ -66,4 +66,25 @@ export const authApi = {
     const { data } = await client.get<User>(`/auth/users/${userId}`);
     return data;
   },
+
+  updateLocation: async (latitude: number, longitude: number): Promise<void> => {
+    await client.patch('/auth/location', { latitude, longitude });
+  },
+
+  getNearby: async (): Promise<{
+    _id: string;
+    name: string;
+    avatar: string;
+    bio?: string;
+    isVerified?: boolean;
+    vagueDistance: string;
+    distance: number;
+  }[]> => {
+    const { data } = await client.get('/auth/nearby');
+    return data;
+  },
+
+  waveUser: async (userId: string): Promise<void> => {
+    await client.post(`/auth/wave/${userId}`);
+  },
 };

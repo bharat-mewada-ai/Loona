@@ -20,15 +20,15 @@ export const usePosts = () => {
 
   return useInfiniteQuery({
     queryKey: ['posts', targetCampus, tab],
-    queryFn: ({ pageParam = 1 }: { pageParam?: number }) =>
+    queryFn: ({ pageParam = null }: { pageParam?: string | null }) =>
       postsApi.getFeed({
         campus: targetCampus,
-        type: tab === 'all' ? undefined : tab,
-        page: pageParam as number,
+        type: tab === 'all' ? undefined : (tab === 'events' ? 'events,offers,bhandara' : tab),
+        cursor: pageParam || undefined,
         limit: 10,
       }),
-    getNextPageParam: (last: PaginatedPosts) => (last.hasMore ? last.page + 1 : undefined),
-    initialPageParam: 1,
+    getNextPageParam: (last: any) => (last.hasMore ? last.nextCursor : undefined),
+    initialPageParam: null,
   });
 };
 
@@ -136,8 +136,8 @@ export const useComments = (postId: string) => {
 export const useAddComment = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, content, image }: { id: string; content: string; image?: string }) =>
-      postsApi.addComment(id, content, image),
+    mutationFn: ({ id, content, image, parentId }: { id: string; content: string; image?: string; parentId?: string }) =>
+      postsApi.addComment(id, content, image, parentId),
     onMutate: async (newCommentData) => {
       await qc.cancelQueries({ queryKey: ['comments', newCommentData.id] });
       const previousComments = qc.getQueryData(['comments', newCommentData.id]);
@@ -148,6 +148,7 @@ export const useAddComment = () => {
           postId: newCommentData.id,
           content: newCommentData.content,
           image: newCommentData.image,
+          parentId: newCommentData.parentId || null,
           anonName: 'You',
           anonAvatar: '👤',
           createdAt: new Date().toISOString(),
@@ -268,10 +269,10 @@ export const useReport = () => {
 export const useMyPosts = () => {
   return useInfiniteQuery({
     queryKey: ['myPosts'],
-    queryFn: ({ pageParam = 1 }: { pageParam?: number }) =>
-      postsApi.getMyPosts(pageParam as number),
-    getNextPageParam: (last: PaginatedPosts) => (last.hasMore ? last.page + 1 : undefined),
-    initialPageParam: 1,
+    queryFn: ({ pageParam = null }: { pageParam?: string | null }) =>
+      postsApi.getMyPosts(pageParam || undefined),
+    getNextPageParam: (last: any) => (last.hasMore ? last.nextCursor : undefined),
+    initialPageParam: null,
   });
 };
 
@@ -281,5 +282,65 @@ export const usePost = (id: string) => {
     queryKey: ['post', id],
     queryFn: () => postsApi.getPostById(id),
     enabled: !!id,
+  });
+};
+
+export const useSavePost = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: postsApi.toggleSave,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['savedPosts'] });
+    },
+  });
+};
+
+export const useSavedPosts = () => {
+  return useQuery({
+    queryKey: ['savedPosts'],
+    queryFn: postsApi.getSavedPosts,
+  });
+};
+
+export const useGoing = () => {
+  const qc = useQueryClient();
+  const campus = useUIStore((s) => s.activeCampus);
+  const tab = useUIStore((s) => s.activeTab);
+
+  return useMutation<{ hasGone: boolean; goingCount: number }, Error, string>({
+    mutationFn: postsApi.toggleGoing,
+    onMutate: async (id) => {
+      const queryKey = ['posts', campus, tab];
+      await qc.cancelQueries({ queryKey });
+      const previousPosts = qc.getQueryData(queryKey);
+
+      qc.setQueryData(queryKey, (old: { pages: PaginatedPosts[] } | undefined) => {
+        if (!old || !old.pages) return old;
+        const newPages = old.pages.map((page) => ({
+          ...page,
+          posts: page.posts.map((post) => {
+            if (post._id === id) {
+              const currentlyGone = post.hasGone;
+              return { 
+                ...post, 
+                hasGone: !currentlyGone, 
+                goingCount: Math.max(0, (post.goingCount || 0) + (currentlyGone ? -1 : 1)) 
+              };
+            }
+            return post;
+          }),
+        }));
+        return { ...old, pages: newPages };
+      });
+
+      return { previousPosts };
+    },
+    onError: (_err, _vars, context: any) => {
+      qc.setQueryData(['posts', campus, tab], context?.previousPosts);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['posts'] });
+    },
   });
 };

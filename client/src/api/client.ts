@@ -4,13 +4,26 @@ import { API_URL } from '../constants';
 import { useAuthStore } from '../store/authStore';
 
 const client = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL,
   timeout: 30_000,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ─── Request interceptor: attach JWT from auth store ─────────────────────────
+// ─── Request interceptor: attach JWT and ensure v1 prefix ────────────────────
 client.interceptors.request.use((config) => {
+  // Fix: Ensure every request is prefixed with /api/v1 if not already present
+  // and handle leading slashes that would otherwise replace the baseURL path
+  if (config.url && !config.url.startsWith('http')) {
+    const cleanUrl = config.url.startsWith('/') ? config.url.slice(1) : config.url;
+    // If the baseURL already ends in v1, we just need to append the cleanUrl
+    if (config.baseURL?.endsWith('v1')) {
+       config.url = cleanUrl;
+    } else {
+       // Otherwise (fallback), we ensure the v1 is there
+       config.url = `v1/${cleanUrl}`;
+    }
+  }
+
   // Read token synchronously from Zustand store state
   const token = useAuthStore.getState().token;
   if (token) {

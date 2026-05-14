@@ -22,7 +22,18 @@ interface UIState {
   // ── Report sheet ──────────────────────────────────────────────────────────
   showReportSheet: boolean;
   reportPostId: string | null;
-  authorProfile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean; postCampus: string; bio?: string; isVerified?: boolean } | null;
+  authorProfile: { 
+    userId: string; 
+    postId: string; 
+    anonName: string; 
+    anonAvatar: string; 
+    isSelf: boolean; 
+    postCampus: string; 
+    bio?: string; 
+    isVerified?: boolean;
+    isPremium?: boolean;
+    badges?: { name: string; icon: string }[];
+  } | null;
 
   openReportSheet: (id: string) => void;
   closeReportSheet: () => void;
@@ -35,6 +46,13 @@ interface UIState {
   commentPostId: string | null;
   openCommentSheet: (postId: string) => void;
   closeCommentSheet: () => void;
+
+  // ── Story Viewer ──────────────────────────────────────────────────────────
+  showStoryViewer: boolean;
+  activeStoryId: string | null;
+  storyList: string[]; // List of IDs in the current rail
+  openStoryViewer: (id: string, list?: string[]) => void;
+  closeStoryViewer: () => void;
 
   // ── New Support Sheets ─────────────────────────────────────────────────────
   showFeedbackSheet: boolean;
@@ -84,6 +102,13 @@ export const useUIStore = create<UIState>((set) => ({
   commentPostId: null,
   openCommentSheet: (postId) => set({ showCommentSheet: true, commentPostId: postId }),
   closeCommentSheet: () => set({ showCommentSheet: false, commentPostId: null }),
+
+  // Story Viewer
+  showStoryViewer: false,
+  activeStoryId: null,
+  storyList: [],
+  openStoryViewer: (id, list = []) => set({ showStoryViewer: true, activeStoryId: id, storyList: list }),
+  closeStoryViewer: () => set({ showStoryViewer: false, activeStoryId: null, storyList: [] }),
 
   // Support Sheets
   showFeedbackSheet: false,

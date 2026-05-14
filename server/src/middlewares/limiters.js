@@ -66,3 +66,11 @@ export const postLimiter = rateLimit({
   keyGenerator: (req) => req.user?._id?.toString() || req.ip,
   skip: (req) => req.method !== "POST",
 });
+
+export const voteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'development' ? 50 : 20,
+  message: { error: "Slow down! You are voting/reacting too fast." },
+  store: createDynamicStore('vote'),
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+});

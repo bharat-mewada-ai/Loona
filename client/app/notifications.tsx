@@ -1,11 +1,14 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../src/theme/colors';
 import { useInAppNotifications, useMarkNotificationsRead } from '../src/hooks/useNotifications';
 import { useUIStore } from '../src/store/uiStore';
+import { useStats } from '../src/hooks/usePosts';
 import { formatDistanceToNow } from '../src/utils/time';
 import { getColors } from '../src/theme/colors';
+import EmptyState from '../src/components/EmptyState';
 
 export default function NotificationsScreen() {
   const isDark = useUIStore((s) => s.isDark);
@@ -18,6 +21,7 @@ export default function NotificationsScreen() {
     isFetchingNextPage,
     refetch 
   } = useInAppNotifications();
+  const { data: stats } = useStats();
   
   const { mutate: markRead } = useMarkNotificationsRead();
 
@@ -34,34 +38,39 @@ export default function NotificationsScreen() {
       case 'reaction': return '✨';
       case 'comment': return '💬';
       case 'mention': return '🏷️';
+      case 'wave': return '👋';
       default: return '🔔';
     }
   };
 
   const handlePress = (notif: any) => {
-    if (notif.data?.postId) {
-      console.log('Navigate to post:', notif.data.postId);
+    if (notif.type === 'wave' && notif.sender) {
+      // If we have a sender from a wave, we can just open chat with them or their profile
+      router.push(`/user/${notif.sender._id || notif.sender}`);
+    } else if (notif.data?.postId) {
+      router.push(`/post/${notif.data.postId}`);
     }
   };
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: themeColors.bg }]}>
-      <Stack.Screen options={{ 
-        headerTitle: 'Notifications',
-        headerStyle: { backgroundColor: themeColors.bg },
-        headerTintColor: themeColors.txt,
-        headerTitleStyle: { fontFamily: 'Syne_700Bold' },
-        headerShadowVisible: false,
-      }} />
+      <View style={[s.header, { borderBottomColor: themeColors.bdr }]}>
+        <TouchableOpacity 
+          style={[s.backBtn, { backgroundColor: themeColors.card2 }]} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={24} color={themeColors.txt} />
+        </TouchableOpacity>
+        <Text style={[s.headerTitle, { color: themeColors.txt }]}>Notifications</Text>
+        <View style={{ width: 42 }} /> {/* Spacer to center title */}
+      </View>
 
       {isLoading ? (
         <View style={s.center}>
           <ActivityIndicator color={themeColors.ogi || '#4A90E2'} />
         </View>
       ) : notifications.length === 0 ? (
-        <View style={s.center}>
-          <Text style={[s.empty, { color: themeColors.txt3 }]}>No notifications yet</Text>
-        </View>
+        <EmptyState type="notifications" />
       ) : (
         <FlatList
           data={notifications}
@@ -96,6 +105,28 @@ export default function NotificationsScreen() {
               </View>
               {!item.read && <View style={s.unreadDot} />}
             </TouchableOpacity>
+          )}
+          ListHeaderComponent={() => (
+            <View style={s.activityHeader}>
+              <Text style={[s.sectionTitle, { color: themeColors.txt }]}>CAMPUS ACTIVITY</Text>
+              <View style={s.statsRow}>
+                <View style={[s.statItem, { backgroundColor: themeColors.card2 }]}>
+                  <Text style={s.statIcon}>🔥</Text>
+                  <View>
+                    <Text style={[s.statVal, { color: themeColors.txt }]}>{stats?.todayPosts || 0}</Text>
+                    <Text style={[s.statLabel, { color: themeColors.txt3 }]}>POSTS TODAY</Text>
+                  </View>
+                </View>
+                <View style={[s.statItem, { backgroundColor: themeColors.card2 }]}>
+                  <Text style={s.statIcon}>🥔</Text>
+                  <View>
+                    <Text style={[s.statVal, { color: themeColors.txt }]}>{(stats?.totalPosts || 0).toLocaleString()}</Text>
+                    <Text style={[s.statLabel, { color: themeColors.txt3 }]}>TOTAL POTATO</Text>
+                  </View>
+                </View>
+              </View>
+              <Text style={[s.sectionTitle, { color: themeColors.txt, marginTop: 24 }]}>YOUR ALERTS</Text>
+            </View>
           )}
           contentContainerStyle={s.list}
         />
@@ -133,7 +164,33 @@ const s = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.ogi,
+    backgroundColor: '#ff6b35',
     marginLeft: 8,
-  }
+  },
+  activityHeader: { padding: 16, paddingBottom: 8 },
+  sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 },
+  statsRow: { flexDirection: 'row', gap: 12 },
+  statItem: { flex: 1, padding: 12, borderRadius: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statIcon: { fontSize: 20 },
+  statVal: { fontSize: 15, fontWeight: '800' },
+  statLabel: { fontSize: 8, fontWeight: '700' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+  },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: 'Syne_700Bold',
+  },
 });

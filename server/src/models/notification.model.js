@@ -6,15 +6,13 @@ const notificationSchema = new mongoose.Schema(
     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     type: { 
       type: String, 
-      enum: ["upvote", "reaction", "comment", "mention", "system"], 
+      enum: ["upvote", "reaction", "comment", "mention", "wave", "system"], 
       required: true 
     },
     title: { type: String, required: true },
     body: { type: String, required: true },
     data: {
       postId: { type: mongoose.Schema.Types.ObjectId, ref: "Post" },
-      commentId: { type: mongoose.Schema.Types.ObjectId, ref: "Comment" },
-      chatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" },
     },
     read: { type: Boolean, default: false },
   },

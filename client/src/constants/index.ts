@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 // EXPO_PUBLIC_API_URL in client/.env takes priority.
 // LOCAL_IP fallback is your machine's LAN IP (run `ipconfig` to update if it changes).
 const LOCAL_IP = '10.126.166.101';
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${LOCAL_IP}:5000/api`;
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${LOCAL_IP}:5000/api/v1`;
 
 // ─── Campus type & data ───────────────────────────────────────────────────────
 export type Campus = 'ogi' | 'lnct' | 'all';
@@ -15,13 +15,14 @@ export interface CampusOption {
   full?: string;
   color: string;
   bg: string;
+  darkBg?: string;
   border: string;
   dotColor?: string;
 }
 
 export const CAMPUSES: CampusOption[] = [
-  { value: 'ogi',  label: 'Oriental',  full: 'Oriental Group of Institutes',         color: '#C94030', bg: '#FDF1EF', border: '#F2C0B8', dotColor: '#C94030' },
-  { value: 'lnct', label: 'LNCT',      full: 'Lakshmi Narain College of Technology', color: '#4D3DBF', bg: '#F0EEFB', border: '#C5BFF0', dotColor: '#4D3DBF' },
+  { value: 'ogi',  label: 'Oriental',  full: 'Oriental Group of Institutes',         color: '#C94030', bg: '#FDF1EF', darkBg: '#2A0F0C', border: '#F2C0B8', dotColor: '#C94030' },
+  { value: 'lnct', label: 'LNCT',      full: 'Lakshmi Narain College of Technology', color: '#4D3DBF', bg: '#F0EEFB', darkBg: '#110D2E', border: '#C5BFF0', dotColor: '#4D3DBF' },
   { value: 'all',  label: 'Sneak In',  full: 'Sneak into the other campus',          color: '#6B6860', bg: '#F5F3EE', border: '#DDD9CE', dotColor: '#6B6860' },
 ];
 
@@ -44,36 +45,14 @@ export interface PostType {
 }
 
 export const POST_TYPES: PostType[] = [
+  { value: 'all', label: 'Feed', icon: '✦' },
+  { value: 'discussion', label: 'Discussions', icon: '🗣️' },
   { value: 'confess', label: 'Confessions', icon: '🕳️' },
+  { value: 'stories', label: 'Stories', icon: '📖' },
   { value: 'events',  label: 'Events',      icon: '📅' },
   { value: 'bhandara',label: 'Bhandara',    icon: '🍛' },
 ];
 
-// ─── Vibe metadata ────────────────────────────────────────────────────────────
-export const VIBE_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  funny:     { label: '😂 Funny',     color: '#FACC15', bg: '#2A2105', icon: '😂' },
-  serious:   { label: '🧠 Serious',   color: '#60A5FA', bg: '#0F1B2E', icon: '🧠' },
-  rant:      { label: '😤 Rant',      color: '#F87171', bg: '#2A0F12', icon: '😤' },
-  spicy:     { label: '🌶️ Spicy',    color: '#FB923C', bg: '#2D160E', icon: '🌶️' },
-  wholesome: { label: '💖 Wholesome', color: '#F472B6', bg: '#2D121F', icon: '💖' },
-  hot:       { label: '🔥 Hot',       color: '#EF4444', bg: '#2D1010', icon: '🔥' },
-  job:       { label: '💼 Career',    color: '#34D399', bg: '#064E3B', icon: '💼' },
-  food:      { label: '🍛 Foodie',    color: '#F59E0B', bg: '#451A03', icon: '🍛' },
-  general:   { label: '💬 General',   color: '#A8A69E', bg: '#1E1E1E', icon: '💬' },
-};
-
-// ─── Vibe auto-detector ───────────────────────────────────────────────────────
-export const detectVibe = (text: string): string => {
-  const t = text.toLowerCase();
-  if (/placement|job|hiring|internship|interview|salary/.test(t)) return 'job';
-  if (/bhandara|food|free food|khana|langar/.test(t)) return 'food';
-  if (/lol|lmao|haha|funny|joke|😂|💀|🤣/.test(t)) return 'funny';
-  if (/hate|rant|wtf|angry|frustrated|😤|😡/.test(t)) return 'rant';
-  if (/love|wholesome|cute|sweet|heart|💖|🥺/.test(t)) return 'wholesome';
-  if (/serious|important|help|question|🧠/.test(t)) return 'serious';
-  if (/spicy|hot|🌶️|🔥|fire|lit/.test(t)) return 'spicy';
-  return 'general';
-};
 
 // ─── Client-side content pre-check ───────────────────────────────────────────
 export const checkContent = (

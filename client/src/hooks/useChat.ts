@@ -13,7 +13,6 @@ export const useChats = () => {
   });
 };
 
-// ─── useStartChat ────────────────────────────────────────────────────────────
 export const useStartChat = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -25,10 +24,10 @@ export const useStartChat = () => {
   });
 };
 
-// ─── useMessages — real-time via Socket.IO + HTTP fallback ──────────────────
 export const useMessages = (chatId: string) => {
   const qc = useQueryClient();
   const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (!chatId || !token) return;
@@ -38,18 +37,37 @@ export const useMessages = (chatId: string) => {
     // Join the chat room so the server emits newMessage events here
     s.emit('joinChat', chatId);
 
-    // When a new message arrives, invalidate the query to re-fetch
-    const handleNewMessage = () => {
-      qc.invalidateQueries({ queryKey: ['messages', chatId] });
+    // When a new message arrives, update cache manually for zero-latency
+    const handleNewMessage = (msg: any) => {
+      qc.setQueryData(['messages', chatId], (old: any) => {
+        if (!old) return old;
+        // Check if message already exists (e.g. from the sender's own HTTP response)
+        const exists = old.messages.some((m: any) => m._id === msg._id);
+        if (exists) return old;
+
+        const formattedMsg = {
+          ...msg,
+          senderType: msg.senderId === undefined ? 'other' : (msg.senderId === user?._id ? 'me' : 'other'),
+          senderId: undefined
+        };
+
+        return {
+          ...old,
+          messages: [...old.messages, formattedMsg]
+        };
+      });
+      
+      // Still invalidate chats to update preview/unread count in the list
       qc.invalidateQueries({ queryKey: ['chats'] });
     };
+
     s.on('newMessage', handleNewMessage);
 
     return () => {
       s.emit('leaveChat', chatId);
       s.off('newMessage', handleNewMessage);
     };
-  }, [chatId, token]);
+  }, [chatId, token, qc, user?._id]);
 
   return useQuery({
     queryKey: ['messages', chatId],
@@ -66,8 +84,14 @@ export const useSendMessage = () => {
   return useMutation({
     mutationFn: ({ chatId, content, image }: { chatId: string; content: string; image?: string }) =>
       chatApi.sendMessage(chatId, content, image),
-    onSuccess: (_data, { chatId }) => {
-      qc.invalidateQueries({ queryKey: ['messages', chatId] });
+    onSuccess: (newMsg, { chatId }) => {
+      qc.setQueryData(['messages', chatId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: [...old.messages, newMsg]
+        };
+      });
       qc.invalidateQueries({ queryKey: ['chats'] });
     },
   });

@@ -9,45 +9,42 @@ import {
   StyleSheet,
   Modal,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Switch,
   Platform,
-  TextInput,
   RefreshControl,
-  Animated
+  Image
 } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import * as Location from "expo-location";
-import * as ImagePicker from 'expo-image-picker';
+import NetInfo from '@react-native-community/netinfo';
 import { useRouter } from "expo-router";
+import { triggerHaptic } from "../../src/utils/haptics";
 import { usePosts, useCreatePost } from "../../src/hooks/usePosts";
+import { requestLocation } from "../../src/hooks/useLocation";
 import { useLeaderboard } from "../../src/hooks/useAuth";
 import { useUIStore } from "../../src/store/uiStore";
 import { useAuthStore } from "../../src/store/authStore";
-import { getColors, Colors as StaticColors } from "../../src/theme/colors";
+import { getColors } from "../../src/theme/colors";
 import { CAMPUSES, POST_TYPES } from "../../src/constants";
 import PostCard from "../../src/components/PostCard";
 import FeedSkeleton from "../../src/components/FeedSkeleton";
 import { Campus, TabFilter } from "../../src/types";
-import { Alert, Image, Pressable } from "react-native";
-import { uploadToCloudinary } from "../../src/utils/uploadToCloudinary";
+import EmptyState from "../../src/components/EmptyState";
+import StoryRail from "../../src/components/StoryRail";
+import EventsView from "../../src/components/EventsView";
+import { useDeletePost } from "../../src/hooks/usePosts";
 
 export default function Feed() {
   const router = useRouter();
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = usePosts();
+  const { mutate: deletePost } = useDeletePost();
   const { data: leaderboardData } = useLeaderboard();
   
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   useEffect(() => {
     (async () => {
-      if (Platform.OS === 'web') return;
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      let loc = await Location.getCurrentPositionAsync({});
-      setUserLocation({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude
-      });
+      const loc = await requestLocation();
+      if (loc) setUserLocation(loc);
     })();
   }, []);
 
@@ -61,123 +58,58 @@ export default function Feed() {
 
   const themeColors = getColors(isDark);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
 
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!(state.isConnected && state.isInternetReachable !== false));
+    });
+    return () => unsubscribe();
+  }, []);
   const { user } = useAuthStore();
-  const { mutate: createPost, isPending: isPosting } = useCreatePost();
+  let posts = data?.pages.flatMap((page) => page.posts) ?? [];
 
-  // Magic Pencil States
-  const [showTray, setShowTray] = useState(false);
-  const [burn, setBurn] = useState(false);
-  const [isPoll, setIsPoll] = useState(false);
-  const [pollOptions, setPollOptions] = useState(['', '']); // Default 2 options
-  const [quickText, setQuickText] = useState('');
-  const [imageUri, setImageUri] = useState('');
-  const [tempImageUri, setTempImageUri] = useState('');
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
-  const [isBarExpanded, setIsBarExpanded] = useState(true);
-
-  const posts = data?.pages.flatMap((page) => page.posts) ?? [];
-
-  const handleScroll = (event: any) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    if (offsetY > 50 && isBarExpanded) {
-      setIsBarExpanded(false);
-    }
-  };
-
-  const pickImage = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (!res.canceled) {
-      setTempImageUri(res.assets[0].uri);
-      setShowConfirmModal(true);
-    }
-  };
-
-  const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return Alert.alert('Error', 'Camera permission needed');
-    const res = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (!res.canceled) {
-      setTempImageUri(res.assets[0].uri);
-      setShowConfirmModal(true);
-    }
-  };
-
-  const handleQuickPost = async () => {
-    if (!quickText.trim() && !imageUri && !isPoll) return;
-    
-    // Validate poll
-    if (isPoll) {
-      const validOptions = pollOptions.filter(o => o.trim().length > 0);
-      if (validOptions.length < 2) {
-        Alert.alert('Error', 'Poll needs at least 2 options');
-        return;
-      }
-    }
-
-    let cdnUrl = '';
-    if (imageUri) {
-      setImageUploading(true);
-      try {
-        const res = await uploadToCloudinary(imageUri);
-        cdnUrl = res.url;
-      } catch (e: any) {
-        Alert.alert('Upload Error', e.message || 'Could not upload image');
-        setImageUploading(false);
-        return;
-      }
-      setImageUploading(false);
-    }
-
-    // Parse Title & Body
-    const lines = quickText.split('\n');
-    const title = lines[0].trim() || (isPoll ? "Campus Poll" : (imageUri ? "Photo Update" : "Update"));
-    const body = lines.slice(1).join('\n').trim();
-
-    createPost({
-      title,
-      body,
-      type: activeTab === 'all' ? 'thought' : activeTab as any,
-      image: cdnUrl || undefined,
-      burnAfter24h: burn,
-      campus: user?.campus || 'all',
-      isPoll,
-      pollOptions: isPoll ? pollOptions.filter(o => o.trim().length > 0) : undefined
-    }, {
-      onSuccess: () => {
-        setQuickText('');
-        setImageUri('');
-        setBurn(false);
-        setIsPoll(false);
-        setPollOptions(['', '']);
-        setShowTray(false);
-      },
-      onError: (err: any) => {
-        Alert.alert('Error', err.response?.data?.error || 'Failed to post');
-      }
-    });
-  };
+  // Filter stories out of 'all' feed because they are in the Rail
+  if (activeTab === 'all') {
+    posts = posts.filter(p => p.type !== 'stories');
+  }
 
   const handleSelectCampus = (c: Campus) => {
     setCampus(c);
     setDropdownOpen(false);
   };
 
-  const currentCampusLabel = 
-    activeCampus === "all" 
-      ? `Sneaking into ${user?.campus === 'ogi' ? 'LNCT' : 'Oriental'}` 
-      : CAMPUSES.find(c => c.value === activeCampus)?.label || "Bhopal";
+  const renderHeader = () => {
+    // Show Story Rail in 'All' or 'Stories' tab
+    if (activeTab === 'all' || activeTab === 'stories') {
+      return <StoryRail />;
+    }
 
-  const campusWar = leaderboardData?.campusWar || [];
-  const getKarma = (cid: string) => campusWar.find(c => c._id === cid)?.karma || 0;
+    // Show Discussions Section only in Discussion tab
+    if (activeTab === 'discussion') {
+      return (
+        <View style={{ marginBottom: 24 }}>
+          <View style={s.sectionHeader}>
+            <Text style={[s.sectionTitle, { color: themeColors.txt }]}>DISCUSSIONS</Text>
+          </View>
+          <TouchableOpacity
+            style={[s.startDiscussionBanner, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}
+            onPress={() => openComposeSheet('discussion')}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 28 }}>🗣️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[{ fontSize: 15, fontWeight: '800', color: themeColors.txt }]}>Start a Discussion</Text>
+              <Text style={[{ fontSize: 12, color: themeColors.txt3, marginTop: 2 }]}>Ask a question, spark a debate, share an opinion</Text>
+            </View>
+            <Text style={{ fontSize: 20, color: themeColors.ogi }}>→</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: themeColors.bg }]}>
@@ -193,10 +125,15 @@ export default function Feed() {
             <Text style={[s.logoText, { color: themeColors.txt }]}>loona</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={s.subLogo}>CAMPUS FEED</Text>
-              {user?.campusRank && (
-                <View style={[s.rankPill, { backgroundColor: themeColors.ogi }]}>
+              {!!user?.campusRank && (
+                <TouchableOpacity 
+                  style={[s.rankPill, { backgroundColor: themeColors.ogi }]}
+                  onPress={() => router.push('/leaderboard')}
+                  activeOpacity={0.7}
+                >
                   <Text style={s.rankTxt}>#{user.campusRank}</Text>
-                </View>
+                  <Text style={[s.rankTxt, { fontSize: 7, marginLeft: 2 }]}>🏆</Text>
+                </TouchableOpacity>
               )}
             </View>
           </View>
@@ -206,22 +143,35 @@ export default function Feed() {
             style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
             onPress={() => router.push('/search')}
           >
-            <Text style={s.iconTxt}>🔍</Text>
+            <Ionicons name="search-outline" size={20} color={themeColors.txt} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
             onPress={() => router.push('/notifications')}
           >
-            <Text style={s.iconTxt}>🔔</Text>
+            <Ionicons name="notifications-outline" size={20} color={themeColors.txt} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
+            onPress={() => router.push('/leaderboard')}
+          >
+            <Ionicons name="trophy-outline" size={20} color={themeColors.txt} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
             onPress={toggleDark}
           >
-            <Text style={s.iconTxt}>{isDark ? '🌙' : '🌞'}</Text>
+            <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={20} color={themeColors.txt} />
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Offline Banner */}
+      {isOffline && (
+        <View style={[s.offlineBanner, { backgroundColor: themeColors.danger }]}>
+          <Text style={s.offlineTxt}>📡 No Internet Connection. You're viewing cached posts.</Text>
+        </View>
+      )}
 
       {/* Campus Selector - Top Dropdown */}
       <View style={s.dropdownWrap}>
@@ -262,13 +212,6 @@ export default function Feed() {
       {/* Filter Tabs */}
       <View style={[s.filtersWrap, { backgroundColor: themeColors.bg }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filtersScroll}>
-          <TouchableOpacity 
-            style={[s.filterPill, activeTab === 'all' && { backgroundColor: themeColors.ogi }]}
-            onPress={() => setTab('all')}
-          >
-            <Text style={[s.filterPillTxt, { color: activeTab === 'all' ? '#FFF' : themeColors.txt2 }]}>✦ Feed</Text>
-          </TouchableOpacity>
-          
           {POST_TYPES.map(t => (
             <TouchableOpacity 
               key={t.value} 
@@ -284,41 +227,61 @@ export default function Feed() {
       </View>
 
       {/* Feed List */}
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item._id}
-        renderItem={({ item }) => <PostCard post={item} isAllTab={activeTab === 'all'} userLocation={userLocation} />}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        contentContainerStyle={s.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isLoading && posts.length > 0} onRefresh={refetch} tintColor={themeColors.ogi} />
-        }
-        onEndReached={() => {
-          if (hasNextPage && !isFetchingNextPage) fetchNextPage();
-        }}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 20 }} color={themeColors.ogi} /> : null
-        }
-        ListEmptyComponent={
-          isLoading ? (
-            <FeedSkeleton count={5} />
-          ) : (
-            <View style={s.emptyContainer}>
-              <Text style={s.emptyEmoji}>🏜️</Text>
-              <Text style={[s.emptyTxt, { color: themeColors.txt3 }]}>Nothing here yet... Start the fire! 🔥</Text>
-            </View>
-          )
-        }
-      />
+      {activeTab === 'events' ? (
+        <ScrollView 
+          refreshControl={<RefreshControl refreshing={isLoading && posts.length > 0} onRefresh={refetch} tintColor={themeColors.ogi} />}
+          contentContainerStyle={{ paddingTop: 10 }}
+        >
+          <EventsView 
+            posts={posts} 
+            isLoading={isLoading} 
+            onRefresh={refetch} 
+            onDelete={(id) => deletePost(id)}
+            userLocation={userLocation}
+          />
+        </ScrollView>
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item._id}
+          ListHeaderComponent={renderHeader}
+          renderItem={({ item }) => <PostCard post={item} isAllTab={activeTab === 'all'} userLocation={userLocation} />}
+          scrollEventThrottle={16}
+          contentContainerStyle={[s.listContent, { paddingBottom: 110 }]}
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          windowSize={7}
+          refreshControl={
+            <RefreshControl refreshing={isLoading && posts.length > 0} onRefresh={refetch} tintColor={themeColors.ogi} />
+          }
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 20 }} color={themeColors.ogi} /> : null
+          }
+          ListEmptyComponent={
+            isLoading ? (
+              <FeedSkeleton count={5} />
+            ) : (
+              <EmptyState 
+                type={activeTab === 'all' ? 'feed' : (activeTab === 'discussion' ? 'discussions' : activeTab) as any} 
+                onAction={() => openComposeSheet(activeTab === 'all' ? 'all' : activeTab as any)}
+              />
+            )
+          }
+        />
+      )}
 
       {/* FAB - Hide if sneaking */}
       {(activeCampus === 'all' || activeCampus === user?.campus) && (
         <TouchableOpacity 
           style={[s.fab, { backgroundColor: themeColors.ogi }]} 
-          onPress={() => openComposeSheet('thought')}
+          onPress={() => {
+            const type = activeTab === 'all' ? 'all' : activeTab;
+            openComposeSheet(type as any);
+          }}
           activeOpacity={0.9}
         >
           <Text style={s.fabIcon}>+</Text>
@@ -355,6 +318,42 @@ const s = StyleSheet.create({
   emptyTxt: { fontSize: 15, fontFamily: 'PlusJakartaSans_400Regular' },
   fab: { width: 60, height: 60, borderRadius: 30, position: 'absolute', bottom: 24, right: 24, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   fabIcon: { color: '#FFF', fontSize: 32, fontWeight: '300' },
-  rankPill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, marginTop: -2 },
+  rankPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, marginTop: -2 },
   rankTxt: { color: '#FFF', fontSize: 9, fontWeight: '900' },
+
+  // Sections
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, paddingHorizontal: 6, marginBottom: 12 },
+  sectionTitle: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+  viewAll: { fontSize: 11, color: '#888', fontWeight: '700' },
+  storiesScroll: { paddingRight: 20, gap: 12 },
+  storyCard: { width: 140, height: 180, borderRadius: 24, padding: 16, justifyContent: 'space-between' },
+  storyEmoji: { fontSize: 32 },
+  storyText: { color: '#FFF', fontSize: 13, fontWeight: '700', lineHeight: 18 },
+  addStory: { width: 140, height: 180, borderRadius: 24, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  addStoryCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+  storyLabel: { fontSize: 12, fontWeight: '800' },
+  discCard: { 
+    width: 240, 
+    padding: 20, 
+    borderRadius: 28, 
+    marginRight: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  discTag: { 
+    alignSelf: 'flex-start', 
+    paddingHorizontal: 10, 
+    paddingVertical: 5, 
+    borderRadius: 8, 
+    backgroundColor: 'rgba(255,107,53,0.12)', 
+    marginBottom: 16 
+  },
+  discTagTxt: { color: '#ff6b35', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  discTitle: { fontSize: 17, fontWeight: '900', marginBottom: 6, letterSpacing: -0.3 },
+  discMeta: { color: '#888', fontSize: 13, fontWeight: '600' },
+  startDiscussionBanner: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 20, borderWidth: 1, padding: 16, marginTop: 8 },
+  offlineBanner: { padding: 8, alignItems: 'center' },
+  offlineTxt: { color: '#FFF', fontSize: 11, fontWeight: '800' },
 });

@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
 import '../global.css';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useFonts,
@@ -23,6 +24,14 @@ import * as Application from 'expo-application';
 import UpdateRequiredScreen from '../src/components/UpdateRequiredScreen';
 import client from '../src/api/client';
 
+import ComposeSheet from '../src/components/sheets/ComposeSheet';
+import ReportSheet from '../src/components/sheets/ReportSheet';
+import CommentSheet from '../src/components/sheets/CommentSheet';
+import AuthorProfileSheet from '../src/components/sheets/AuthorProfileSheet';
+import FeedbackSheet from '../src/components/sheets/FeedbackSheet';
+import PrivacySheet from '../src/components/sheets/PrivacySheet';
+import StoryViewer from '../src/components/StoryViewer';
+
 const isVersionLower = (current: string, minimum: string) => {
   if (!current || !minimum) return false;
   const c = current.split('.').map(Number);
@@ -33,9 +42,14 @@ const isVersionLower = (current: string, minimum: string) => {
   }
   return false;
 };
-import { useState } from 'react';
-import * as Updates from 'expo-updates';
+
 import { useNotifications } from '../src/hooks/useNotifications';
+import { useMe } from '../src/hooks/useAuth';
+
+function AuthLoader({ children }: { children: React.ReactNode }) {
+  useMe(); // This hook updates useAuthStore automatically
+  return <>{children}</>;
+}
 
 // Required for web OAuth popup flow to complete
 WebBrowser.maybeCompleteAuthSession();
@@ -46,7 +60,11 @@ const queryClient = new QueryClient({
 
 function RootLayout() {
   const { loadStoredAuth, user } = useAuthStore();
-  const { isDark, setCampus } = useUIStore();
+  const { 
+    isDark, setCampus, 
+    showComposeSheet, showReportSheet, showCommentSheet, 
+    showFeedbackSheet, showPrivacySheet, showStoryViewer 
+  } = useUIStore();
   
   // Sync UI campus with user campus on login/load
   useEffect(() => {
@@ -57,9 +75,10 @@ function RootLayout() {
 
   useEffect(() => {
     async function onFetchUpdateAsync() {
-      // expo-updates OTA only works in production builds, not in Expo Go / dev
-      if (__DEV__) return;
+      // expo-updates OTA only works in production builds, not in Expo Go / dev / web
+      if (__DEV__ || Platform.OS === 'web') return;
       try {
+        const Updates = require('expo-updates');
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
           await Updates.fetchUpdateAsync();
@@ -85,10 +104,19 @@ function RootLayout() {
 
   const [splashVisible, setSplashVisible] = useState(true);
   const [updateConfig, setUpdateConfig] = useState<any>(null);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
-    console.log('[RootLayout] State Check:', { fontsLoaded, fontError, splashVisible, hasUpdate: !!updateConfig });
-  }, [fontsLoaded, splashVisible, updateConfig]);
+    const checkOnboarding = async () => {
+      const onboarded = await AsyncStorage.getItem('hasOnboarded');
+      if (!onboarded) setNeedsOnboarding(true);
+    };
+    checkOnboarding();
+  }, []);
+
+  useEffect(() => {
+    console.log('[RootLayout] State Check:', { fontsLoaded, fontError, splashVisible, hasUpdate: !!updateConfig, needsOnboarding });
+  }, [fontsLoaded, splashVisible, updateConfig, needsOnboarding]);
 
   useEffect(() => {
     loadStoredAuth();
@@ -99,7 +127,7 @@ function RootLayout() {
     const checkUpdate = async () => {
       try {
         const { data } = await client.get('/config/version');
-        const currentVersion = Application.nativeApplicationVersion || '1.0.0';
+        const currentVersion = Platform.OS === 'web' ? '1.0.0' : (Application.nativeApplicationVersion || '1.0.0');
         if (data.forceUpdate || isVersionLower(currentVersion, data.minimumVersion)) {
           console.log('[RootLayout] Update Required:', data.minimumVersion);
           setUpdateConfig(data);
@@ -130,14 +158,32 @@ function RootLayout() {
   } else if (splashVisible) {
     content = <OpeningSplashScreen />;
   } else {
-    content = <Stack screenOptions={{ headerShown: false }} />;
+    // If onboarding is needed, Stack will start with onboarding route if we define it in the initial route name
+    // However, it is easier to just conditional render if we want to be strict.
+    // For simplicity, we let Stack handle it, but we can set initialRouteName if needed.
+    content = <Stack screenOptions={{ headerShown: false }} initialRouteName={needsOnboarding ? "onboarding" : undefined} />;
   }
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <StatusBar style="light" />
-        {content}
+        <AuthLoader>
+          <StatusBar 
+            style={isDark ? "light" : "dark"} 
+            translucent={false} 
+            backgroundColor={isDark ? "#000" : "#fff"}
+          />
+          {content}
+          
+          {/* Global UI Sheets */}
+          {showComposeSheet && <ComposeSheet />}
+          {showReportSheet && <ReportSheet />}
+          {showCommentSheet && <CommentSheet />}
+          {showFeedbackSheet && <FeedbackSheet />}
+          {showPrivacySheet && <PrivacySheet />}
+          {showStoryViewer && <StoryViewer />}
+          <AuthorProfileSheet />
+        </AuthLoader>
       </QueryClientProvider>
     </ErrorBoundary>
   );

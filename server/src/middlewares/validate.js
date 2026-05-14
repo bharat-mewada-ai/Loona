@@ -12,7 +12,7 @@ import { body, param, query, validationResult } from "express-validator";
 
 // ─── Valid enum values ────────────────────────────────────────────────────────
 const VALID_CAMPUSES  = ["ogi", "lnct", "all"];
-const VALID_TYPES     = ["thought", "confess", "events", "rumours", "bhandara", "place"];
+const VALID_TYPES     = ["thought", "confess", "events", "offers", "rumours", "bhandara", "place", "stories", "discussion", "all"];
 const VALID_REACTIONS = ["wow", "fire", "same", "skull", "spicy", "lit", "wholesome", "hmm", "lmao"];
 
 // ─── validate() — reads validationResult and short-circuits with 422 ──────────
@@ -45,11 +45,22 @@ export const googleLoginRules = [
     .isIn(VALID_CAMPUSES).withMessage(`campus must be one of: ${VALID_CAMPUSES.join(", ")}`),
 ];
 
+/** POST /api/auth/login */
+export const loginRules = [
+  body("email")
+    .trim()
+    .notEmpty().withMessage("Email is required")
+    .isEmail().withMessage("Must be a valid email address"),
+  body("password")
+    .notEmpty().withMessage("Password is required"),
+];
+
 /** PATCH /api/auth/update-profile */
 export const updateProfileRules = [
   body("name")
     .optional()
     .trim()
+    .escape()
     .isLength({ min: 2, max: 30 }).withMessage("Name must be 2–30 characters")
     .matches(/^[^<>{}[\]]*$/).withMessage("Name contains invalid characters"),
   body("avatar")
@@ -59,6 +70,7 @@ export const updateProfileRules = [
   body("bio")
     .optional()
     .trim()
+    .escape()
     .isLength({ max: 150 }).withMessage("Bio must be at most 150 characters"),
   body("isPrivate")
     .optional()
@@ -66,8 +78,11 @@ export const updateProfileRules = [
   body("tags")
     .optional()
     .isArray({ max: 5 }).withMessage("You can have at most 5 tags")
-    .custom((tags) => tags.every(t => typeof t === 'string' && t.length <= 15))
+    .custom((tags) => Array.isArray(tags) && tags.every(t => typeof t === 'string' && t.length <= 15))
     .withMessage("Each tag must be a string of at most 15 characters"),
+  body("notificationsEnabled")
+    .optional()
+    .isBoolean().withMessage("notificationsEnabled must be a boolean"),
 ];
 
 // ─── Post rules ───────────────────────────────────────────────────────────────
@@ -76,12 +91,14 @@ export const updateProfileRules = [
 export const createPostRules = [
   body("title")
     .trim()
+    .escape()
     .notEmpty().withMessage("Title is required")
     .isLength({ max: 120 }).withMessage("Title must be at most 120 characters"),
   body("body")
     .optional()
     .trim()
-    .isLength({ max: 500 }).withMessage("Body must be at most 500 characters"),
+    .escape()
+    .isLength({ max: 5000 }).withMessage("Body must be at most 5000 characters"),
   body("campus")
     .trim()
     .notEmpty().withMessage("campus is required")
@@ -123,7 +140,10 @@ export const getPostsRules = [
     .isIn(VALID_CAMPUSES).withMessage(`campus must be one of: ${VALID_CAMPUSES.join(", ")}`),
   query("type")
     .optional()
-    .isIn(VALID_TYPES).withMessage(`type must be one of: ${VALID_TYPES.join(", ")}`),
+    .custom((val) => {
+      const types = val.split(",");
+      return types.every(t => VALID_TYPES.includes(t));
+    }).withMessage(`type must be one or more of: ${VALID_TYPES.join(", ")}`),
 ];
 
 /** POST /api/posts/:id/react */
@@ -164,6 +184,7 @@ export const addCommentRules = [
     .isMongoId().withMessage("Invalid post ID"),
   body("content")
     .trim()
+    .escape()
     .notEmpty().withMessage("Comment content is required")
     .isLength({ max: 500 }).withMessage("Comment must be at most 500 characters"),
   body("image")

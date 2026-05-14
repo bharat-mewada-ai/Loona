@@ -44,7 +44,7 @@ export const useNotifications = () => {
     // Register token
     registerForPushNotificationsAsync().then(token => {
       if (token) {
-        client.patch('/auth/me', { expoPushToken: token }).catch(() => {});
+        client.patch('/auth/push-token', { token }).catch(() => {});
       }
     });
 

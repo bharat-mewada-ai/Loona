@@ -7,6 +7,7 @@ const commentSchema = new mongoose.Schema({
   anonAvatar: String,
   content: { type: String, required: true },
   image: String, // For GIFs/Photos
+  parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null },
   createdAt: { type: Date, default: Date.now }
 });
 

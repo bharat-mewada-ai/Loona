@@ -47,7 +47,7 @@ export const useLeaderboard = () => {
   return useQuery({
     queryKey: ['leaderboard'],
     queryFn: authApi.getLeaderboard,
-    refetchInterval: 10_000, // live patato updates every 10s
+    refetchInterval: 10_000, // live potato updates every 10s
   });
 };
 
@@ -74,6 +74,12 @@ export const useUpdateProfile = () => {
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
     },
+    onError: (error: any) => {
+      console.error('Update Profile Failed:', error);
+      const msg = error.response?.data?.error || error.message;
+      const stack = error.response?.data?.stack;
+      alert(`Update Failed: ${msg}\n${stack ? 'Check console for stack.' : ''}`);
+    }
   });
 };
 
@@ -114,5 +120,26 @@ export const useBlockedUsers = () => {
   return useQuery({
     queryKey: ['blocked-users'],
     queryFn: authApi.getBlockedUsers,
+  });
+};
+
+export const useUpdateLocation = () => {
+  return useMutation({
+    mutationFn: ({ latitude, longitude }: { latitude: number; longitude: number }) =>
+      authApi.updateLocation(latitude, longitude),
+  });
+};
+
+export const useNearby = () => {
+  return useQuery({
+    queryKey: ['nearby'],
+    queryFn: authApi.getNearby,
+    refetchInterval: 30_000, // Refresh nearby list every 30s
+  });
+};
+
+export const useWaveUser = () => {
+  return useMutation({
+    mutationFn: (userId: string) => authApi.waveUser(userId),
   });
 };

@@ -8,3 +8,8 @@ export const formatDistanceToNow = (dateStr: string): string => {
   const d = Math.floor(h / 24);
   return `${d}d`;
 };
+export const formatMessageTime = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+};

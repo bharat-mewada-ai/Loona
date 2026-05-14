@@ -1,16 +1,28 @@
 import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
 import { useChats } from '../../src/hooks/useChat';
-import { formatDistanceToNow } from '../../src/utils/time';
+import { formatMessageTime } from '../../src/utils/time';
+import EmptyState from '../../src/components/EmptyState';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ChatsScreen() {
   const { isDark } = useUIStore();
   const themeColors = getColors(isDark);
   const router = useRouter();
   const { data: chats, isLoading } = useChats();
+  const [searchQuery, setSearchQuery] = React.useState('');
+  
+  const filteredChats = React.useMemo(() => {
+    if (!chats) return [];
+    if (!searchQuery.trim()) return chats;
+    return chats.filter(c => 
+      c.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      c.preview?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [chats, searchQuery]);
 
   if (isLoading) {
     return (
@@ -23,17 +35,33 @@ export default function ChatsScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg }}>
       <View style={s.header}>
-        <Text style={[s.title, { color: themeColors.txt }]}>Chats</Text>
+        <View style={s.headerTop}>
+          <Text style={[s.logo, { color: themeColors.txt }]}>
+            🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>chats</Text>
+          </Text>
+          <TouchableOpacity 
+            style={[s.iconBtn, { backgroundColor: themeColors.card2 }]}
+            onPress={() => router.push('/search')}
+          >
+            <Ionicons name="search-outline" size={20} color={themeColors.txt} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
-        data={chats || []}
+        data={filteredChats}
         keyExtractor={i => i._id}
         contentContainerStyle={s.scroll}
         ListHeaderComponent={() => (
           <View style={[s.searchBox, { backgroundColor: themeColors.card2 }]}>
-            <Text style={{ fontSize: 16, marginRight: 10 }}>🔍</Text>
-            <Text style={{ color: themeColors.txt3, flex: 1 }}>Search messages...</Text>
+            <Ionicons name="search-outline" size={18} color={themeColors.txt3} style={{ marginRight: 10 }} />
+            <TextInput
+              style={{ color: themeColors.txt, flex: 1, fontSize: 15, padding: 0 }}
+              placeholder="Search messages..."
+              placeholderTextColor={themeColors.txt3}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
         )}
         renderItem={({ item }) => (
@@ -44,24 +72,32 @@ export default function ChatsScreen() {
           >
             <View style={s.avWrap}>
               <View style={[s.chatAv, { backgroundColor: themeColors.card2 }]}>
-                <Text style={{ fontSize: 20 }}>{item.identities?.other?.avatar ?? '👤'}</Text>
+                <Text style={{ fontSize: 20 }}>{item.avatar ?? '👤'}</Text>
               </View>
               {/* Online indicator */}
-              <View style={[s.onlineDot, { backgroundColor: '#22C55E', borderColor: themeColors.bg }]} />
+              <View style={[
+                s.onlineDot, 
+                { 
+                  backgroundColor: item.lastActive && (new Date().getTime() - new Date(item.lastActive).getTime() < 5 * 60 * 1000) ? '#22C55E' : themeColors.txt3, 
+                  borderColor: themeColors.bg 
+                }
+              ]} />
             </View>
 
             <View style={s.info}>
               <View style={s.nameRow}>
-                <Text style={[s.chatName, { color: themeColors.txt }]}>{item.identities?.other?.name ?? 'Anonymous'}</Text>
+                <Text style={[s.chatName, { color: themeColors.txt }]}>{item.name ?? 'Anonymous'}</Text>
                 <Text style={[s.chatTime, { color: themeColors.txt3 }]}>
-                  {item.updatedAt ? formatDistanceToNow(item.updatedAt) : ''}
+                  {item.updatedAt ? formatMessageTime(item.updatedAt) : ''}
                 </Text>
               </View>
               <View style={s.msgRow}>
-                <Text style={[s.chatPreview, { color: themeColors.txt2 }]} numberOfLines={1}>{item.lastMessage ?? 'Start chatting...'}</Text>
-                {(item.unreadCount ?? 0) > 0 && (
+                <Text style={[s.chatPreview, { color: themeColors.txt2 }]} numberOfLines={1}>
+                  {item.preview || 'Start chatting...'}
+                </Text>
+                {(item.unread ?? 0) > 0 && (
                   <View style={[s.unreadBadge, { backgroundColor: themeColors.ogi }]}>
-                    <Text style={s.unreadTxt}>{item.unreadCount}</Text>
+                    <Text style={s.unreadTxt}>{item.unread}</Text>
                   </View>
                 )}
               </View>
@@ -69,11 +105,7 @@ export default function ChatsScreen() {
           </TouchableOpacity>
         )}
         ListEmptyComponent={() => (
-          <View style={s.empty}>
-            <Text style={s.emptyIcon}>💬</Text>
-            <Text style={[s.emptyTitle, { color: themeColors.txt }]}>No chats yet</Text>
-            <Text style={[s.emptySub, { color: themeColors.txt2 }]}>Reply to posts to start anonymous conversations</Text>
-          </View>
+          <EmptyState type="chats" />
         )}
         ItemSeparatorComponent={() => <View style={[s.sep, { backgroundColor: themeColors.bdr }]} />}
       />
@@ -82,7 +114,10 @@ export default function ChatsScreen() {
 }
 
 const s = StyleSheet.create({
-  header: { paddingHorizontal: 20, paddingVertical: 15 },
+  header: { paddingHorizontal: 20, paddingTop: 15 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  logo: { fontSize: 28, fontFamily: 'Syne_400Regular' },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 28, fontFamily: 'Syne_700Bold' },
   scroll: { paddingBottom: 100 },
   searchBox: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 20, padding: 12, borderRadius: 16 },

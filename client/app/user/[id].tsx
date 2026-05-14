@@ -8,6 +8,8 @@ import { getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
 import { useOtherProfile, useUserPosts } from '../../src/hooks/useUser';
 import { useStartChat } from '../../src/hooks/useChat';
+import { useBlockUser } from '../../src/hooks/useAuth';
+import { Ionicons } from '@expo/vector-icons';
 import PostCard from '../../src/components/PostCard';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -22,6 +24,7 @@ export default function UserProfileScreen() {
   const { data: user, isLoading: userLoading } = useOtherProfile(id);
   const { data: postsData, isLoading: postsLoading } = useUserPosts(id);
   const { mutate: startChat, isPending: startingChat } = useStartChat();
+  const { mutate: blockUser, isPending: isBlocking } = useBlockUser();
 
   if (userLoading) {
     return (
@@ -58,6 +61,28 @@ export default function UserProfileScreen() {
       }
     );
   };
+  
+  const handleBlock = () => {
+    Alert.alert(
+      "Block User?",
+      `Are you sure you want to block ${user.name}? You will no longer see their posts in your feed.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Block", 
+          style: "destructive",
+          onPress: () => {
+            blockUser(user._id, {
+              onSuccess: () => {
+                router.back();
+                Alert.alert("Blocked", "User has been blocked.");
+              }
+            });
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg }}>
@@ -70,22 +95,39 @@ export default function UserProfileScreen() {
             style={s.coverGradient}
           />
           
+          <TouchableOpacity 
+            style={s.backBtn} 
+            onPress={() => router.back()}
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFF" />
+          </TouchableOpacity>
+          
           <View style={s.profileTop}>
             <View style={[s.avatarCircle, { borderColor: themeColors.bg, backgroundColor: themeColors.card }]}>
               <Text style={{ fontSize: 56 }}>{user.avatar}</Text>
             </View>
 
-            <TouchableOpacity 
-              style={[s.messageBtn, { backgroundColor: primaryColor }]}
-              onPress={handleStartChat}
-              disabled={startingChat}
-            >
-              {startingChat ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Text style={s.messageBtnTxt}>Message</Text>
-              )}
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity 
+                style={[s.blockBtnCircle, { borderColor: themeColors.danger }]}
+                onPress={handleBlock}
+                disabled={isBlocking}
+              >
+                <Ionicons name="shield-outline" size={20} color={themeColors.danger} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[s.messageBtn, { backgroundColor: primaryColor }]}
+                onPress={handleStartChat}
+                disabled={startingChat}
+              >
+                {startingChat ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={s.messageBtnTxt}>Message</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={s.infoSection}>
@@ -111,7 +153,7 @@ export default function UserProfileScreen() {
             <View style={s.statsBar}>
               <View style={s.statBox}>
                 <Text style={[s.statNum, { color: themeColors.txt }]}>{user.karma}</Text>
-                <Text style={[s.statLbl, { color: themeColors.txt3 }]}>Patato</Text>
+                <Text style={[s.statLbl, { color: themeColors.txt3 }]}>Potato</Text>
               </View>
               <View style={s.statBox}>
                 <Text style={[s.statNum, { color: themeColors.txt }]}>{user.streak}</Text>
@@ -158,13 +200,15 @@ export default function UserProfileScreen() {
 
 const s = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scroll: { backgroundColor: 'transparent' },
-  headerContainer: { paddingBottom: 20 },
+  scroll: { paddingBottom: 100 },
+  headerContainer: { position: 'relative' },
+  backBtn: { position: 'absolute', top: 20, left: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
   coverGradient: { height: 180, width: '100%' },
   profileTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 20, marginTop: -60 },
   avatarCircle: { width: 110, height: 110, borderRadius: 55, borderWidth: 5, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 5 } },
-  messageBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, marginBottom: 5 },
+  messageBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, marginBottom: 5, justifyContent: 'center', alignItems: 'center' },
   messageBtnTxt: { color: '#FFF', fontFamily: 'Syne_700Bold', fontSize: 13 },
+  blockBtnCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 5 },
 
   infoSection: { paddingHorizontal: 20, marginTop: 15 },
   displayName: { fontFamily: 'Syne_700Bold', fontSize: 26 },

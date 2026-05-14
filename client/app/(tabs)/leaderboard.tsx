@@ -1,27 +1,27 @@
 import React from 'react';
-import {
-  View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator
-} from 'react-native';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, ImageBackground } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
 import { useLeaderboard } from '../../src/hooks/useAuth';
 
 const getCampusColor = (campus: string, themeColors: any) => {
-  if (campus === 'ogi') return themeColors.ogi;
-  if (campus === 'lnct') return themeColors.lnct;
-  return themeColors.nit;
+  if (campus === 'ogi') return '#C94030';
+  if (campus === 'lnct') return '#4D3DBF';
+  return '#10B981';
 };
 
 const getCampusName = (campus: string) => {
-  if (campus === 'ogi') return 'Oriental Institute (OGI)';
+  if (campus === 'ogi') return 'Oriental';
   if (campus === 'lnct') return 'LNCT';
   return 'NIT Bhopal';
 };
 
 const getCampusEmoji = (campus: string) => {
-  if (campus === 'ogi') return '🔴';
-  if (campus === 'lnct') return '🟣';
-  return '🟢';
+  if (campus === 'ogi') return '🦊';
+  if (campus === 'lnct') return '🌙';
+  return '🏛️';
 };
 
 const getRankLabel = (index: number) => {
@@ -32,142 +32,137 @@ const getRankLabel = (index: number) => {
 };
 
 export default function LeaderboardScreen() {
+  const router = useRouter();
   const { isDark } = useUIStore();
   const themeColors = getColors(isDark);
-  // refetchInterval is set to 10s in useLeaderboard hook for live feel
   const { data, isLoading } = useLeaderboard();
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ fontSize: 40, marginBottom: 16 }}>🥔</Text>
-        <ActivityIndicator color={themeColors.ogi} />
-        <Text style={{ color: themeColors.txt3, marginTop: 12, fontFamily: 'PlusJakartaSans_400Regular' }}>
-          Loading patato scores...
-        </Text>
+      <SafeAreaView style={[s.safe, { backgroundColor: themeColors.bg, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={themeColors.ogi} size="large" />
+        <Text style={[s.loadingTxt, { color: themeColors.txt3 }]}>Analyzing the battlefield...</Text>
       </SafeAreaView>
     );
   }
 
   const campusWarData = data?.campusWar || [];
-  const maxPatato = campusWarData.length > 0 ? Math.max(campusWarData[0].karma, 1) : 1;
+  const topUsers = data?.topUsers || [];
+  const totalPotato = campusWarData.reduce((sum: number, c: any) => sum + c.karma, 0);
 
-  const campusWar = campusWarData.map((c: any, i: number) => ({
-    rank: i + 1,
-    label: getRankLabel(i),
-    name: getCampusName(c._id),
-    emoji: getCampusEmoji(c._id),
-    campus: c._id,
-    color: getCampusColor(c._id, themeColors),
-    patato: c.karma,
-    pct: Math.max(Math.round((c.karma / maxPatato) * 100), 4),
-  }));
-
-  const totalPatato = campusWar.reduce((sum: number, c: any) => sum + c.patato, 0);
+  // Sorting for Versus logic
+  const sortedCampuses = [...campusWarData].sort((a, b) => b.karma - a.karma);
+  const leadCampus = sortedCampuses[0];
+  const secondCampus = sortedCampuses[1];
+  
+  const leadGap = leadCampus && secondCampus ? leadCampus.karma - secondCampus.karma : 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg }}>
+    <SafeAreaView style={[s.safe, { backgroundColor: themeColors.bg }]}>
+      <View style={[s.header, { borderBottomColor: themeColors.bdr }]}>
+        <TouchableOpacity 
+          style={[s.backBtn, { backgroundColor: themeColors.card2 }]} 
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={24} color={themeColors.txt} />
+        </TouchableOpacity>
+        <Text style={[s.headerTitle, { color: themeColors.txt }]}>Leaderboard</Text>
+        <View style={{ width: 42 }} />
+      </View>
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-
-        {/* Header */}
-        <View style={s.headerRow}>
-          <Text style={s.headerEmoji}>🥔</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[s.headerTitle, { color: themeColors.txt }]}>Campus Patato War</Text>
-            <Text style={[s.headerSub, { color: themeColors.txt3 }]}>
-              Which campus earns the most patato? 🔥
-            </Text>
-          </View>
-          <View style={[s.liveBadge, { backgroundColor: themeColors.dangerbg }]}>
-            <View style={s.liveDot} />
-            <Text style={[s.liveTxt, { color: themeColors.danger }]}>LIVE</Text>
+        
+        {/* Battleground Header */}
+        <View style={[s.battleHeader, { backgroundColor: themeColors.card }]}>
+          <Text style={s.battleLabel}>CAMPUS WAR: SEASON 1</Text>
+          <Text style={[s.battleTitle, { color: themeColors.txt }]}>The Battle for Potato 🥔</Text>
+          
+          <View style={s.statsGrid}>
+            <View style={[s.statBox, { backgroundColor: themeColors.card2 }]}>
+              <Text style={[s.statVal, { color: themeColors.ogi }]}>{totalPotato.toLocaleString()}</Text>
+              <Text style={[s.statLabel, { color: themeColors.txt3 }]}>TOTAL 🥔</Text>
+            </View>
+            <View style={[s.statBox, { backgroundColor: themeColors.card2 }]}>
+              <Text style={[s.statVal, { color: themeColors.txt }]}>{campusWarData.length}</Text>
+              <Text style={[s.statLabel, { color: themeColors.txt3 }]}>CAMPUSES</Text>
+            </View>
           </View>
         </View>
 
-        {/* Total patato score */}
-        <View style={[s.totalCard, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}>
-          <Text style={[s.totalLabel, { color: themeColors.txt3 }]}>TOTAL PATATO EARNED ACROSS ALL CAMPUSES</Text>
-          <Text style={[s.totalVal, { color: themeColors.ogi }]}>🥔 {totalPatato.toLocaleString()}</Text>
-        </View>
-
-        {/* Section Label */}
-        <Text style={[s.sec, { color: themeColors.txt3 }]}>CAMPUS RANKINGS · SEASON 1</Text>
-
-        {/* Campus War Cards */}
-        {campusWar.map((c: any) => (
-          <View key={c.campus} style={[s.warCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
-            {/* Rank + Campus Name */}
-            <View style={s.warTop}>
-              <Text style={[s.warRank, c.rank <= 3 && { color: Colors.gold }]}>{c.label}</Text>
-              <Text style={[s.campusEmoji]}>{c.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.warName, { color: c.color }]}>{c.name}</Text>
-                <Text style={[s.warPatatoLabel, { color: themeColors.txt3 }]}>
-                  🥔 {c.patato.toLocaleString()} patato
-                </Text>
+        {/* VERSUS SECTION */}
+        {leadCampus && secondCampus && (
+          <View style={s.vsSection}>
+            <View style={s.vsRow}>
+              <View style={[s.vsSide, { alignItems: 'flex-end' }]}>
+                <Text style={s.vsEmoji}>{getCampusEmoji(leadCampus._id)}</Text>
+                <Text style={[s.vsName, { color: getCampusColor(leadCampus._id, themeColors) }]}>{getCampusName(leadCampus._id)}</Text>
+                <Text style={[s.vsScore, { color: themeColors.txt }]}>{leadCampus.karma.toLocaleString()}</Text>
               </View>
-              {c.rank === 1 && (
-                <View style={[s.crownBadge, { backgroundColor: c.color + '22' }]}>
-                  <Text style={[s.crownTxt, { color: c.color }]}>👑 Leading</Text>
-                </View>
-              )}
-            </View>
+              
+              <View style={s.vsCircle}>
+                <Text style={s.vsTxt}>VS</Text>
+              </View>
 
-            {/* Progress Bar */}
-            <View style={[s.progBg, { backgroundColor: themeColors.bg2 }]}>
-              <View
-                style={[
-                  s.progFill,
-                  { width: `${c.pct}%` as any, backgroundColor: c.color },
-                ]}
-              />
+              <View style={[s.vsSide, { alignItems: 'flex-start' }]}>
+                <Text style={s.vsEmoji}>{getCampusEmoji(secondCampus._id)}</Text>
+                <Text style={[s.vsName, { color: getCampusColor(secondCampus._id, themeColors) }]}>{getCampusName(secondCampus._id)}</Text>
+                <Text style={[s.vsScore, { color: themeColors.txt }]}>{secondCampus.karma.toLocaleString()}</Text>
+              </View>
             </View>
-            <Text style={[s.progPct, { color: themeColors.txt3 }]}>{c.pct}% of top score</Text>
+            
+            <View style={[s.gapPill, { backgroundColor: themeColors.card2 }]}>
+              <Text style={[s.gapTxt, { color: themeColors.txt2 }]}>
+                {getCampusName(leadCampus._id)} is leading by <Text style={{ color: themeColors.ogi, fontWeight: '900' }}>{leadGap.toLocaleString()} 🥔</Text>
+              </Text>
+            </View>
           </View>
-        ))}
+        )}
 
-        {/* Top Users Section */}
-        <Text style={[s.sec, { color: themeColors.txt3, marginTop: 24 }]}>TOP CAMPUS LEGENDS 🏆</Text>
+        {/* RANKINGS */}
+        <Text style={[s.sectionHeader, { color: themeColors.txt3 }]}>RANKINGS</Text>
+        {sortedCampuses.map((c, i) => {
+          const color = getCampusColor(c._id, themeColors);
+          return (
+            <View key={c._id} style={[s.rankCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
+              <Text style={[s.rankNum, i < 3 && { color: '#FACC15' }]}>{getRankLabel(i)}</Text>
+              <View style={[s.campusIcon, { backgroundColor: color + '20' }]}>
+                <Text style={{ fontSize: 24 }}>{getCampusEmoji(c._id)}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.campusName, { color: themeColors.txt }]}>{getCampusName(c._id)}</Text>
+                <View style={s.barWrap}>
+                  <View style={[s.barBg, { backgroundColor: themeColors.card2 }]}>
+                    <View style={[s.barFill, { width: `${Math.min(100, (c.karma / leadCampus.karma) * 100)}%`, backgroundColor: color }]} />
+                  </View>
+                  <Text style={[s.barVal, { color: themeColors.txt3 }]}>{c.karma.toLocaleString()} 🥔</Text>
+                </View>
+              </View>
+            </View>
+          );
+        })}
+
+        {/* TOP LEGENDS */}
+        <Text style={[s.sectionHeader, { color: themeColors.txt3, marginTop: 32 }]}>TOP LEGENDS 🏆</Text>
         <View style={[s.legendsCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
-          {(data?.topUsers || []).map((u: any, i: number) => (
-            <View key={u._id || i} style={[s.legendRow, i < ((data?.topUsers?.length || 0) - 1) && { borderBottomWidth: 1, borderBottomColor: themeColors.bdr }]}>
+          {topUsers.map((u: any, i: number) => (
+            <View key={u._id} style={[s.legendRow, i < topUsers.length - 1 && { borderBottomWidth: 1, borderBottomColor: themeColors.bdr }]}>
               <Text style={s.legendRank}>{getRankLabel(i)}</Text>
               <View style={[s.legendAv, { backgroundColor: themeColors.card2, borderColor: getCampusColor(u.campus, themeColors) }]}>
                 <Text style={{ fontSize: 18 }}>{u.avatar || '👤'}</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[s.legendName, { color: themeColors.txt }]}>{u.name}</Text>
-                <Text style={[s.legendCampus, { color: getCampusColor(u.campus, themeColors) }]}>
-                  {getCampusName(u.campus).split(' (')[0]}
-                </Text>
+                <Text style={[s.legendCampus, { color: getCampusColor(u.campus, themeColors) }]}>{getCampusName(u.campus)}</Text>
               </View>
-              <View style={s.legendKarma}>
-                <Text style={[s.legendKarmaVal, { color: themeColors.ogi }]}>🥔 {u.karma.toLocaleString()}</Text>
+              <View style={s.legendScore}>
+                <Text style={[s.legendScoreVal, { color: themeColors.ogi }]}>{u.karma.toLocaleString()} 🥔</Text>
               </View>
             </View>
           ))}
-          {(!data?.topUsers || data.topUsers.length === 0) && (
-            <View style={{ padding: 32, alignItems: 'center' }}>
-              <Text style={{ color: themeColors.txt3, fontFamily: 'PlusJakartaSans_400Regular' }}>No legends yet. Be the first! 👑</Text>
-            </View>
-          )}
         </View>
 
-        {/* Info card */}
-        <View style={[s.infoCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr, marginTop: 32 }]}>
-          <Text style={s.infoEmoji}>🥔</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[s.infoTitle, { color: themeColors.txt }]}>How patato works?</Text>
-            <Text style={[s.infoBody, { color: themeColors.txt2 }]}>
-              Every upvote (patato 🥔) you get on your posts earns your campus points and increases your legend rank.
-              Post more, earn more patato, and lead your campus to victory!
-            </Text>
-          </View>
+        <View style={s.footer}>
+          <Text style={[s.footerTxt, { color: themeColors.txt3 }]}>🔄 Auto-refreshes every 10s</Text>
         </View>
-
-        <Text style={[s.refreshNote, { color: themeColors.txt3 }]}>
-          🔄 Scores update every 10 seconds
-        </Text>
 
       </ScrollView>
     </SafeAreaView>
@@ -175,56 +170,67 @@ export default function LeaderboardScreen() {
 }
 
 const s = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 100 },
-
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  headerEmoji: { fontSize: 40 },
-  headerTitle: { fontFamily: 'Syne_700Bold', fontSize: 20 },
-  headerSub: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, marginTop: 2 },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#E53935' },
-  liveTxt: { fontFamily: 'Syne_700Bold', fontSize: 10 },
-
-  totalCard: { borderRadius: 16, borderWidth: 1, padding: 16, alignItems: 'center', marginBottom: 16 },
-  totalLabel: { fontFamily: 'Syne_700Bold', fontSize: 9, letterSpacing: 1.2, marginBottom: 6 },
-  totalVal: { fontFamily: 'Syne_700Bold', fontSize: 32 },
-
-  sec: {
-    fontFamily: 'Syne_700Bold', fontSize: 9, letterSpacing: 1.3,
-    textTransform: 'uppercase', marginBottom: 10, marginTop: 4,
-  },
-
-  warCard: {
-    borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 10,
-  },
-  warTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  warRank: { fontFamily: 'Syne_700Bold', fontSize: 20, width: 28, color: Colors.txt3 },
-  campusEmoji: { fontSize: 22 },
-  warName: { fontFamily: 'Syne_700Bold', fontSize: 15 },
-  warPatatoLabel: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, marginTop: 2 },
-  crownBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  crownTxt: { fontFamily: 'Syne_700Bold', fontSize: 10 },
-
-  progBg: { height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 4 },
-  progFill: { height: '100%', borderRadius: 4 },
-  progPct: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 10, textAlign: 'right' },
-
-  infoCard: {
-    flexDirection: 'row', gap: 12, borderWidth: 1, borderRadius: 16,
-    padding: 16, marginTop: 8, alignItems: 'flex-start',
-  },
-  infoEmoji: { fontSize: 28, marginTop: 2 },
-  infoTitle: { fontFamily: 'Syne_700Bold', fontSize: 14, marginBottom: 4 },
-  infoBody: { fontFamily: 'PlusJakartaSans_400Regular', fontSize: 12, lineHeight: 20 },
-
-  refreshNote: { textAlign: 'center', fontSize: 11, fontFamily: 'PlusJakartaSans_400Regular', marginTop: 16 },
+  safe: { flex: 1 },
+  scroll: { paddingBottom: 100 },
+  loadingTxt: { marginTop: 12, fontSize: 14, fontWeight: '600' },
   
-  legendsCard: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  battleHeader: { padding: 24, paddingBottom: 32, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
+  battleLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 2, color: '#ff6b35', marginBottom: 8 },
+  battleTitle: { fontSize: 28, fontWeight: '900', fontFamily: 'Syne_700Bold' },
+  statsGrid: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  statBox: { flex: 1, padding: 16, borderRadius: 20, alignItems: 'center' },
+  statVal: { fontSize: 20, fontWeight: '900', fontFamily: 'Syne_700Bold' },
+  statLabel: { fontSize: 9, fontWeight: '800', marginTop: 4 },
+
+  vsSection: { margin: 16, marginTop: -20 },
+  vsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 },
+  vsSide: { flex: 1 },
+  vsEmoji: { fontSize: 44, marginBottom: 8 },
+  vsName: { fontSize: 14, fontWeight: '900', textTransform: 'uppercase' },
+  vsScore: { fontSize: 20, fontWeight: '900' },
+  vsCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#000', borderWidth: 2, borderColor: '#333', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+  vsTxt: { color: '#FFF', fontWeight: '900', fontSize: 16 },
+  gapPill: { alignSelf: 'center', marginTop: 20, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  gapTxt: { fontSize: 12, fontWeight: '700' },
+
+  sectionHeader: { fontSize: 12, fontWeight: '900', letterSpacing: 1.5, marginHorizontal: 20, marginBottom: 16, marginTop: 24 },
+  rankCard: { flexDirection: 'row', alignItems: 'center', padding: 16, marginHorizontal: 16, marginBottom: 12, borderRadius: 24, borderWidth: 1, gap: 16 },
+  rankNum: { fontSize: 18, fontWeight: '900', width: 24, textAlign: 'center' },
+  campusIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  campusName: { fontSize: 16, fontWeight: '800', marginBottom: 8 },
+  barWrap: { gap: 6 },
+  barBg: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 3 },
+  barVal: { fontSize: 11, fontWeight: '700' },
+
+  legendsCard: { marginHorizontal: 16, borderRadius: 28, borderWidth: 1, overflow: 'hidden' },
   legendRow: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  legendRank: { width: 32, fontSize: 18, textAlign: 'center' },
+  legendRank: { width: 32, fontSize: 16, textAlign: 'center' },
   legendAv: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  legendName: { fontFamily: 'Syne_700Bold', fontSize: 15 },
-  legendCampus: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 10, textTransform: 'uppercase' },
-  legendKarma: { alignItems: 'flex-end' },
-  legendKarmaVal: { fontFamily: 'Syne_700Bold', fontSize: 14 },
+  legendName: { fontSize: 15, fontWeight: '800' },
+  legendCampus: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginTop: 2 },
+  legendScore: { alignItems: 'flex-end' },
+  legendScoreVal: { fontSize: 14, fontWeight: '900' },
+
+  footer: { padding: 40, alignItems: 'center' },
+  footerTxt: { fontSize: 12, fontWeight: '600' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+  },
+  backBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: 'Syne_700Bold',
+  },
 });

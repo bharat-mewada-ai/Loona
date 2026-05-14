@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { usePost } from '../../src/hooks/usePosts';
 import { getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
 import PostCard from '../../src/components/PostCard';
+import { postsApi } from '../../src/api/posts.api';
 
 /**
  * PostDetailScreen
@@ -18,6 +19,12 @@ export default function PostDetailScreen() {
   const themeColors = getColors(isDark);
   
   const { data: post, isLoading, error } = usePost(id as string);
+
+  useEffect(() => {
+    if (id) {
+      postsApi.viewPost(id as string).catch(() => {});
+    }
+  }, [id]);
 
   if (isLoading) {
     return (

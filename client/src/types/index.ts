@@ -1,6 +1,5 @@
 export type Campus = "ogi" | "lnct" | "all";
-export type TabFilter = "all" | "thought" | "confess" | "events" | "bhandara" | "place";
-export type Vibe = "spicy" | "wholesome" | "funny" | "serious" | "rant" | "job" | "food" | "general";
+export type TabFilter = "all" | "discussion" | "confess" | "stories" | "events" | "bhandara" | "place";
 
 export interface User {
   _id: string;
@@ -10,9 +9,9 @@ export interface User {
   karma: number;
   streak: number;
   avatar: string;      
-  badges: string[];
   postCount: number;
   upvotesReceived: number;
+  commentsCount: number;
   campusRank: number;
   isPrivate: boolean;
   isVerified: boolean;
@@ -21,6 +20,7 @@ export interface User {
   tags: string[];
   createdAt: string;
   role: 'user' | 'admin';
+  savedPosts: string[];
 }
 
 export interface Post {
@@ -32,7 +32,6 @@ export interface Post {
   eventLocation?: string;
   campus: Exclude<Campus, "all">;
   type: TabFilter;
-  vibe: Vibe;
   anonName: string;
   anonAvatar: string;
   upvotes: number;
@@ -56,8 +55,12 @@ export interface Post {
   hasVoted?: boolean;
   author: {
     _id: string;
+    name?: string;
+    avatar?: string;
     bio?: string;
     isVerified?: boolean;
+    isTopContributor?: boolean;
+    tags?: string[];
   };   
   isPoll?: boolean;
   pollOptions?: { text: string; votes: number }[];

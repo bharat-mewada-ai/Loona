@@ -10,12 +10,14 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import { useGoogleAuth } from '../../src/hooks/useAuth';
 import { Colors } from '../../src/theme/colors';
 import { CAMPUSES_LIST as CAMPUSES } from '../../src/constants';
+import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 import type { Campus } from '../../src/types';
 
 WebBrowser.maybeCompleteAuthSession();
 
 // ─── Native Google Sign-In Configuration ──────────────────────────────────────
-const WEB_CLIENT_ID = '329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com';
+const WEB_CLIENT_ID = '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com';
 
 GoogleSignin.configure({
   webClientId: WEB_CLIENT_ID,
@@ -34,10 +36,10 @@ export default function LoginScreen() {
   const [isAnimating, setIsAnimating] = useState(false);
 
   // Animation refs
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const colorAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim   = useRef(new Animated.Value(Platform.OS === 'web' ? 0 : 50)).current;
+  const slideAnim = useRef(new Animated.Value(Platform.OS === 'web' ? 0 : 50)).current;
   const opacityAnim = useRef(new Animated.Value(Platform.OS === 'web' ? 1 : 0)).current;
 
   // ─── Race condition guard ─────────────────────────────────────────────────
@@ -46,14 +48,14 @@ export default function LoginScreen() {
   useEffect(() => {
     Animated.parallel([
       Animated.timing(opacityAnim, { toValue: 1, duration: 800, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.timing(slideAnim,   { toValue: 0, duration: 800, easing: Easing.out(Easing.exp), useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 800, easing: Easing.out(Easing.exp), useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
   }, []);
 
   const triggerLoadingAnimation = () => {
     setIsAnimating(true);
     Animated.sequence([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 400, useNativeDriver: false }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
       Animated.timing(scaleAnim, { toValue: 25, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
     ]).start();
 
@@ -64,6 +66,43 @@ export default function LoginScreen() {
       ])
     ).start();
   };
+
+  const redirectUri = AuthSession.makeRedirectUri({
+    preferLocalhost: true,
+  });
+
+  if (Platform.OS === 'web') {
+    console.log("[DEBUG] Google Redirect URI:", redirectUri);
+  }
+
+  const [request, response_web, promptAsync] = Google.useAuthRequest({
+    webClientId: WEB_CLIENT_ID,
+    responseType: Platform.OS === 'web' ? 'token' : 'id_token',
+    redirectUri,
+  });
+
+  useEffect(() => {
+    if (response_web?.type === 'success') {
+      const { id_token, access_token } = response_web.params;
+      const token = id_token || access_token;
+      
+      if (token) {
+        triggerLoadingAnimation();
+        googleAuth({ token, campus }, {
+          onSuccess: () => {
+            authInProgress.current = false;
+            setTimeout(() => router.replace('/(tabs)'), 1300);
+          },
+          onError: (err: any) => {
+            authInProgress.current = false;
+            setIsAnimating(false);
+            const msg = err?.response?.data?.error || err?.message || 'Authentication failed.';
+            setErrorMsg(msg);
+          },
+        });
+      }
+    }
+  }, [response_web, campus, googleAuth]);
 
   const handleGoogleLogin = async () => {
     if (!campus) {
@@ -80,18 +119,19 @@ export default function LoginScreen() {
     authInProgress.current = true;
 
     try {
+      if (Platform.OS === 'web') {
+        promptAsync();
+        return;
+      }
+
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
-      
+
       if (response.type === 'success') {
         const token = response.data.idToken;
-
-        if (!token) {
-          throw new Error('No ID token received from Google');
-        }
+        if (!token) throw new Error('No ID token received from Google');
 
         triggerLoadingAnimation();
-
         googleAuth({ token, campus }, {
           onSuccess: () => {
             authInProgress.current = false;
@@ -102,11 +142,10 @@ export default function LoginScreen() {
             setIsAnimating(false);
             const msg = err?.response?.data?.error || err?.message || 'Authentication failed.';
             setErrorMsg(msg);
-            GoogleSignin.signOut(); // Clean up session on backend error
+            GoogleSignin.signOut();
           },
         });
       } else {
-        // Handle cancelled response
         authInProgress.current = false;
         setIsAnimating(false);
       }
@@ -114,10 +153,9 @@ export default function LoginScreen() {
     } catch (error: any) {
       authInProgress.current = false;
       setIsAnimating(false);
+      console.error('Google Sign-In Error:', error);
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // user cancelled the login flow
       } else if (error.code === statusCodes.IN_PROGRESS) {
-        // operation already in progress
       } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         setErrorMsg('Google Play Services not available or outdated.');
       } else {

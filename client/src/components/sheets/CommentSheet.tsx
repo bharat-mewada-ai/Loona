@@ -7,11 +7,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { Colors, getColors } from '../../theme/colors';
 import { useUIStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
-import { useComments, useAddComment, useDeleteComment } from '../../hooks/usePosts';
+import { useComments, useAddComment, useDeleteComment, usePost } from '../../hooks/usePosts';
 import { useStartChat } from '../../hooks/useChat';
 import { formatDistanceToNow } from '../../utils/time';
 import { useRouter } from 'expo-router';
 import EmojiPicker from '../EmojiPicker';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function CommentSheet() {
   const { showCommentSheet, closeCommentSheet, commentPostId, isDark } = useUIStore();
@@ -19,7 +20,23 @@ export default function CommentSheet() {
   const { user } = useAuthStore();
   
   const { data, isLoading } = useComments(commentPostId || '');
-  const comments = data?.comments || [];
+  const { data: postData, isLoading: postLoading } = usePost(commentPostId || '');
+  const rawComments = data?.comments || [];
+  
+  // Simple threading: Put children after their parents
+  const comments = React.useMemo(() => {
+    const parents = rawComments.filter(c => !c.parentId);
+    const children = rawComments.filter(c => c.parentId);
+    
+    const result: any[] = [];
+    parents.forEach(p => {
+      result.push(p);
+      children.filter(c => c.parentId === p._id).forEach(c => result.push(c));
+    });
+    return result;
+  }, [rawComments]);
+
+  const post = postData;
   
   const { mutate: addComment, isPending } = useAddComment();
   const { mutate: deleteComment } = useDeleteComment();
@@ -29,7 +46,7 @@ export default function CommentSheet() {
   const [content, setContent] = useState('');
   const [image, setImage] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -38,53 +55,38 @@ export default function CommentSheet() {
       quality: 0.6,
       base64: true,
     });
-
-    if (!result.canceled) {
-      setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
-    }
+    if (!result.canceled) setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
   };
 
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Allow camera access to take photos.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.6,
-      base64: true,
-    });
-    if (!result.canceled) {
-      setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
-    }
+    if (status !== 'granted') return Alert.alert('Permission Denied', 'Allow camera access.');
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.6, base64: true });
+    if (!result.canceled) setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
   };
 
   const handleSubmit = () => {
     if (!content.trim() || !commentPostId) return;
-    addComment({ id: commentPostId, content: content.trim(), image: image || undefined }, {
-      onSuccess: () => {
-        setContent('');
-        setImage('');
+    addComment({ 
+      id: commentPostId, 
+      content: content.trim(), 
+      image: image || undefined,
+      parentId: replyTo?.id
+    }, {
+      onSuccess: () => { 
+        setContent(''); 
+        setImage(''); 
+        setShowEmoji(false); 
+        setReplyTo(null);
       }
     });
   };
 
   const handleDelete = (commentId: string) => {
-    Alert.alert('Delete Comment', 'Are you sure you want to delete this comment?', [
+    Alert.alert('Delete Comment', 'Delete this forever?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteComment({ postId: commentPostId!, commentId }) }
     ]);
-  };
-
-  const handleStartChat = (targetUserId: string) => {
-    if (startingChat || !commentPostId) return;
-    startChat({ targetUserId, postId: commentPostId }, {
-      onSuccess: (chat) => {
-        closeCommentSheet();
-        router.push(`/chat/${chat._id}`);
-      }
-    });
   };
 
   if (!commentPostId) return null;
@@ -92,91 +94,140 @@ export default function CommentSheet() {
   return (
     <Modal visible={showCommentSheet} transparent animationType="slide" onRequestClose={closeCommentSheet}>
       <Pressable style={s.overlay} onPress={closeCommentSheet}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={s.keyboardView}
-        >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.keyboardView}>
           <Pressable style={[s.sheet, { backgroundColor: themeColors.card }]} onPress={e => e.stopPropagation()}>
             <View style={s.handle} />
-            <Text style={[s.title, { color: themeColors.txt }]}>Comments ({data?.total || 0})</Text>
+            <View style={s.sHeader}>
+              <Text style={[s.title, { color: themeColors.txt }]}>Comments</Text>
+            </View>
 
             <FlatList
               data={comments}
               keyExtractor={(item) => item._id}
+              showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
-                <View style={[s.comment, { borderBottomColor: themeColors.bdr }]}>
-                  <View style={s.cHeader}>
-                    <Text style={s.cAvatar}>{item.anonAvatar}</Text>
-                    <Text style={[s.cName, { color: themeColors.txt2 }]}>{item.anonName}</Text>
-                    <Text style={[s.cTime, { color: themeColors.txt3 }]}>{formatDistanceToNow(item.createdAt)}</Text>
-                    
-                    {item.author === user?._id ? (
-                      <TouchableOpacity onPress={() => handleDelete(item._id)} style={s.delBtn}>
-                        <Text style={s.delTxt}>🗑️</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity onPress={() => handleStartChat(item.author)} style={s.dmBtn}>
-                        <Text style={s.dmTxt}>💬 DM</Text>
-                      </TouchableOpacity>
-                    )}
+                <View style={[s.commentRow, item.parentId && s.nestedComment]}>
+                  {item.parentId && <View style={[s.depthLine, { backgroundColor: themeColors.bdr }]} />}
+                  <View style={[s.avatarCircle, { backgroundColor: themeColors.card2 }]}>
+                    <Text style={{ fontSize: 16 }}>{post?.type === 'confess' ? '👤' : item.anonAvatar}</Text>
                   </View>
-                  <Text style={[s.cContent, { color: themeColors.txt }]}>{item.content}</Text>
-                  {!!item.image && (
-                    <Image source={{ uri: item.image }} style={s.cImg} resizeMode="cover" />
-                  )}
+                  <View style={{ flex: 1 }}>
+                    <View style={s.commentContent}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={[s.cName, { color: themeColors.txt }]}>{post?.type === 'confess' ? 'Anonymous' : item.anonName}</Text>
+                        {(item.authorIsVerified && post?.type !== 'confess') && (
+                          <Ionicons name="checkmark-circle" size={14} color="#3897f0" />
+                        )}
+                        <Text style={[s.cTime, { color: themeColors.txt3 }]}>• {formatDistanceToNow(item.createdAt)}</Text>
+                      </View>
+                      <Text style={[s.cText, { color: themeColors.txt }]}>{item.content}</Text>
+                      {!!item.image && (
+                        <Image source={{ uri: item.image }} style={s.cImg} resizeMode="cover" />
+                      )}
+                    </View>
+                    <View style={s.cActions}>
+                      {!item.parentId && (
+                        <TouchableOpacity onPress={() => setReplyTo({ id: item._id, name: item.anonName })}>
+                          <Text style={[s.actionTxt, { color: themeColors.ogi }]}>Reply</Text>
+                        </TouchableOpacity>
+                      )}
+                      {item.author === user?._id ? (
+                        <TouchableOpacity onPress={() => handleDelete(item._id)}>
+                          <Text style={[s.actionTxt, { color: themeColors.danger }]}>Delete</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        post?.type !== 'confess' && (
+                          <TouchableOpacity onPress={() => {
+                            closeCommentSheet();
+                            startChat({ targetUserId: item.author, postId: commentPostId }, {
+                              onSuccess: (c) => router.push(`/chat/${c._id}`)
+                            });
+                          }}>
+                            <Text style={[s.actionTxt, { color: themeColors.txt3 }]}>Message</Text>
+                          </TouchableOpacity>
+                        )
+                      )}
+                    </View>
+                  </View>
                 </View>
               )}
+              ListHeaderComponent={
+                post ? (
+                  <View style={[s.postHeader, { borderBottomColor: themeColors.bdr }]}>
+                    <View style={s.postAuthorRow}>
+                      <View style={[s.avatarCircle, { backgroundColor: themeColors.card2 }]}>
+                        <Text style={{ fontSize: 18 }}>{post.type === 'confess' ? '🕳️' : (post.author?.avatar || post.anonAvatar || '👤')}</Text>
+                      </View>
+                      <View>
+                        <Text style={[s.postAuthorName, { color: themeColors.txt }]}>
+                          {post.type === 'confess' ? 'Anonymous Confession' : post.anonName}
+                        </Text>
+                        <Text style={[s.postTime, { color: themeColors.txt3 }]}>{formatDistanceToNow(post.createdAt)}</Text>
+                      </View>
+                      <View style={[s.postTypePill, { backgroundColor: themeColors.ogi + '20' }]}>
+                        <Text style={[s.postTypeTxt, { color: themeColors.ogi }]}>{post.type.toUpperCase()}</Text>
+                      </View>
+                    </View>
+                    <Text style={[s.postTitle, { color: themeColors.txt }]}>{post.title}</Text>
+                    {!!post.body && <Text style={[s.postBody, { color: themeColors.txt2 }]}>{post.body}</Text>}
+                    {!!post.image && <Image source={{ uri: post.image }} style={s.postImage} resizeMode="contain" />}
+                    
+                    <View style={s.commentsDivider}>
+                      <Text style={[s.dividerTxt, { color: themeColors.txt3 }]}>COMMENTS</Text>
+                    </View>
+                  </View>
+                ) : null
+              }
               ListEmptyComponent={
                 isLoading ? <ActivityIndicator style={{ marginTop: 20 }} color={themeColors.ogi} /> : 
-                <Text style={[s.empty, { color: themeColors.txt3 }]}>No comments yet. Be the first!</Text>
+                <View style={s.emptyState}>
+                  <Text style={{ fontSize: 40, marginBottom: 10 }}>💬</Text>
+                  <Text style={[s.empty, { color: themeColors.txt3 }]}>No comments yet.</Text>
+                </View>
               }
               contentContainerStyle={s.listContent}
             />
 
-            <View style={[s.inputArea, { backgroundColor: themeColors.card, borderTopColor: themeColors.bdr }]}>
-              {image && (
-                <View style={s.previewWrap}>
-                  <Image source={{ uri: image }} style={s.preview} resizeMode="contain" />
-                  <TouchableOpacity onPress={() => setImage('')} style={s.removeBtn}>
-                    <Text style={s.removeTxt}>✕</Text>
+            <View style={[s.inputWrap, { borderTopColor: themeColors.bdr, backgroundColor: themeColors.card }]}>
+              {replyTo && (
+                <View style={[s.replyInfo, { backgroundColor: themeColors.card2 }]}>
+                  <Text style={[s.replyTxt, { color: themeColors.txt2 }]}>Replying to <Text style={{ fontWeight: '800' }}>{replyTo.name}</Text></Text>
+                  <TouchableOpacity onPress={() => setReplyTo(null)}>
+                    <Text style={{ color: themeColors.ogi, fontWeight: '800' }}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               )}
+              {image && (
+                <View style={s.previewContainer}>
+                  <Image source={{ uri: image }} style={s.previewImg} />
+                  <TouchableOpacity style={s.removeImg} onPress={() => setImage('')}><Text style={{ color: '#fff' }}>✕</Text></TouchableOpacity>
+                </View>
+              )}
               <View style={s.inputBar}>
-                <TouchableOpacity onPress={() => setShowEmoji(!showEmoji)} style={[s.mediaBtn, { backgroundColor: themeColors.card2 }]}>
-                  <Text style={s.mediaIcon}>{showEmoji ? '⌨️' : '😀'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={pickImage} style={[s.mediaBtn, { backgroundColor: themeColors.card2 }]}>
-                  <Text style={s.mediaIcon}>🖼️</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={takePhoto} style={[s.mediaBtn, { backgroundColor: themeColors.card2 }]}>
-                  <Text style={s.mediaIcon}>📸</Text>
-                </TouchableOpacity>
-                <TextInput
-                  style={[s.inp, { backgroundColor: themeColors.card2, color: themeColors.txt }]}
-                  placeholder="Write a comment..."
-                  placeholderTextColor={themeColors.txt3}
-                  value={content}
-                  onChangeText={(text) => {
-                    setContent(text);
-                    if (showEmoji) setShowEmoji(false);
-                  }}
-                  onFocus={() => setShowEmoji(false)}
-                  multiline
-                />
+                <View style={[s.inpBox, { backgroundColor: themeColors.bg2, borderColor: themeColors.bdr }]}>
+                  <TouchableOpacity onPress={() => setShowEmoji(!showEmoji)}><Text style={{ fontSize: 20 }}>{showEmoji ? '⌨️' : '😀'}</Text></TouchableOpacity>
+                  <TextInput
+                    style={[s.inp, { color: themeColors.txt }]}
+                    placeholder="Add a comment..."
+                    placeholderTextColor={themeColors.txt3}
+                    value={content}
+                    onChangeText={setContent}
+                    multiline
+                  />
+                  <TouchableOpacity onPress={pickImage}><Text style={{ fontSize: 20 }}>🖼️</Text></TouchableOpacity>
+                </View>
                 <TouchableOpacity 
-                  style={[s.sendBtn, (!content.trim() && !image) && s.btnDisabled]} 
-                  onPress={handleSubmit}
+                  onPress={handleSubmit} 
                   disabled={isPending || (!content.trim() && !image)}
+                  style={[s.sendBtn, (isPending || (!content.trim() && !image)) && { opacity: 0.5 }]}
                 >
-                  {isPending ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.sendTxt}>Send</Text>}
+                  <Text style={[s.sendTxt, { color: themeColors.ogi }]}>Post</Text>
                 </TouchableOpacity>
               </View>
               {showEmoji && (
-                <EmojiPicker 
-                  themeColors={themeColors} 
-                  onSelect={(emoji) => setContent(prev => prev + emoji)} 
-                />
+                <View style={{ height: 250, marginTop: 10 }}>
+                  <EmojiPicker themeColors={themeColors} onSelect={(e) => setContent(p => p + e)} />
+                </View>
               )}
             </View>
           </Pressable>
@@ -187,38 +238,47 @@ export default function CommentSheet() {
 }
 
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   keyboardView: { width: '100%', height: '85%' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, flex: 1, padding: 16 },
-  handle: { width: 40, height: 4, backgroundColor: '#DDD', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
-  title: { fontFamily: 'Syne_700Bold', fontSize: 18, marginBottom: 16 },
-  comment: { marginBottom: 16, borderBottomWidth: 1, paddingBottom: 12 },
-  cHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  cAvatar: { fontSize: 16 },
-  cName: { fontSize: 13, fontWeight: '700' },
-  cTime: { fontSize: 11, marginLeft: 8 },
-  delBtn: { marginLeft: 'auto', padding: 4 },
-  delTxt: { fontSize: 14 },
-  dmBtn: { marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#EEE', borderRadius: 12 },
-  dmTxt: { fontSize: 10, fontWeight: '700' },
-  cContent: { fontSize: 15, lineHeight: 22, marginBottom: 8 },
-  cImg: { width: '100%', height: 200, borderRadius: 12, marginTop: 4, backgroundColor: '#EEE' },
-  empty: { textAlign: 'center', marginTop: 40, fontSize: 14, fontFamily: 'PlusJakartaSans_400Regular' },
-  listContent: { paddingBottom: 120 },
-  inputArea: { 
-    borderTopWidth: 1, paddingVertical: 12,
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingHorizontal: 16, paddingBottom: Platform.OS === 'ios' ? 34 : 16
-  },
-  inputBar: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  mediaBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  mediaIcon: { fontSize: 18 },
-  inp: { flex: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, maxHeight: 100, fontSize: 14, minHeight: 40 },
-  sendBtn: { backgroundColor: '#C94030', borderRadius: 22, paddingHorizontal: 20, paddingVertical: 10 },
-  btnDisabled: { opacity: 0.5 },
-  sendTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  previewWrap: { marginBottom: 12, width: '100%', height: 150, borderRadius: 12, overflow: 'hidden', position: 'relative', borderWidth: 1, borderColor: '#EEE', backgroundColor: '#F9F9F9' },
-  preview: { width: '100%', height: '100%' },
-  removeBtn: { position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
-  removeTxt: { color: '#fff', fontSize: 10, fontWeight: '700' }
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, flex: 1, paddingHorizontal: 16 },
+  handle: { width: 36, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginVertical: 12 },
+  sHeader: { alignItems: 'center', paddingBottom: 15, borderBottomWidth: 0.5, borderBottomColor: '#333' },
+  title: { fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+  listContent: { paddingVertical: 20, paddingBottom: 120 },
+  commentRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  avatarCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  commentContent: { flex: 1 },
+  cName: { fontSize: 13, fontWeight: '800' },
+  cTime: { fontSize: 12, fontWeight: '400' },
+  cText: { fontSize: 14, lineHeight: 20, marginTop: 2, fontFamily: 'PlusJakartaSans_400Regular' },
+  cImg: { width: '100%', height: 200, borderRadius: 12, marginTop: 8 },
+  cActions: { flexDirection: 'row', gap: 15, marginTop: 6 },
+  actionTxt: { fontSize: 12, fontWeight: '700' },
+  emptyState: { alignItems: 'center', marginTop: 100 },
+  empty: { fontSize: 14, fontWeight: '600' },
+  inputWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12, paddingBottom: Platform.OS === 'ios' ? 34 : 12, borderTopWidth: 0.5 },
+  inputBar: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  inpBox: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, borderRadius: 25, borderWidth: 1, minHeight: 45, gap: 10 },
+  inp: { flex: 1, paddingVertical: 8, fontSize: 14, maxHeight: 100 },
+  sendBtn: { paddingHorizontal: 5 },
+  sendTxt: { fontWeight: '800', fontSize: 15 },
+  previewContainer: { marginBottom: 10, position: 'relative' },
+  previewImg: { width: 60, height: 60, borderRadius: 8 },
+  removeImg: { position: 'absolute', top: -5, left: 50, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  postHeader: { paddingBottom: 20, marginBottom: 10, borderBottomWidth: 1 },
+  postAuthorRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  postAuthorName: { fontSize: 14, fontWeight: '800' },
+  postTime: { fontSize: 11 },
+  postTypePill: { marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  postTypeTxt: { fontSize: 10, fontWeight: '900' },
+  postTitle: { fontSize: 20, fontWeight: '900', marginBottom: 10, lineHeight: 28 },
+  postBody: { fontSize: 15, lineHeight: 24, marginBottom: 15, fontFamily: 'PlusJakartaSans_400Regular' },
+  postImage: { width: '100%', height: 250, borderRadius: 16, marginBottom: 15 },
+  commentsDivider: { marginTop: 10, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: '#333' },
+  dividerTxt: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  emptyTitle: { fontFamily: 'PlusJakartaSans_600SemiBold', fontSize: 14 },
+  nestedComment: { marginLeft: 32 },
+  depthLine: { position: 'absolute', left: -16, top: 0, bottom: 0, width: 2, borderRadius: 1 },
+  replyInfo: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, borderRadius: 12, marginBottom: 10 },
+  replyTxt: { fontSize: 12 },
 });

@@ -16,7 +16,6 @@ export default function AdminDashboard() {
   const themeColors = getColors(isDark);
   const { user } = useAuthStore();
 
-  // ─── Role guard: redirect non-admins immediately ───────────────────────
   useEffect(() => {
     if (user && user.role !== 'admin') {
       router.replace('/(tabs)');
@@ -24,7 +23,7 @@ export default function AdminDashboard() {
   }, [user]);
 
   if (!user || user.role !== 'admin') {
-    return null; // render nothing while redirecting
+    return null;
   }
 
   const [loading, setLoading] = useState(true);
@@ -78,6 +77,37 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleBan = (authorId: string, authorName: string) => {
+    Alert.alert(
+      'Ban User?',
+      `Are you sure you want to ban ${authorName} permanently?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Ban Permanently', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await client.post(`/admin/users/${authorId}/ban`);
+              Alert.alert('Success', 'User has been banned.');
+            } catch (e) {
+              Alert.alert('Error', 'Failed to ban user.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleVerify = async (authorId: string) => {
+    try {
+      await client.post(`/admin/users/${authorId}/verify`);
+      Alert.alert('Success', 'User verified successfully.');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to verify user.');
+    }
+  };
+
   if (loading) {
     return (
       <View style={[s.center, { backgroundColor: themeColors.bg }]}>
@@ -92,25 +122,25 @@ export default function AdminDashboard() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={[s.back, { color: themeColors.txt }]}>← Back</Text>
         </TouchableOpacity>
-        <Text style={[s.title, { color: themeColors.txt }]}>Admin Moderation</Text>
+        <Text style={[s.title, { color: themeColors.txt }]}>Admin Terminal</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <FlatList
         ListHeaderComponent={
           <View style={s.broadcastSection}>
-            <Text style={[s.sectionTitle, { color: themeColors.txt }]}>📣 Spicy Broadcast</Text>
-            <Text style={[s.sectionDesc, { color: themeColors.txt3 }]}>Send a push to ALL users (Swiggy style)</Text>
+            <Text style={[s.sectionTitle, { color: themeColors.txt }]}>📣 SPIKE BROADCAST</Text>
+            <Text style={[s.sectionDesc, { color: themeColors.txt3 }]}>Push notifications to all users (Use sparingly!)</Text>
             <TextInput
               style={[s.input, { backgroundColor: themeColors.card, color: themeColors.txt, borderColor: themeColors.bdr }]}
-              placeholder="Notification Title (e.g. 👀 Sshhh...)"
+              placeholder="Title..."
               placeholderTextColor="#666"
               value={broadcast.title}
               onChangeText={(t) => setBroadcast({ ...broadcast, title: t })}
             />
             <TextInput
               style={[s.input, { backgroundColor: themeColors.card, color: themeColors.txt, borderColor: themeColors.bdr, height: 60 }]}
-              placeholder="Message Body (e.g. Someone confessed...)"
+              placeholder="Body..."
               placeholderTextColor="#666"
               multiline
               value={broadcast.body}
@@ -121,10 +151,17 @@ export default function AdminDashboard() {
               onPress={handleBroadcast}
               disabled={broadcasting}
             >
-              <Text style={s.broadcastBtnTxt}>{broadcasting ? 'Sending...' : 'Send Broadcast'}</Text>
+              <Text style={s.broadcastBtnTxt}>{broadcasting ? 'Sending...' : 'Transmit Now'}</Text>
             </TouchableOpacity>
+            
             <View style={[s.divider, { backgroundColor: themeColors.bdr }]} />
-            <Text style={[s.sectionTitle, { color: themeColors.txt, marginBottom: 12 }]}>Reported Posts ({posts.length})</Text>
+            
+            <View style={s.queueHeader}>
+              <Text style={[s.sectionTitle, { color: themeColors.txt }]}>MODERATION QUEUE</Text>
+              <View style={[s.countBadge, { backgroundColor: themeColors.danger }]}>
+                <Text style={s.countTxt}>{posts.length}</Text>
+              </View>
+            </View>
           </View>
         }
         data={posts}
@@ -132,32 +169,55 @@ export default function AdminDashboard() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchReportedPosts(); }} tintColor={themeColors.ogi} />}
         renderItem={({ item }) => (
           <View style={[s.card, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
-            <View style={s.reportBadge}>
-              <Text style={s.reportTxt}>{item.reports?.length || 0} REPORTS</Text>
+            <View style={s.cardMeta}>
+              <Text style={s.reportTag}>{item.reports?.length || 0} REPORTS</Text>
+              <Text style={[s.authorTag, { color: themeColors.txt3 }]}>By: {item.anonName}</Text>
             </View>
-            <PostCard post={item} />
+
+            <View style={s.postPreview}>
+              <PostCard post={item} />
+            </View>
+
             <View style={s.actions}>
-              <TouchableOpacity 
-                style={[s.btn, { backgroundColor: themeColors.bg2 }]} 
-                onPress={() => handleAction(item._id, 'dismiss')}
-              >
-                <Text style={[s.btnTxt, { color: themeColors.txt }]}>Dismiss Reports</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[s.btn, { backgroundColor: themeColors.dangerbg }]} 
-                onPress={() => handleAction(item._id, 'delete')}
-              >
-                <Text style={[s.btnTxt, { color: themeColors.danger }]}>Delete Post</Text>
-              </TouchableOpacity>
+              <View style={s.actionRow}>
+                <TouchableOpacity 
+                  style={[s.btn, { backgroundColor: themeColors.bg2 }]} 
+                  onPress={() => handleAction(item._id, 'dismiss')}
+                >
+                  <Text style={[s.btnTxt, { color: themeColors.txt }]}>Keep Post</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[s.btn, { backgroundColor: themeColors.dangerbg }]} 
+                  onPress={() => handleAction(item._id, 'delete')}
+                >
+                  <Text style={[s.btnTxt, { color: themeColors.danger }]}>Remove Post</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[s.actionRow, { marginTop: 8 }]}>
+                <TouchableOpacity 
+                  style={[s.btn, { backgroundColor: themeColors.okbg }]} 
+                  onPress={() => handleVerify(item.author)}
+                >
+                  <Text style={[s.btnTxt, { color: themeColors.ok }]}>Verify User</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[s.btn, { backgroundColor: themeColors.dangerbg, borderColor: themeColors.danger, borderWidth: 1 }]} 
+                  onPress={() => handleBan(item.author, item.anonName)}
+                >
+                  <Text style={[s.btnTxt, { color: themeColors.danger }]}>BAN USER</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
         ListEmptyComponent={() => (
           <View style={s.empty}>
-            <Text style={{ color: themeColors.txt3 }}>No reported posts. Good job! 🛡️</Text>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>🛡️</Text>
+            <Text style={{ color: themeColors.txt3, fontFamily: 'PlusJakartaSans_600SemiBold' }}>All clear! No pending reports.</Text>
           </View>
         )}
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
       />
     </SafeAreaView>
   );
@@ -170,8 +230,8 @@ const s = StyleSheet.create({
   back: { fontSize: 16, fontWeight: '600' },
   title: { fontFamily: 'Syne_700Bold', fontSize: 18 },
   broadcastSection: { marginBottom: 24 },
-  sectionTitle: { fontSize: 20, fontWeight: '900', marginBottom: 4 },
-  sectionDesc: { fontSize: 13, marginBottom: 16 },
+  sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
+  sectionDesc: { fontSize: 13, marginBottom: 16, opacity: 0.6 },
   input: {
     borderWidth: 1,
     borderRadius: 14,
@@ -188,11 +248,18 @@ const s = StyleSheet.create({
   },
   broadcastBtnTxt: { color: '#000', fontWeight: '800', fontSize: 16 },
   divider: { height: 1, marginVertical: 32, opacity: 0.1 },
-  card: { marginBottom: 20, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
-  reportBadge: { backgroundColor: '#F87171', paddingVertical: 4, alignItems: 'center' },
-  reportTxt: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  actions: { flexDirection: 'row', padding: 12, gap: 10, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
-  btn: { flex: 1, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  btnTxt: { fontSize: 13, fontWeight: '700' },
-  empty: { alignItems: 'center', marginTop: 40 },
+  queueHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  countBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  countTxt: { color: '#FFF', fontSize: 10, fontWeight: '900' },
+
+  card: { marginBottom: 20, borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
+  cardMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: 'rgba(0,0,0,0.02)' },
+  reportTag: { color: '#F87171', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  authorTag: { fontSize: 10, fontWeight: '700' },
+  postPreview: { paddingBottom: 12 },
+  actions: { padding: 12, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  btn: { flex: 1, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  btnTxt: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+  empty: { alignItems: 'center', marginTop: 80 },
 });

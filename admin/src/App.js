@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Dashboard from './pages/Dashboard';
 import ReportedPosts from './pages/ReportedPosts';
 import UserManagement from './pages/UserManagement';
+import Broadcast from './pages/Broadcast';
 import Login from './pages/Login';
 import Sidebar from './components/Sidebar';
 import { isAdmin as checkIsAdmin, clearAuthToken } from './utils/auth';
@@ -34,6 +35,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/reports" element={<ReportedPosts />} />
             <Route path="/users" element={<UserManagement />} />
+            <Route path="/broadcast" element={<Broadcast />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>

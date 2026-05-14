@@ -32,44 +32,41 @@ function SkeletonCard() {
 
   const opacity = shimmer.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.4, 0.85],
+    outputRange: [0.3, 0.6],
   });
 
-  const base = isDark ? '#2A2A2A' : '#E5E5E5';
+  const base = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
   return (
-    <Animated.View style={[s.card, { backgroundColor: themeColors.card, opacity }]}>
-      {/* Header row: avatar + name + campus badge */}
+    <View style={[s.card, { backgroundColor: themeColors.card, borderColor: themeColors.bdr, borderWidth: 1 }]}>
       <View style={s.header}>
-        <View style={[s.avatar, { backgroundColor: base }]} />
+        <Animated.View style={[s.avatar, { backgroundColor: base, opacity }]} />
         <View style={s.headerText}>
-          <View style={[s.line, { width: '40%', height: 12, backgroundColor: base }]} />
-          <View style={[s.line, { width: '25%', height: 10, backgroundColor: base, marginTop: 6 }]} />
+          <Animated.View style={[s.line, { width: 100, height: 14, backgroundColor: base, opacity }]} />
+          <Animated.View style={[s.line, { width: 60, height: 10, backgroundColor: base, opacity, marginTop: 6 }]} />
         </View>
       </View>
-      {/* Title */}
-      <View style={[s.line, { width: '85%', height: 14, backgroundColor: base }]} />
-      <View style={[s.line, { width: '60%', height: 14, backgroundColor: base, marginTop: 8 }]} />
-      {/* Body lines */}
-      <View style={[s.line, { width: '100%', height: 11, backgroundColor: base, marginTop: 14 }]} />
-      <View style={[s.line, { width: '90%', height: 11, backgroundColor: base, marginTop: 7 }]} />
-      <View style={[s.line, { width: '70%', height: 11, backgroundColor: base, marginTop: 7 }]} />
-      {/* Footer row: reactions placeholder */}
+      
+      <Animated.View style={[s.line, { width: '85%', height: 20, backgroundColor: base, opacity, borderRadius: 10 }]} />
+      <Animated.View style={[s.line, { width: '100%', height: 12, backgroundColor: base, opacity, marginTop: 12 }]} />
+      <Animated.View style={[s.line, { width: '90%', height: 12, backgroundColor: base, opacity, marginTop: 8 }]} />
+      <Animated.View style={[s.line, { width: '60%', height: 12, backgroundColor: base, opacity, marginTop: 8 }]} />
+
       <View style={s.footer}>
-        {[...Array(4)].map((_, i) => (
-          <View key={i} style={[s.reactionChip, { backgroundColor: base }]} />
-        ))}
+        <Animated.View style={[s.reactionChip, { backgroundColor: base, opacity }]} />
+        <Animated.View style={[s.reactionChip, { backgroundColor: base, opacity }]} />
+        <Animated.View style={[s.reactionChip, { backgroundColor: base, opacity }]} />
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
 /**
  * Renders N skeleton cards for the feed loading state.
  */
-export default function FeedSkeleton({ count = 4 }: { count?: number }) {
+export default function FeedSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <View>
+    <View style={{ paddingVertical: 10 }}>
       {[...Array(count)].map((_, i) => (
         <SkeletonCard key={i} />
       ))}
@@ -79,15 +76,15 @@ export default function FeedSkeleton({ count = 4 }: { count?: number }) {
 
 const s = StyleSheet.create({
   card: {
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 24,
+    padding: 20,
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  avatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
+  avatar: { width: 42, height: 42, borderRadius: 21, marginRight: 12 },
   headerText: { flex: 1 },
-  line: { borderRadius: 6 },
-  footer: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  reactionChip: { width: 48, height: 28, borderRadius: 14 },
+  line: { borderRadius: 8 },
+  footer: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  reactionChip: { width: 60, height: 32, borderRadius: 16 },
 });

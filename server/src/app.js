@@ -17,6 +17,7 @@ import feedbackRoutes from "./routes/feedback.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import configRoutes from "./routes/config.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 import redis from "./utils/redis.js";
 
 // ─── CORS allowlist ───────────────────────────────────────────────────────────
@@ -48,19 +49,30 @@ const allowedOrigins = new Set([
 
 export const corsOptions = {
   origin: (origin, callback) => {
-    logger.info(`[CORS] Origin: ${origin}`);
-    // In development, allow all origins for easier testing with Expo Go
-    if (process.env.NODE_ENV !== 'production') return callback(null, true);
+    // logger.info(`[CORS] Origin: ${origin}`);
     
-    // Allow requests with no Origin header (native mobile apps, curl, Postman)
+    // Allow requests with no Origin header (native mobile apps, curl, internal server calls)
     if (!origin) return callback(null, true);
+    
+    // In development, we can be more lenient if needed, but we keep the whitelist check
+    // to catch configuration issues early.
+    if (process.env.NODE_ENV !== 'production') {
+      if (allowedOrigins.has(origin)) return callback(null, true);
+      // Fallback for dynamic local IPs in dev
+      if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.startsWith('http://192.168.') || origin.startsWith('http://10.')) {
+         return callback(null, true);
+      }
+    }
+
     if (allowedOrigins.has(origin)) return callback(null, true);
+    
     logger.warn(`[CORS] Blocked request from unlisted origin: ${origin}`);
     callback(new Error(`CORS policy: origin '${origin}' is not allowed`));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+  maxAge: 86400, // 24 hours
 };
 
 // Rate limiters moved to middlewares/limiters.js to avoid circular dependencies
@@ -89,7 +101,9 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ─── Security & Perf middleware ───────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+}));
 // NoSQL injection prevention — only sanitize req.body (mutates in-place, safe in Express 5).
 // DO NOT pass mongoSanitize() as middleware directly: it reassigns req.query which is
 // a read-only getter in Express 5 and crashes every request with a TypeError.
@@ -102,7 +116,8 @@ app.use(compression());
 app.use(morgan("combined", { stream: logger.stream }));
 app.use(cors(corsOptions));
 app.use("/api", globalLimiter); // Apply global rate limit to all /api routes
-app.use("/api/auth", authLimiter); // Apply strict limit to auth routes
+// Strict auth limiter moved to specific routes (login/register) to allow profile/location updates
+
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/health", (req, res) =>
@@ -110,7 +125,7 @@ app.get("/health", (req, res) =>
 );
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
-app.get("/api/health", (req, res) => {
+app.get("/api/v1/health", (req, res) => {
   res.json({ 
     status: "ok", 
     timestamp: new Date().toISOString(),
@@ -118,14 +133,15 @@ app.get("/api/health", (req, res) => {
     uptime: process.uptime()
   });
 });
-app.use("/api/auth", authRoutes);
-app.use("/api/posts", postRoutes);
-app.use("/api/chats", chatRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/feedback", feedbackRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/upload", uploadRoutes);
-app.use("/api/config", configRoutes);
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/posts", postRoutes);
+app.use("/api/v1/chats", chatRoutes);
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/feedback", feedbackRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/upload", uploadRoutes);
+app.use("/api/v1/config", configRoutes);
+app.use("/api/v1/payments", paymentRoutes);
 
 // ─── Sentry Error Handler (must be AFTER routes but BEFORE other error handlers) ───
 Sentry.setupExpressErrorHandler(app);

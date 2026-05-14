@@ -11,6 +11,9 @@ import { scheduleBurn } from "../utils/burnQueue.js";
 import { sendPushNotification } from "../utils/pushNotifications.js";
 import { invalidateCache } from "../utils/cache.js";
 import { createNotification } from "../utils/notificationService.js";
+import { isCloudinaryUrl } from "../utils/uploadImage.js";
+import { checkAndAwardBadges } from "../utils/badgeService.js";
+import logger from "../utils/logger.js";
 
 // Helper to update post score (hot algorithm)
 const updatePostScore = (post) => {
@@ -22,7 +25,11 @@ const updatePostScore = (post) => {
 
 /* ---------------- CREATE POST ---------------- */
 export const createPost = async (req, res) => {
-  const { title, body, campus, type, burnAfter24h, image, eventDate, eventLocation, isPoll, pollOptions } = req.body;
+  const {
+    title, body, campus, type, burnAfter24h, image,
+    eventDate, eventLocation, offerBrand, offerDiscount, externalLink, isExclusive,
+    isPoll, pollOptions
+  } = req.body;
   if (!title || !campus) return res.status(400).json({ error: "Title and campus are required" });
 
   // ─── Double-Post Lock (Idempotency) ──────────────────────────────────────────
@@ -45,9 +52,12 @@ export const createPost = async (req, res) => {
   if (image && image.startsWith("data:")) {
     return res.status(400).json({ error: "Base64 images are not accepted. Upload to Cloudinary and send the URL.", code: "BASE64_REJECTED" });
   }
-  // Basic URL sanity check — must be http/https if provided
-  if (image && !/^https?:\/\/.+/.test(image)) {
-    return res.status(400).json({ error: "Invalid image URL format.", code: "INVALID_IMAGE_URL" });
+  // CDN Whitelist — Only allow images from our Cloudinary
+  if (image && !isCloudinaryUrl(image)) {
+    return res.status(400).json({
+      error: "Untrusted image source. Only Cloudinary images are allowed.",
+      code: "UNTRUSTED_IMAGE_SOURCE"
+    });
   }
 
   const moderation = checkContent(`${title} ${body || ""}`);
@@ -65,35 +75,59 @@ export const createPost = async (req, res) => {
 
   const postData = {
     title, body, campus, type: type || "all",
-    author: req.user._id, 
-    anonName, 
+    author: req.user._id,
+    anonName,
     anonAvatar,
-    image, eventDate, eventLocation, 
+    image, eventDate, eventLocation,
+    offerBrand, offerDiscount, externalLink, isExclusive,
     burnAfter24h: burnAfter24h || false,
     burnAt: burnAfter24h ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
     location: req.body.location || { type: "Point", coordinates: [0, 0] },
     isPoll: isPoll || false,
     pollOptions: isPoll && pollOptions ? pollOptions.map(opt => ({ text: opt, votes: 0 })) : [],
+    hashtags: `${title} ${body || ""}`.match(/#[a-zA-Z0-9_]+/g) 
+      ? [...new Set(`${title} ${body || ""}`.match(/#[a-zA-Z0-9_]+/g).map(t => t.toLowerCase()))] 
+      : [],
   };
 
   const post = await Post.create(postData);
   if (burnAfter24h) await scheduleBurn(post._id);
 
+  // ─── Parse Mentions (Max 5) ────────────────────────────────────────────────
+  const textToParse = `${title} ${body || ""}`;
+  const mentions = textToParse.match(/@[a-zA-Z0-9_]+/g);
+  if (mentions) {
+    const usernames = [...new Set(mentions.map(m => m.slice(1)))].slice(0, 5);
+    const mentionedUsers = await User.find({ name: { $in: usernames } }).select('_id');
+    for (const u of mentionedUsers) {
+      if (u._id.toString() !== req.user._id.toString()) {
+        createNotification({
+          recipient: u._id,
+          sender: req.user._id,
+          type: "mention",
+          title: "You were mentioned! 🏷️",
+          body: `Someone mentioned you in a new post.`,
+          data: { postId: post._id }
+        });
+      }
+    }
+  }
+
   // ─── Update user stats + streak ─────────────────────────────────────────────────────
   req.user.postCount += 1;
   req.user.karma += 5;
 
-  // Streak logic — compare calendar dates only (ignore time) to avoid timezone drift
+  // Streak logic — compare calendar dates in UTC to avoid timezone drift
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
 
   if (!req.user.lastPostDate) {
     // Very first post ever
     req.user.streak = 1;
   } else {
     const lastPost = new Date(req.user.lastPostDate);
-    lastPost.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((today - lastPost) / (1000 * 60 * 60 * 24));
+    lastPost.setUTCHours(0, 0, 0, 0);
+    const diffDays = Math.round((today.getTime() - lastPost.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
       // Already posted today — keep streak as-is (don't double-increment)
@@ -107,25 +141,9 @@ export const createPost = async (req, res) => {
   }
 
   req.user.lastPostDate = new Date();
+  await checkAndAwardBadges(req.user);
   await req.user.save();
 
-  // Award badges based on milestones
-  const updatedBadges = req.user.badges || [];
-  let badgesChanged = false;
-
-  if (req.user.postCount === 1 && !updatedBadges.includes("✍️ First Post")) {
-    req.user.badges.push("✍️ First Post");
-    badgesChanged = true;
-  }
-  if (req.user.streak >= 7 && !updatedBadges.includes("🔥 Week Streak")) {
-    req.user.badges.push("🔥 Week Streak");
-    badgesChanged = true;
-  }
-  if (post.isHot && !updatedBadges.includes("🌶️ Hot Poster")) {
-    req.user.badges.push("🌶️ Hot Poster");
-    badgesChanged = true;
-  }
-  if (badgesChanged) await req.user.save();
 
   // Invalidate feed and leaderboard cache so new post/karma appears immediately
   invalidateCache("/api/posts");
@@ -139,18 +157,37 @@ export const createPost = async (req, res) => {
 
 /* ---------------- GET ALL POSTS (lean for perf) ---------------- */
 export const getPosts = async (req, res) => {
-  const { campus, type, page = 1, limit = 10 } = req.query;
+  const { campus, type, cursor, limit = 10 } = req.query;
   let filter = { hidden: false };
   if (campus && campus !== "all") filter.campus = campus;
-  if (type && type !== "all") filter.type = type;
+  if (type && type !== "all") {
+    if (type.includes(",")) {
+      filter.type = { $in: type.split(",") };
+    } else {
+      filter.type = type;
+    }
+  }
+  if (cursor) {
+    filter._id = { $lt: cursor };
+  }
 
-  // ─── Blocked Users Filter ──────────────────────────────────────────────────
   if (req.user) {
     try {
-      const { default: Block } = await import("../models/block.model.js");
-      const blocks = await Block.find({ blocker: req.user._id }).select('blocked').lean();
-      if (blocks.length > 0) {
-        const blockedIds = blocks.map(b => b.blocked);
+      const { default: redis } = await import("../utils/redis.js");
+      const blockKey = `blocks:${req.user._id}`;
+      let blockedIds;
+      const cachedBlocks = await redis.get(blockKey);
+      
+      if (cachedBlocks) {
+        blockedIds = JSON.parse(cachedBlocks);
+      } else {
+        const { default: Block } = await import("../models/block.model.js");
+        const blocks = await Block.find({ blocker: req.user._id }).select('blocked').lean();
+        blockedIds = blocks.map(b => b.blocked);
+        await redis.set(blockKey, JSON.stringify(blockedIds), 'EX', 300);
+      }
+
+      if (blockedIds.length > 0) {
         filter.author = { $nin: blockedIds };
       }
     } catch (err) {
@@ -161,14 +198,28 @@ export const getPosts = async (req, res) => {
   const [posts, total] = await Promise.all([
     Post.find(filter)
       .hint({ campus: 1, hidden: 1, createdAt: -1 })
-      .populate("author", "bio isVerified")
+      .populate("author", "bio isVerified tags name avatar isPremium badges")
       .select("-reports")
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
+      .sort({ _id: -1 })
       .limit(parseInt(limit))
       .lean(),
     Post.countDocuments(filter),
   ]);
+
+  // Fetch top 3 contributors for campus
+  let topUserIds = [];
+  try {
+    const { default: redis } = await import("../utils/redis.js");
+    const topKey = `top3:${filter.campus || 'all'}`;
+    const cachedTop = await redis.get(topKey);
+    if (cachedTop) topUserIds = JSON.parse(cachedTop);
+    else {
+      const topUsersQuery = filter.campus ? { campus: filter.campus } : {};
+      const topUsers = await User.find(topUsersQuery).sort({ karma: -1 }).limit(3).select("_id").lean();
+      topUserIds = topUsers.map(u => u._id.toString());
+      await redis.set(topKey, JSON.stringify(topUserIds), 'EX', 3600); // cache 1 hour
+    }
+  } catch(e) {}
 
   // Batch check if current user has voted for these posts
   let postIdsWithVotes = new Set();
@@ -182,28 +233,42 @@ export const getPosts = async (req, res) => {
 
   const formattedPosts = posts.map(p => {
     const userId = req.user?._id?.toString();
-    const userVote = p.isPoll && userId ? p.pollVoters?.[userId] : null;
-    
+    const userVote = p.isPoll && userId && p.pollVoters ? (p.pollVoters[userId] ?? null) : null;
+    const isSaved = req.user ? req.user.savedPosts.some(sid => sid.toString() === p._id.toString()) : false;
+    const hasGone = req.user && p.goingBy ? p.goingBy.some(gid => gid.toString() === userId) : false;
+
     // Cleanup internal maps before sending to client
-    const { pollVoters, reactedBy, reports, author, ...rest } = p;
+    const { pollVoters, reactedBy, reports, goingBy, ...rest } = p;
+    
+    const authorId = rest.author?._id?.toString();
+    const isTopContributor = topUserIds.includes(authorId);
+    if (rest.author) {
+      rest.author.isTopContributor = isTopContributor;
+    }
 
     return {
       ...rest,
       hasVoted: postIdsWithVotes.has(p._id.toString()),
-      userVote: userVote !== undefined ? userVote : null
+      userVote,
+      isSaved,
+      hasGone,
+      isTopContributor
     };
   });
 
-  res.json({ posts: formattedPosts, total, page: parseInt(page), hasMore: total > page * limit });
+  const hasMore = posts.length === parseInt(limit);
+  const nextCursor = hasMore ? posts[posts.length - 1]._id : null;
+
+  res.json({ posts: formattedPosts, total, nextCursor, hasMore });
 };
 
 /* ---------------- GET SINGLE POST (lean) ---------------- */
 export const getPostById = async (req, res) => {
   const post = await Post.findById(req.params.id)
-    .select("-author -reports")
+    .select("-reports")
     .lean();
   if (!post || post.hidden) return res.status(404).json({ error: "Post not found" });
-  
+
   let hasVoted = false;
   if (req.user) {
     const vote = await Vote.findOne({ userId: req.user._id, postId: post._id }).lean();
@@ -211,12 +276,24 @@ export const getPostById = async (req, res) => {
   }
 
   const userId = req.user?._id?.toString();
-  const userVote = post.isPoll && userId ? post.pollVoters?.[userId] : null;
+  const userVote = post.isPoll && userId && post.pollVoters ? (post.pollVoters[userId] ?? null) : null;
+  const isSaved = req.user ? req.user.savedPosts.some(sid => sid.toString() === post._id.toString()) : false;
 
-  // Cleanup
-  const { pollVoters, reactedBy, reports, author, ...rest } = post;
+  // Cleanup - Keep author to allow profile navigation
+  const { pollVoters, reactedBy, reports, ...rest } = post;
 
-  res.json({ ...rest, hasVoted, userVote: userVote !== undefined ? userVote : null });
+  res.json({ ...rest, hasVoted, userVote, isSaved });
+};
+
+/* ---------------- VIEW POST ---------------- */
+export const viewPost = async (req, res) => {
+  try {
+    const post = await Post.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }, { new: true }).select("views");
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    res.json({ views: post.views });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
 /* ---------------- VOTE POST (toggle vote) ---------------- */
@@ -240,23 +317,33 @@ export const votePost = async (req, res) => {
   updatePostScore(post);
   await post.save();
 
-  // Karma logic
+  // Karma logic for author
   const postAuthor = await User.findByIdAndUpdate(
     post.author,
     { $inc: { karma: existingVote ? -1 : 1, upvotesReceived: existingVote ? -1 : 1 } },
     { new: true }
   );
 
-  // Award Legend badge when author's karma crosses 100
-  if (postAuthor && postAuthor.karma >= 100 && !postAuthor.badges.includes("🏆 Legend")) {
-    postAuthor.badges.push("🏆 Legend");
+  if (postAuthor && postAuthor.karma >= 100 && !postAuthor.isVerified) {
+    postAuthor.isVerified = true;
+    createNotification({
+      recipient: postAuthor._id,
+      sender: null,
+      type: "system",
+      title: "You are Verified! 🌟",
+      body: "Congratulations! You reached 100 Karma and earned the Verified checkmark."
+    });
+  }
+
+  if (postAuthor) {
+    await checkAndAwardBadges(postAuthor);
     await postAuthor.save();
   }
 
-  // Award Hot Poster badge to author when post becomes hot
-  if (post.isHot && postAuthor && !postAuthor.badges.includes("🌶️ Hot Poster")) {
-    postAuthor.badges.push("🌶️ Hot Poster");
-    await postAuthor.save();
+  // Track voter stats
+  if (!existingVote) {
+    req.user.upvotesGiven += 1;
+    await req.user.save();
   }
 
   // ─── Trigger Notification ──────────────────────────────────────────────────
@@ -306,7 +393,7 @@ export const votePoll = async (req, res) => {
     // 3. Atomic update: increment votes[index] and set pollVoters[userId]
     const updatedPost = await Post.findOneAndUpdate(
       { _id: postId, [`pollVoters.${userId}`]: { $exists: false } },
-      { 
+      {
         $inc: { [`pollOptions.${optionIndex}.votes`]: 1 },
         $set: { [`pollVoters.${userId}`]: optionIndex }
       },
@@ -347,7 +434,7 @@ export const voteBhandara = async (req, res) => {
       const oldVote = existingVote.vote;
       existingVote.vote = vote;
       await existingVote.save();
-      
+
       if (vote === 'yes') {
         post.bhandaraCountYes += 1;
         post.bhandaraCountNo = Math.max(0, post.bhandaraCountNo - 1);
@@ -367,7 +454,6 @@ export const voteBhandara = async (req, res) => {
   res.json({ bhandaraCountYes: post.bhandaraCountYes, bhandaraCountNo: post.bhandaraCountNo });
 };
 
-/* ---------------- STATS ---------------- */
 export const getStats = async (req, res) => {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -389,26 +475,138 @@ export const getStats = async (req, res) => {
   res.json({ totalPosts, todayPosts, totalUsers, dau, campusBreakdown });
 };
 
+export const getDetailedStats = async (req, res) => {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [topPosts, activityData] = await Promise.all([
+    // Top 5 posts by score in last 7 days
+    Post.find({ createdAt: { $gte: sevenDaysAgo }, hidden: false })
+      .sort({ upvotes: -1, commentCount: -1 })
+      .limit(5)
+      .select("title upvotes commentCount campus type")
+      .lean(),
+
+    // Activity by hour for last 24 hours
+    Post.aggregate([
+      { $match: { createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, hidden: false } },
+      {
+        $group: {
+          _id: { $hour: "$createdAt" },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id": 1 } }
+    ])
+  ]);
+
+  // Format activity data to ensure all hours are represented
+  const hourlyActivity = Array.from({ length: 24 }, (_, i) => {
+    const hourData = activityData.find(d => d._id === i);
+    return { hour: `${i}:00`, count: hourData ? hourData.count : 0 };
+  });
+
+  res.json({ topPosts, hourlyActivity });
+};
+
+export const toggleSavePost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(req.user._id);
+
+    const isSaved = user.savedPosts.some(p => p.toString() === id);
+    if (isSaved) {
+      user.savedPosts = user.savedPosts.filter(p => p.toString() !== id);
+    } else {
+      user.savedPosts.push(id);
+    }
+    await user.save();
+    res.json({ isSaved: !isSaved });
+  } catch (err) { res.status(500).json({ error: "Server error" }); }
+};
+
+export const getSavedPosts = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate({
+      path: "savedPosts",
+      match: { hidden: false },
+      populate: { path: "author", select: "name avatar isVerified" }
+    });
+
+    // Sort by latest first (reverse order of array if needed, or we can just return)
+    const posts = user.savedPosts.reverse();
+    res.json(posts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 /* ---------------- COMMENTS ---------------- */
 export const addComment = async (req, res) => {
-  const { content, image } = req.body;
+  const { content, image, parentId } = req.body;
   const post = await Post.findById(req.params.id);
   if (!post) return res.status(404).json({ error: "Post not found" });
 
   const moderation = checkContent(content);
   if (moderation.level === "bad") return res.status(400).json({ error: moderation.reason });
 
+  // CDN Whitelist for comments
+  if (image && !isCloudinaryUrl(image)) {
+    return res.status(400).json({ error: "Untrusted image source.", code: "UNTRUSTED_IMAGE_SOURCE" });
+  }
+
   const comment = await Comment.create({
-    postId: post._id, author: req.user._id,
-    anonName: req.user.name, 
+    postId: post._id,
+    author: req.user._id,
+    anonName: req.user.name,
     anonAvatar: req.user.avatar,
-    content, image,
+    content,
+    image,
+    parentId: parentId || null
   });
+
+  // ─── Parse Mentions (Max 5) ────────────────────────────────────────────────
+  const mentions = content.match(/@[a-zA-Z0-9_]+/g);
+  if (mentions) {
+    const usernames = [...new Set(mentions.map(m => m.slice(1)))].slice(0, 5);
+    const mentionedUsers = await User.find({ name: { $in: usernames } }).select('_id');
+    for (const u of mentionedUsers) {
+      if (u._id.toString() !== req.user._id.toString()) {
+        createNotification({
+          recipient: u._id,
+          sender: req.user._id,
+          type: "mention",
+          title: "You were mentioned! 🏷️",
+          body: `Someone mentioned you in a comment.`,
+          data: { postId: post._id }
+        });
+      }
+    }
+  }
 
   post.commentCount += 1;
   updatePostScore(post);
   await post.save();
-  await User.findByIdAndUpdate(req.user._id, { $inc: { commentsCount: 1, karma: 2 } });
+
+  // Update user stats
+  req.user.commentsCount = (req.user.commentsCount || 0) + 1;
+  req.user.karma += 2;
+  
+  if (req.user.karma >= 100 && !req.user.isVerified) {
+    req.user.isVerified = true;
+    createNotification({
+      recipient: req.user._id,
+      sender: null,
+      type: "system",
+      title: "You are Verified! 🌟",
+      body: "Congratulations! You reached 100 Karma and earned the Verified checkmark."
+    });
+  }
+  
+  await checkAndAwardBadges(req.user);
+  await req.user.save();
 
   // ─── Trigger Notification ──────────────────────────────────────────────────
   if (post.author.toString() !== req.user._id.toString()) {
@@ -435,7 +633,7 @@ export const getComments = async (req, res) => {
 
   const [comments, total] = await Promise.all([
     Comment.find({ postId: req.params.id })
-      .select("-author") // Privacy: Hide real author ID in comments
+      .populate('author', 'isVerified')
       .sort({ createdAt: 1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -443,7 +641,13 @@ export const getComments = async (req, res) => {
     Comment.countDocuments({ postId: req.params.id }),
   ]);
 
-  res.json({ comments, total, hasMore: total > skip + comments.length });
+  const formattedComments = comments.map(c => {
+    const authorIsVerified = c.author?.isVerified || false;
+    const { author, ...rest } = c;
+    return { ...rest, authorIsVerified, author: author?._id }; // Still return author ID for ownership checks
+  });
+
+  res.json({ comments: formattedComments, total, hasMore: total > skip + comments.length });
 };
 
 export const deleteComment = async (req, res) => {
@@ -545,10 +749,10 @@ export const reportPost = async (req, res) => {
     // 2. Increment report count in the post itself for auto-hide logic
     post.reportCount = (post.reportCount || 0) + 1;
     if (post.reportCount >= 5) post.hidden = true;
-    
+
     // Also keep a local reference in reports array for backward compatibility/admin views
     post.reports.push({ reason, reporter: userId });
-    
+
     await post.save();
     res.json({ message: "Reported successfully" });
   } catch (error) {
@@ -558,17 +762,22 @@ export const reportPost = async (req, res) => {
 
 /* ---------------- MY POSTS ---------------- */
 export const getMyPosts = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
+  const { cursor, limit = 10 } = req.query;
+  const filter = { author: req.user._id, hidden: false };
+  if (cursor) filter._id = { $lt: cursor };
+
   const [posts, total] = await Promise.all([
-    Post.find({ author: req.user._id, hidden: false })
-      .select("-author -reports -reactedBy") // Privacy: hide real author ID
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
+    Post.find(filter)
+      .select("-reports -reactedBy") // Keep author ID for profile navigation
+      .sort({ _id: -1 })
       .limit(parseInt(limit))
       .lean(),
     Post.countDocuments({ author: req.user._id, hidden: false }),
   ]);
-  res.json({ posts, total, page: parseInt(page), hasMore: total > page * limit });
+  const hasMore = posts.length === parseInt(limit);
+  const nextCursor = hasMore ? posts[posts.length - 1]._id : null;
+  
+  res.json({ posts, total, nextCursor, hasMore });
 };
 
 /* ---------------- SEARCH ---------------- */
@@ -577,14 +786,17 @@ export const searchPosts = async (req, res) => {
   if (!q) return res.json([]);
 
   try {
-    const posts = await Post.find(
-      { $text: { $search: q }, hidden: false },
-      { score: { $meta: "textScore" } }
-    )
-    .sort({ score: { $meta: "textScore" } })
-    .select("-author -reports -reactedBy")
-    .limit(20)
-    .lean();
+    const posts = await Post.find({
+      $text: { $search: q },
+      hidden: false
+    }, {
+      score: { $meta: "textScore" }
+    })
+      .sort({ score: { $meta: "textScore" } })
+      .populate("author", "bio isVerified name avatar")
+      .select("-reports -reactedBy")
+      .limit(20)
+      .lean();
 
     res.json(posts);
   } catch (error) {
@@ -601,9 +813,9 @@ export const searchUsers = async (req, res) => {
       name: { $regex: q, $options: "i" },
       // Only show public users or whatever logic
     })
-    .select("name avatar campus karma badges")
-    .limit(10)
-    .lean();
+      .select("name avatar campus karma")
+      .limit(10)
+      .lean();
 
     res.json(users);
   } catch (error) {
@@ -631,12 +843,12 @@ export const dismissReports = async (req, res) => {
     }
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: "Post not found" });
-    
+
     post.reports = [];
     post.reportCount = 0;
     post.hidden = false;
     await post.save();
-    
+
     res.json({ message: "Reports dismissed" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -644,7 +856,7 @@ export const dismissReports = async (req, res) => {
 };
 export const getUserPosts = async (req, res) => {
   const { userId } = req.params;
-  const { page = 1, limit = 10 } = req.query;
+  const { cursor, limit = 10 } = req.query;
 
   const targetUser = await User.findById(userId).select("isPrivate").lean();
   if (!targetUser) return res.status(404).json({ error: "User not found" });
@@ -653,14 +865,59 @@ export const getUserPosts = async (req, res) => {
     return res.json({ posts: [], total: 0, isPrivate: true });
   }
 
+  const filter = { author: userId, hidden: false };
+  if (cursor) filter._id = { $lt: cursor };
+
   const [posts, total] = await Promise.all([
-    Post.find({ author: userId, hidden: false })
-      .select("-author -reports -reactedBy")
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
+    Post.find(filter)
+      .select("-reports -reactedBy")
+      .sort({ _id: -1 })
       .limit(parseInt(limit))
       .lean(),
     Post.countDocuments({ author: userId, hidden: false }),
   ]);
-  res.json({ posts, total, page: parseInt(page), hasMore: total > page * limit, isPrivate: false });
+  
+  const hasMore = posts.length === parseInt(limit);
+  const nextCursor = hasMore ? posts[posts.length - 1]._id : null;
+
+  res.json({ posts, total, nextCursor, hasMore, isPrivate: false });
+};
+
+export const toggleGoing = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const post = await Post.findById(id);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    const hasGone = post.goingBy ? post.goingBy.some(uid => uid.toString() === req.user._id.toString()) : false;
+
+    if (hasGone) {
+      post.goingBy = post.goingBy.filter(uid => uid.toString() !== req.user._id.toString());
+      post.goingCount = Math.max(0, post.goingCount - 1);
+    } else {
+      if (!post.goingBy) post.goingBy = [];
+      post.goingBy.push(req.user._id);
+      post.goingCount = (post.goingCount || 0) + 1;
+    }
+
+    await post.save();
+    res.json({ hasGone: !hasGone, goingCount: post.goingCount });
+  } catch (err) { res.status(500).json({ error: "Server error" }); }
+};
+
+/* ---------------- TRENDING TAGS ---------------- */
+export const getTrendingTags = async (req, res) => {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const tags = await Post.aggregate([
+      { $match: { createdAt: { $gte: twentyFourHoursAgo }, hidden: false } },
+      { $unwind: "$hashtags" },
+      { $group: { _id: "$hashtags", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    res.json(tags.map(t => ({ tag: t._id, count: t.count })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };

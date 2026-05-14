@@ -2,16 +2,21 @@ import mongoose from "mongoose";
 
 const postSchema = new mongoose.Schema({
   title: { type: String, required: true, maxlength: 120 },
-  body: { type: String, maxlength: 500 },
+  body: { type: String, maxlength: 5000 },
   campus: { type: String, required: true },
   type: { type: String, required: true },
-  vibe: String,
   author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   anonName: String,
   anonAvatar: String,
   image: String,
   eventDate: Date,
   eventLocation: String,
+  offerBrand: String,
+  offerDiscount: String,
+  externalLink: String,
+  isExclusive: { type: Boolean, default: false },
+  views: { type: Number, default: 0 },
+  hashtags: [{ type: String }],
   upvotes: { type: Number, default: 0 },
   commentCount: { type: Number, default: 0 },
   reactions: {
@@ -46,6 +51,8 @@ const postSchema = new mongoose.Schema({
   },
   bhandaraCountYes: { type: Number, default: 0 },
   bhandaraCountNo: { type: Number, default: 0 },
+  goingCount: { type: Number, default: 0 },
+  goingBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   location: {
     type: { type: String, enum: ["Point"], default: "Point" },
     coordinates: { type: [Number], default: [0, 0] }, // [longitude, latitude]

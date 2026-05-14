@@ -13,9 +13,9 @@ export const useOtherProfile = (userId: string) => {
 export const useUserPosts = (userId: string) => {
   return useInfiniteQuery({
     queryKey: ['user-posts', userId],
-    queryFn: ({ pageParam = 1 }) => postsApi.getUserPosts(userId, Number(pageParam)),
-    getNextPageParam: (lastPage: any) => lastPage.hasMore ? lastPage.page + 1 : undefined,
-    initialPageParam: 1,
+    queryFn: ({ pageParam = null }: { pageParam?: string | null }) => postsApi.getUserPosts(userId, pageParam || undefined),
+    getNextPageParam: (lastPage: any) => lastPage.hasMore ? lastPage.nextCursor : undefined,
+    initialPageParam: null,
     enabled: !!userId,
   });
 };

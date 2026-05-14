@@ -4,13 +4,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
 import { useMessages, useSendMessage } from '../../src/hooks/useChat';
+import { useBlockUser } from '../../src/hooks/useAuth';
 import { useAuthStore } from '../../src/store/authStore';
 import * as ImagePicker from 'expo-image-picker';
 import EmojiPicker from '../../src/components/EmojiPicker';
 import { uploadToCloudinary } from '../../src/utils/uploadToCloudinary';
+import { Ionicons } from '@expo/vector-icons';
+import { formatMessageTime } from '../../src/utils/time';
 
 export default function ChatRoomScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, name, isGroup } = useLocalSearchParams();
   const router = useRouter();
   const { isDark } = useUIStore();
   const themeColors = getColors(isDark);
@@ -24,9 +27,19 @@ export default function ChatRoomScreen() {
 
   const { data, isLoading } = useMessages(id as string);
   const { mutate: sendMessage, isPending } = useSendMessage();
+  const { mutate: blockUser } = useBlockUser();
 
   const messages = data?.messages || [];
   const chatInfo = data?.chat;
+
+  // Header Logic
+  let otherName = (name as string) || "Anonymous";
+  let otherAvatar = isGroup === 'true' ? "💬" : "👤";
+  
+  if (!isGroup && chatInfo?.identities) {
+    otherName = chatInfo.identities.other?.name || "Anonymous";
+    otherAvatar = chatInfo.identities.other?.avatar || "👤";
+  }
 
   const pickImage = async () => {
     try {
@@ -72,21 +85,37 @@ export default function ChatRoomScreen() {
     }
   };
 
-  // Determine other user's identity to show in header
-  let otherName = "Anonymous";
-  let otherAvatar = "👤";
-  
-  if (chatInfo?.identities) {
-    otherName = chatInfo.identities.other?.name || "Anonymous";
-    otherAvatar = chatInfo.identities.other?.avatar || "👤";
-  }
-
   const handleSend = () => {
     if (!inputText.trim() && !image) return;
     sendMessage({ chatId: id as string, content: inputText, image: image || undefined });
     setInputText('');
     setImage('');
     setShowEmoji(false);
+  };
+  
+  const handleBlock = () => {
+    const otherId = chatInfo?.identities?.other?.id;
+    if (!otherId) return;
+
+    Alert.alert(
+      "Block User?",
+      `Are you sure you want to block ${otherName}? You will no longer see their posts and this chat will be archived.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Block", 
+          style: "destructive",
+          onPress: () => {
+            blockUser(otherId, {
+              onSuccess: () => {
+                router.back();
+                Alert.alert("Blocked", "User has been blocked.");
+              }
+            });
+          }
+        }
+      ]
+    );
   };
 
   if (isLoading) {
@@ -104,15 +133,30 @@ export default function ChatRoomScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Header */}
-        <View style={[s.header, { borderBottomColor: themeColors.bdr, backgroundColor: themeColors.card }]}>
+        <View style={[s.header, { borderBottomColor: themeColors.bdr, backgroundColor: themeColors.bg }]}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-            <Text style={[s.backTxt, { color: themeColors.txt }]}>← Back</Text>
+            <Ionicons name="chevron-back" size={28} color={themeColors.txt} />
           </TouchableOpacity>
-          <View style={s.headerCenter}>
-            <Text style={{ fontSize: 24 }}>{otherAvatar}</Text>
-            <Text style={[s.headerName, { color: themeColors.txt }]}>{otherName}</Text>
+          <TouchableOpacity 
+            style={s.headerCenter}
+            onPress={() => {
+              const otherId = chatInfo?.identities?.other?.id;
+              if (otherId) router.push(`/user/${otherId}`);
+            }}
+          >
+            <View style={[s.headerAvatar, { backgroundColor: themeColors.card2 }]}>
+              <Text style={{ fontSize: 18 }}>{otherAvatar}</Text>
+            </View>
+            <View>
+              <Text style={[s.headerName, { color: themeColors.txt }]}>{otherName}</Text>
+              <Text style={[s.statusTxt, { color: themeColors.txt3 }]}>Last seen recently</Text>
+            </View>
+          </TouchableOpacity>
+          <View style={s.headerRight}>
+            <TouchableOpacity onPress={handleBlock}>
+              <Ionicons name="shield-outline" size={20} color={themeColors.danger} />
+            </TouchableOpacity>
           </View>
-          <View style={s.backBtn} /> {/* Placeholder for balance */}
         </View>
 
         {/* Messages */}
@@ -125,6 +169,8 @@ export default function ChatRoomScreen() {
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
           renderItem={({ item }) => {
             const isMe = item.senderType === 'me';
+            const isRead = item.readBy && item.readBy.length > 1;
+
             return (
               <View style={[s.msgWrapper, isMe ? s.msgRight : s.msgLeft]}>
                 <View style={[
@@ -136,12 +182,29 @@ export default function ChatRoomScreen() {
                   )}
                   <Text style={[s.msgText, { color: isMe ? '#FFF' : themeColors.txt }]}>{item.content}</Text>
                 </View>
+                <View style={[s.msgMeta, isMe ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' }]}>
+                  <Text style={[s.msgTime, { color: themeColors.txt3 }]}>
+                    {formatMessageTime(item.createdAt)}
+                  </Text>
+                  {isMe && (
+                    <Ionicons 
+                      name={isRead ? "checkmark-done" : "checkmark"} 
+                      size={14} 
+                      color={isRead ? themeColors.ogi : themeColors.txt3} 
+                      style={{ marginLeft: 4 }}
+                    />
+                  )}
+                </View>
               </View>
             );
           }}
           ListEmptyComponent={() => (
             <View style={s.empty}>
-              <Text style={s.emptyTxt}>Start the conversation anonymously...</Text>
+              <Text style={{ fontSize: 40, marginBottom: 16 }}>👋</Text>
+              <Text style={[s.emptyTxt, { color: themeColors.txt2 }]}>Break the ice!</Text>
+              <Text style={[s.emptyDesc, { color: themeColors.txt3 }]}>
+                Messages are anonymous and end-to-end encrypted. Be yourself.
+              </Text>
             </View>
           )}
         />
@@ -200,22 +263,27 @@ export default function ChatRoomScreen() {
 }
 
 const s = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1 },
-  backBtn: { width: 60 },
-  backTxt: { fontSize: 16, fontWeight: '600' },
-  headerCenter: { alignItems: 'center' },
-  headerName: { fontFamily: 'Syne_700Bold', fontSize: 16, marginTop: 4 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  headerName: { fontSize: 16, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
+  statusTxt: { fontSize: 11, marginTop: 1 },
+  headerRight: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   listContent: { padding: 16, paddingBottom: 32 },
-  msgWrapper: { marginBottom: 12, width: '100%' },
-  msgRight: { alignItems: 'flex-end' },
-  msgLeft: { alignItems: 'flex-start' },
-  msgBubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
+  msgWrapper: { marginBottom: 16, maxWidth: '85%' },
+  msgLeft: { alignSelf: 'flex-start' },
+  msgRight: { alignSelf: 'flex-end' },
+  msgBubble: { borderRadius: 18, padding: 12, minWidth: 60 },
   myBubble: { borderBottomRightRadius: 4 },
   theirBubble: { borderBottomLeftRadius: 4 },
-  msgText: { fontSize: 15, lineHeight: 20, fontFamily: 'PlusJakartaSans_400Regular' },
-  msgImg: { width: 200, height: 150, borderRadius: 12, marginBottom: 8 },
-  empty: { alignItems: 'center', marginTop: 40 },
-  emptyTxt: { color: '#888', fontStyle: 'italic' },
+  msgText: { fontSize: 15, lineHeight: 22, fontFamily: 'PlusJakartaSans_500Medium' },
+  msgMeta: { flexDirection: 'row', alignItems: 'center', marginTop: 4, paddingHorizontal: 4 },
+  msgTime: { fontSize: 10, fontWeight: '600' },
+  msgImg: { width: 220, height: 160, borderRadius: 14, marginBottom: 8 },
+  empty: { alignItems: 'center', marginTop: 60 },
+  emptyTxt: { fontSize: 26, fontWeight: '900', marginBottom: 8 },
+  emptyDesc: { fontSize: 13, textAlign: 'center', paddingHorizontal: 50, lineHeight: 20 },
   inputWrap: { padding: 12, borderTopWidth: 1 },
   input: { flex: 1, minHeight: 40, maxHeight: 100, borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15 },
   mediaBtn: { height: 40, width: 40, justifyContent: 'center', alignItems: 'center' },

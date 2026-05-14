@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, AlertCircle, Users, LogOut } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, Users, LogOut, Megaphone } from 'lucide-react';
 
 const Sidebar = ({ onLogout }) => {
   return (
@@ -30,6 +30,7 @@ const Sidebar = ({ onLogout }) => {
         <SidebarItem to="/" icon={<LayoutDashboard size={20} />} label="Dashboard" />
         <SidebarItem to="/reports" icon={<AlertCircle size={20} />} label="Reports" />
         <SidebarItem to="/users" icon={<Users size={20} />} label="Users" />
+        <SidebarItem to="/broadcast" icon={<Megaphone size={20} />} label="Broadcast" />
       </nav>
 
       <div style={{ marginTop: 'auto' }}>

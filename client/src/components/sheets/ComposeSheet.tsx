@@ -7,20 +7,24 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DateTimePicker, { DateTimePickerAndroid, DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { Colors, getColors, vibeStyle } from '../../theme/colors';
+import { getColors } from '../../theme/colors';
 import { useUIStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { useCreatePost } from '../../hooks/usePosts';
-import { CAMPUSES_LIST, detectVibe, checkContent, POST_TYPES } from '../../constants';
+import { CAMPUSES_LIST, checkContent, POST_TYPES } from '../../constants';
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 import type { Campus } from '../../types';
+import { requestLocation } from '../../hooks/useLocation';
 
 const COMPOSE_TITLES: Record<string, string> = {
+  all: 'Start a discussion 💬',
   thought: 'Start a discussion 💬',
+  discussion: 'Open a topic 🗣️',
   confess: 'Anonymous confession 🕳️',
   events:  'Post an event 📅',
+  offers:  'Post an offer 💳',
   bhandara: 'Post a bhandara 🍛',
-  place:   'Placement discussion 💼',
+  stories: 'Tell a story 📖',
 };
 
 type VibeStyleResult = { label: string; color: string; bg: string } | null;
@@ -52,19 +56,19 @@ export default function ComposeSheet() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [tempImageUri, setTempImageUri] = useState('');
 
+  // Offer/Event specific
+  const [offerBrand, setOfferBrand] = useState('');
+  const [offerDiscount, setOfferDiscount] = useState('');
+  const [externalLink, setExternalLink] = useState(''); // for tickets or offers
+  const [isExclusive, setIsExclusive] = useState(false);
+
 
   useEffect(() => {
     if (showComposeSheet) {
       (async () => {
         if (Platform.OS === 'web') return;
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          let loc = await Location.getCurrentPositionAsync({});
-          setUserLocation({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude
-          });
-        }
+        const loc = await requestLocation();
+        if (loc) setUserLocation(loc);
       })();
     }
   }, [showComposeSheet]);
@@ -210,7 +214,11 @@ export default function ComposeSheet() {
         image: cdnUrl || undefined,
         eventDate: isEvent && dateSet ? eventDate.toISOString() : undefined,
         eventLocation: isEvent ? eventLocation.trim() || undefined : undefined,
-        campus: user?.campus || 'all',
+        offerBrand: composeType === 'offers' ? offerBrand.trim() || undefined : undefined,
+        offerDiscount: composeType === 'offers' ? offerDiscount.trim() || undefined : undefined,
+        externalLink: (isEvent || composeType === 'offers') ? externalLink.trim() || undefined : undefined,
+        isExclusive: composeType === 'offers' ? isExclusive : undefined,
+        campus: user?.campus!,
         type: composeType,
         burnAfter24h: burn,
         isPoll,
@@ -224,8 +232,9 @@ export default function ComposeSheet() {
           closeComposeSheet();
         },
         onError: (error: any) => {
+          console.error('Post creation error:', error);
           const msg = error?.response?.data?.error || error?.message || 'Something went wrong';
-          Alert.alert('Post Failed', msg);
+          Alert.alert('Post Failed', `${msg}\n\nType: ${composeType}\nCampus: ${user?.campus}`);
         }
       }
     );
@@ -233,6 +242,7 @@ export default function ComposeSheet() {
 
   const handleClose = () => {
     setTitle(''); setBody(''); setImageUri(''); setCdnUrl(''); setDateSet(false); setBurn(false); setIsPoll(false);
+    setOfferBrand(''); setOfferDiscount(''); setExternalLink(''); setIsExclusive(false);
     closeComposeSheet();
   };
 
@@ -245,7 +255,12 @@ export default function ComposeSheet() {
             
             <View style={s.sHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <TouchableOpacity onPress={handleClose} style={s.closeBtn}>
+                <TouchableOpacity 
+                  onPress={handleClose} 
+                  style={s.closeBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close compose sheet"
+                >
                   <Text style={{ color: themeColors.txt3, fontSize: 18 }}>✕</Text>
                 </TouchableOpacity>
                 <Text style={[s.title, { color: themeColors.txt }]}>New Post</Text>
@@ -255,6 +270,9 @@ export default function ComposeSheet() {
                 style={[s.topPostBtn, { backgroundColor: themeColors.ogi }, (isPending || !title.trim()) && { opacity: 0.6 }]} 
                 onPress={handleSubmit} 
                 disabled={isPending || !title.trim()}
+                accessibilityRole="button"
+                accessibilityLabel="Post your content"
+                accessibilityState={{ disabled: isPending || !title.trim() }}
               >
                 {isPending ? (
                   <ActivityIndicator size="small" color="#FFF" />
@@ -280,6 +298,8 @@ export default function ComposeSheet() {
                     style={[s.eInp, { backgroundColor: themeColors.bg, borderColor: themeColors.bdr }]} 
                     onPress={handleOpenPicker}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Select event date and time"
                   >
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: themeColors.card3 || '#1A1A1A', alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ fontSize: 20 }}>📅</Text>
@@ -319,24 +339,115 @@ export default function ComposeSheet() {
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                     <View style={[s.eInp, { flex: 1, borderColor: themeColors.bdr }]}>
                       <Text style={{ fontSize: 16 }}>📍</Text>
-                      <TextInput style={{ flex: 1, color: themeColors.txt, padding: 0 }} placeholder="Location" placeholderTextColor={themeColors.txt3} value={eventLocation} onChangeText={setEventLocation} />
+                      <TextInput 
+                        style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
+                        placeholder="Location" 
+                        placeholderTextColor={themeColors.txt3} 
+                        value={eventLocation} 
+                        onChangeText={setEventLocation} 
+                        accessibilityLabel="Event location input"
+                      />
                     </View>
                     <TouchableOpacity style={[s.locBtn, { borderColor: themeColors.bdr }]} onPress={handleGetLocation}>
                       {locationLoading ? <ActivityIndicator size="small" color={themeColors.ogi} /> : <Text style={{ fontSize: 18 }}>🎯</Text>}
                     </TouchableOpacity>
                   </View>
+                  
+                  {composeType === 'events' && (
+                    <View style={[s.eInp, { marginTop: 10, borderColor: themeColors.bdr }]}>
+                      <Text style={{ fontSize: 16 }}>🔗</Text>
+                      <TextInput 
+                        style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
+                        placeholder="Registration / Ticket Link (Optional)" 
+                        placeholderTextColor={themeColors.txt3} 
+                        value={externalLink} 
+                        onChangeText={setExternalLink} 
+                      />
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {composeType === 'offers' && (
+                <View style={[s.eventFields, { backgroundColor: themeColors.card2, padding: 12, borderRadius: 16, marginBottom: 16 }]}>
+                  <View style={[s.eInp, { borderColor: themeColors.bdr }]}>
+                    <Text style={{ fontSize: 16 }}>🏢</Text>
+                    <TextInput 
+                      style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
+                      placeholder="Brand Name (e.g. Chai Sutta Bar)" 
+                      placeholderTextColor={themeColors.txt3} 
+                      value={offerBrand} 
+                      onChangeText={setOfferBrand} 
+                    />
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <View style={[s.eInp, { flex: 1, borderColor: themeColors.bdr }]}>
+                      <Text style={{ fontSize: 16 }}>🏷️</Text>
+                      <TextInput 
+                        style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
+                        placeholder="Discount (e.g. 20% OFF)" 
+                        placeholderTextColor={themeColors.txt3} 
+                        value={offerDiscount} 
+                        onChangeText={setOfferDiscount} 
+                      />
+                    </View>
+                    <View style={[s.eInp, { flex: 1, borderColor: themeColors.bdr }]}>
+                      <Text style={{ fontSize: 16 }}>🔗</Text>
+                      <TextInput 
+                        style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
+                        placeholder="Offer Link (Optional)" 
+                        placeholderTextColor={themeColors.txt3} 
+                        value={externalLink} 
+                        onChangeText={setExternalLink} 
+                      />
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingHorizontal: 4 }}>
+                    <Text style={{ color: themeColors.txt, fontWeight: '700' }}>Loona Exclusive?</Text>
+                    <Switch 
+                      value={isExclusive} 
+                      onValueChange={setIsExclusive} 
+                      trackColor={{ false: themeColors.bdr, true: '#c8f53a' }} 
+                    />
+                  </View>
                 </View>
               )}
 
               <TextInput
-                style={[s.ta, { color: themeColors.txt }]}
-                placeholder={isPoll ? "Ask a question for your poll..." : "What's happening? kuch bhi likho..."}
+                style={[s.ta, { color: themeColors.txt, fontWeight: composeType === 'stories' ? '800' : '400' }]}
+                placeholder={
+                  composeType === 'stories' ? "Story Title (e.g., Late night library secret...)" :
+                  composeType === 'discussion' ? "What's the topic? (e.g., Is coding dying?)" :
+                  isPoll ? "Ask a question for your poll..." : "Write your post here..."
+                }
                 placeholderTextColor={themeColors.txt3}
                 value={title}
                 onChangeText={setTitle}
+                maxLength={120}
                 multiline
                 autoFocus
+                accessibilityLabel="Post title input"
               />
+
+              {(composeType === 'stories' || composeType === 'discussion' || !!body) && (
+                <>
+                  <TextInput
+                    style={[s.bodyTa, { color: themeColors.txt2 }]}
+                    placeholder={composeType === 'stories' ? "Tell your full story here..." : "Add more details..."}
+                    placeholderTextColor={themeColors.txt3}
+                    value={body}
+                    onChangeText={setBody}
+                    maxLength={(composeType === 'stories' || composeType === 'discussion') ? 5000 : 500}
+                    multiline
+                    accessibilityLabel="Post body input"
+                  />
+                  {(composeType === 'stories' || composeType === 'discussion') && (
+                    <Text style={[s.charCount, { color: body.length > 4500 ? '#EF4444' : themeColors.txt3 }]}>
+                      {body.length} / 5000
+                    </Text>
+                  )}
+                </>
+              )}
 
               {imageUri && (
                 <View style={s.previewContainer}>
@@ -392,6 +503,9 @@ export default function ComposeSheet() {
                     key={t.value}
                     style={[s.chip, { backgroundColor: composeType === t.value ? themeColors.ogi : themeColors.card2 }]} 
                     onPress={() => setComposeType(t.value as any)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select post type: ${t.label}`}
+                    accessibilityState={{ selected: composeType === t.value }}
                   >
                     <Text style={[s.chipTxt, { color: composeType === t.value ? '#FFF' : themeColors.txt }]}>{t.icon} {t.label}</Text>
                   </TouchableOpacity>
@@ -444,7 +558,8 @@ const s = StyleSheet.create({
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
   avWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   authorTxt: { fontSize: 13 },
-  ta: { fontSize: 18, lineHeight: 26, minHeight: 100, textAlignVertical: 'top', fontFamily: 'PlusJakartaSans_400Regular' },
+  ta: { fontSize: 18, lineHeight: 26, minHeight: 60, textAlignVertical: 'top', fontFamily: 'PlusJakartaSans_400Regular' },
+  bodyTa: { fontSize: 15, lineHeight: 22, marginTop: 12, minHeight: 120, textAlignVertical: 'top' },
   previewContainer: { width: '100%', height: 220, borderRadius: 20, overflow: 'hidden', marginTop: 10, position: 'relative' },
   preview: { width: '100%', height: '100%' },
   upOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
@@ -472,4 +587,5 @@ const s = StyleSheet.create({
   topPostBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   topPostBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
   confirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  charCount: { fontSize: 11, fontWeight: '600', textAlign: 'right', marginTop: 4, marginBottom: 8 },
 });

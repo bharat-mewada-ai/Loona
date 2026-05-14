@@ -52,9 +52,19 @@ export const postsApi = {
     return data;
   },
 
+  getTrendingTags: async (): Promise<{ tag: string; count: number }[]> => {
+    const { data } = await client.get<{ tag: string; count: number }[]>('/posts/trending-tags');
+    return data;
+  },
+
   // ── Create ──────────────────────────────────────────────────────────────────
   createPost: async (payload: CreatePostDto): Promise<Post> => {
     const { data } = await client.post<Post>('/posts', payload);
+    return data;
+  },
+
+  viewPost: async (id: string): Promise<{ views: number }> => {
+    const { data } = await client.post<{ views: number }>(`/posts/${id}/view`);
     return data;
   },
 
@@ -95,8 +105,8 @@ export const postsApi = {
   },
 
   // ── Comments ────────────────────────────────────────────────────────────────
-  addComment: async (id: string, content: string, image?: string): Promise<any> => {
-    const { data } = await client.post(`/posts/${id}/comments`, { content, image });
+  addComment: async (id: string, content: string, image?: string, parentId?: string): Promise<any> => {
+    const { data } = await client.post(`/posts/${id}/comments`, { content, image, parentId });
     return data;
   },
 
@@ -118,8 +128,23 @@ export const postsApi = {
     return data;
   },
 
-  getUserPosts: async (userId: string, page = 1): Promise<PaginatedPosts> => {
-    const { data } = await client.get<PaginatedPosts>(`/posts/user/${userId}`, { params: { page } });
+  getUserPosts: async (userId: string, cursor?: string): Promise<PaginatedPosts> => {
+    const { data } = await client.get<PaginatedPosts>(`/posts/user/${userId}`, { params: { cursor } });
+    return data;
+  },
+  
+  toggleSave: async (id: string): Promise<{ saved: boolean }> => {
+    const { data } = await client.post<{ saved: boolean }>(`/posts/${id}/save`);
+    return data;
+  },
+  
+  getSavedPosts: async (): Promise<Post[]> => {
+    const { data } = await client.get<Post[]>('/posts/saved');
+    return data;
+  },
+
+  toggleGoing: async (id: string): Promise<{ hasGone: boolean; goingCount: number }> => {
+    const { data } = await client.post<{ hasGone: boolean; goingCount: number }>(`/posts/${id}/going`);
     return data;
   },
 };

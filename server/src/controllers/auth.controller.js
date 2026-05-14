@@ -1,4 +1,7 @@
 import User from "../models/user.model.js";
+import Post from "../models/post.model.js";
+import Comment from "../models/comment.model.js";
+import Chat from "../models/chat.model.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import axios from "axios";
@@ -10,7 +13,7 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // --- GOOGLE OAUTH LOGIN -----------------------------------------------------
 export const googleLogin = async (req, res) => {
-  const { token, campus } = req.body;
+  const { token, campus, expoPushToken } = req.body;
   logger.info(`[GoogleLogin] Start - Token exists: ${!!token}, Campus: ${campus}`);
 
   try {
@@ -73,27 +76,48 @@ export const googleLogin = async (req, res) => {
       if (user) {
         // Link the existing account to this googleId
         user.googleId = googleId;
-        await user.save();
+        try {
+          await user.save();
+        } catch (saveErr) {
+          // If save fails due to race condition (googleId already exists on another doc), fetch that doc
+          if (saveErr.code === 11000) {
+            user = await User.findOne({ googleId });
+          } else {
+            throw saveErr;
+          }
+        }
       } else {
         // Truly new user
         if (!campus) return res.status(400).json({ error: "Campus is required for new users" });
         
         const anonName = "Potato_" + Math.floor(Math.random() * 9000 + 1000);
-        user = await User.create({
-          googleId,
-          email,
-          campus,
-          name: anonName,
-          avatar: "🦊",
-        });
+        try {
+          user = await User.create({
+            googleId,
+            email,
+            campus,
+            name: anonName,
+            avatar: "🦊",
+          });
+        } catch (createErr) {
+          // If creation fails due to race condition, fetch the user who won the race
+          if (createErr.code === 11000) {
+            user = await User.findOne({ googleId });
+          } else {
+            throw createErr;
+          }
+        }
       }
     }
 
     const accessToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
     const refreshToken = jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: "30d" });
 
-    // Store refresh token in user document
+    // Store refresh token and push token in user document
     user.refreshTokens.push(refreshToken);
+    if (expoPushToken && expoPushToken.startsWith("ExponentPushToken[")) {
+      user.expoPushToken = expoPushToken;
+    }
     // Keep only last 5 tokens (limit devices)
     if (user.refreshTokens.length > 5) user.refreshTokens.shift();
     await user.save();
@@ -171,11 +195,19 @@ export const getMe = async (req, res) => {
   const userObj = req.user.toObject();
   if (!userObj.tags) userObj.tags = [];
 
-  // Calculate campus rank
-  const rank = await User.countDocuments({
-    campus: req.user.campus,
-    karma: { $gt: req.user.karma }
-  }) + 1;
+  // Calculate campusRank with 5 min Redis Cache
+  const { default: redis } = await import("../utils/redis.js");
+  const rankKey = `campusRank:${req.user.campus}:${req.user.karma}`;
+  let rank = await redis.get(rankKey);
+  if (!rank) {
+    rank = await User.countDocuments({
+      campus: req.user.campus,
+      karma: { $gt: req.user.karma }
+    }) + 1;
+    await redis.set(rankKey, rank, 'EX', 300);
+  } else {
+    rank = parseInt(rank, 10);
+  }
 
   userObj.campusRank = rank;
   res.json(userObj);
@@ -210,6 +242,7 @@ export const getLeaderboard = async (req, res) => {
       ]),
       User.find().sort({ karma: -1 }).limit(10).select("name avatar karma campus").lean(),
     ]);
+
     res.json({ campusWar: campusWarData, topUsers: topUsersData });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -218,36 +251,62 @@ export const getLeaderboard = async (req, res) => {
 
 // --- UPDATE PROFILE ----------------------------------------------------------
 export const updateProfile = async (req, res) => {
+  const userId = req.user._id;
   try {
-    const { avatar, name, bio, isPrivate, tags } = req.body;
-    
-    // Check name availability if it's being changed
+    const { avatar, name, bio, isPrivate, tags, notificationsEnabled } = req.body;
+    console.log(`[UpdateProfile] Request for user ${userId}:`, req.body);
+
+    const updateData = {};
+    if (avatar) updateData.avatar = avatar;
     if (name) {
-      const existing = await User.findOne({ name, _id: { $ne: req.user._id } });
-      if (existing) return res.status(400).json({ error: "This name is already taken. Try another one!" });
+      const existing = await User.findOne({ name, _id: { $ne: userId } });
+      if (existing) return res.status(400).json({ error: "This name is already taken!" });
+      updateData.name = name;
+    }
+    if (bio !== undefined) updateData.bio = bio;
+    if (isPrivate !== undefined) updateData.isPrivate = isPrivate;
+    if (tags !== undefined) updateData.tags = tags;
+    if (notificationsEnabled !== undefined) updateData.notificationsEnabled = notificationsEnabled;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).lean();
+
+    if (!updatedUser) return res.status(404).json({ error: "User not found" });
+
+    // Background Cascade (Identity update across posts/comments)
+    if (name || avatar) {
+      (async () => {
+        try {
+          const cascadeUpdate = {};
+          if (name) cascadeUpdate.anonName = name;
+          if (avatar) cascadeUpdate.anonAvatar = avatar;
+
+          await Promise.all([
+            Post.updateMany({ author: userId }, { $set: cascadeUpdate }),
+            Comment.updateMany({ author: userId }, { $set: cascadeUpdate })
+          ]);
+          console.log(`[UpdateProfile] Cascade identity update successful for ${userId}`);
+        } catch (e) {
+          console.error(`[UpdateProfile] Cascade error:`, e.message);
+        }
+      })();
     }
 
-    const user = await User.findById(req.user._id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    if (avatar) user.avatar = avatar;
-    if (name) user.name = name;
-    if (bio !== undefined) user.bio = bio;
-    if (isPrivate !== undefined) user.isPrivate = isPrivate;
-    if (tags !== undefined) user.tags = tags;
-    if (req.body.notificationsEnabled !== undefined) user.notificationsEnabled = req.body.notificationsEnabled;
-
-    await user.save();
-
-    const userObj = user.toObject();
+    const userObj = { ...updatedUser };
     delete userObj.password;
     if (!userObj.tags) userObj.tags = [];
 
-    logger.info('Profile updated', { userId: req.user._id });
+    console.log(`[UpdateProfile] Success for user ${userId}`);
     res.json(userObj);
   } catch (err) {
-    logger.error('Update Profile Error:', { message: err.message });
-    res.status(500).json({ error: err.message });
+    console.error(`[UpdateProfile] FATAL ERROR for user ${userId}:`, err);
+    res.status(500).json({ 
+      error: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
   }
 };
 
@@ -369,4 +428,109 @@ export const getPublicProfile = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+// --- UPDATE LOCATION --------------------------------------------------------
+export const updateLocation = async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: "Latitude and longitude are required" });
+    }
+
+    req.user.location = {
+      type: "Point",
+      coordinates: [longitude, latitude],
+    };
+    await req.user.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// --- GET NEARBY USERS -------------------------------------------------------
+export const getNearbyUsers = async (req, res) => {
+  try {
+    const [longitude, latitude] = req.user.location.coordinates;
+    if (longitude === 0 && latitude === 0) {
+      return res.status(400).json({ error: "Your location is not set. Please update it first." });
+    }
+
+    const nearbyUsers = await User.aggregate([
+      {
+        $geoNear: {
+          near: { type: "Point", coordinates: [longitude, latitude] },
+          distanceField: "dist.calculated",
+          maxDistance: 5000, // 5km limit
+          query: { _id: { $ne: req.user._id }, campus: req.user.campus, isBanned: false },
+          spherical: true,
+        },
+      },
+      { $limit: 20 },
+      { $project: { name: 1, avatar: 1, campus: 1, bio: 1, isVerified: 1, "dist.calculated": 1 } },
+    ]);
+
+    const formatted = nearbyUsers.map(u => {
+      const d = u.dist.calculated;
+      let vague = "On campus";
+      if (d < 50) vague = "Very Close";
+      else if (d < 200) vague = "Nearby";
+      else if (d < 1000) vague = "On Campus";
+      else vague = "Away";
+
+      return {
+        _id: u._id,
+        name: u.name,
+        avatar: u.avatar,
+        bio: u.bio,
+        isVerified: u.isVerified,
+        vagueDistance: vague,
+        distance: d
+      };
+    });
+
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+// --- WAVE AT USER -----------------------------------------------------------
+export const waveUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (userId === req.user._id.toString()) {
+      return res.status(400).json({ error: "You cannot wave at yourself." });
+    }
+
+    const { default: Notification } = await import("../models/notification.model.js");
+    const { sendPushNotification } = await import("../utils/pushNotifications.js");
+
+    // Create notification
+    await Notification.create({
+      recipient: userId,
+      sender: req.user._id,
+      type: "wave",
+      title: "👋 Someone waved!",
+      body: "A user nearby just waved at you. Say hi back!",
+    });
+
+    // Send push
+    const { default: User } = await import("../models/user.model.js");
+    const targetUser = await User.findById(userId).select("expoPushToken").lean();
+    if (targetUser?.expoPushToken) {
+      sendPushNotification(
+        targetUser.expoPushToken,
+        "👋 Someone waved!",
+        "A user nearby just waved at you.",
+        { type: "wave", senderId: req.user._id.toString() }
+      );
+    }
+
+ res.json({ ok: true });
+ } catch (err) {
+ res.status(500).json({ error: err.message });
+ }
 };
