@@ -460,7 +460,7 @@ export const getStats = async (req, res) => {
 
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [totalPosts, todayPosts, totalUsers, dau, campusBreakdown] = await Promise.all([
+  const [totalPosts, todayPosts, totalUsers, dau, campusBreakdown, moodStats] = await Promise.all([
     Post.countDocuments({ hidden: false }),
     Post.countDocuments({ createdAt: { $gte: startOfToday }, hidden: false }),
     User.countDocuments(),
@@ -470,9 +470,32 @@ export const getStats = async (req, res) => {
       { $group: { _id: "$campus", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
     ]),
+    // Campus Mood
+    Post.aggregate([
+      { $match: { hidden: false } },
+      { $group: {
+          _id: null,
+          wow: { $sum: "$reactions.wow" },
+          fire: { $sum: "$reactions.fire" },
+          same: { $sum: "$reactions.same" },
+          skull: { $sum: "$reactions.skull" },
+          spicy: { $sum: "$reactions.spicy" },
+          lit: { $sum: "$reactions.lit" },
+          wholesome: { $sum: "$reactions.wholesome" },
+          hmm: { $sum: "$reactions.hmm" },
+          lmao: { $sum: "$reactions.lmao" }
+      }}
+    ])
   ]);
 
-  res.json({ totalPosts, todayPosts, totalUsers, dau, campusBreakdown });
+  res.json({ 
+    totalPosts, 
+    todayPosts, 
+    totalUsers, 
+    dau, 
+    campusBreakdown, 
+    mood: moodStats[0] || {} 
+  });
 };
 
 export const getDetailedStats = async (req, res) => {

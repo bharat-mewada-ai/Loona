@@ -44,9 +44,29 @@ const Developer = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: '40px' }}>
-        <h2 style={{ fontSize: '32px', marginBottom: '8px' }}>Developer Console</h2>
-        <p style={{ color: '#71717A' }}>Live server health and system telemetry</p>
+      <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h2 style={{ fontSize: '32px', marginBottom: '8px' }}>Developer Console</h2>
+          <p style={{ color: '#71717A' }}>Live server health and system telemetry</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(50, 215, 75, 0.1)', padding: '8px 16px', borderRadius: '12px', border: '1px solid rgba(50, 215, 75, 0.2)' }}>
+          <div style={{ 
+            width: '8px', 
+            height: '8px', 
+            background: '#32D74B', 
+            borderRadius: '50%', 
+            boxShadow: '0 0 10px #32D74B',
+            animation: 'pulse 1.5s infinite' 
+          }} />
+          <span style={{ color: '#32D74B', fontSize: '12px', fontWeight: 'bold' }}>SERVER HEARTBEAT</span>
+          <style>{`
+            @keyframes pulse {
+              0% { transform: scale(0.95); opacity: 0.7; }
+              70% { transform: scale(1.1); opacity: 1; }
+              100% { transform: scale(0.95); opacity: 0.7; }
+            }
+          `}</style>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '20px', marginBottom: '40px' }}>

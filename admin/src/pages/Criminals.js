@@ -75,8 +75,18 @@ const Criminals = () => {
                          </div>
                       </td>
                       <td style={tdS}>
-                         <div style={{ color: '#FF453A', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <AlertTriangle size={14} /> {c.totalReports}
+                         <div style={{ color: '#FF453A', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                            <AlertTriangle size={14} /> {c.totalReports} Reports
+                         </div>
+                         <div style={{ width: '120px', height: '6px', background: '#222', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ 
+                               height: '100%', 
+                               width: `${Math.min(c.totalReports * 10, 100)}%`,
+                               background: c.totalReports > 10 ? '#FF453A' : c.totalReports > 5 ? '#FF9F0A' : '#FFD60A'
+                            }} />
+                         </div>
+                         <div style={{ fontSize: '9px', marginTop: '4px', color: c.totalReports > 10 ? '#FF453A' : '#71717A' }}>
+                            {c.totalReports > 10 ? 'MAXIMUM THREAT' : c.totalReports > 5 ? 'HIGH RISK' : 'STALKING'}
                          </div>
                       </td>
                       <td style={tdS}>

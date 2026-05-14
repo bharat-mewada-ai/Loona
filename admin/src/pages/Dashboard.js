@@ -51,6 +51,22 @@ const Dashboard = () => {
         <StatCard icon={<ShieldCheck color="#BF5AF2" />} label="DAU (24h)" value={stats.dau} />
       </div>
 
+      {/* Campus Mood Visualization */}
+      <div style={{ ...panelStyle, marginBottom: '48px', background: 'linear-gradient(135deg, #141414 0%, #1a1a1a 100%)' }}>
+        <h3 style={panelTitleStyle}>Campus Mood Today</h3>
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+          {['lmao', 'fire', 'wow', 'lit', 'spicy', 'wholesome', 'skull', 'hmm', 'same'].map(m => (
+             <div key={m} style={{ flex: 1, minWidth: '100px', textAlign: 'center', padding: '16px', borderRadius: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ fontSize: '24px', marginBottom: '8px' }}>
+                  {m === 'lmao' ? '🤣' : m === 'fire' ? '🔥' : m === 'wow' ? '😮' : m === 'lit' ? '✨' : m === 'spicy' ? '🌶️' : m === 'wholesome' ? '🥺' : m === 'skull' ? '💀' : m === 'hmm' ? '🤔' : '🤝'}
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: '800' }}>{stats.mood[m] || 0}</div>
+                <div style={{ fontSize: '10px', color: '#71717A', textTransform: 'uppercase', marginTop: '4px' }}>{m}</div>
+             </div>
+          ))}
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
         {/* Activity Chart */}
         <div style={panelStyle}>
