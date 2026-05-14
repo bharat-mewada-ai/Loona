@@ -1,21 +1,5 @@
-import Redis from "ioredis";
+import redisClient from "./redis.js";
 import logger from "./logger.js";
-
-const REDIS_URL = process.env.REDIS_URL;
-let redisClient = null;
-
-if (REDIS_URL) {
-  try {
-    redisClient = new Redis(REDIS_URL, {
-      maxRetriesPerRequest: 1,
-      retryStrategy: () => null
-    });
-    redisClient.on("error", (err) => logger.warn("⚠️ Redis not available (caching disabled):", err.message));
-    redisClient.on("connect", () => logger.info("✅ Redis connected"));
-  } catch (err) {
-    logger.warn("⚠️ Redis initialization failed:", err.message);
-  }
-}
 
 export const cacheMiddleware = (ttlSeconds) => async (req, res, next) => {
   if (!redisClient || redisClient.status !== "ready") return next();

@@ -7,16 +7,17 @@ const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 const isTls = redisUrl.startsWith("rediss://");
 
 const redis = new Redis(redisUrl, {
-  maxRetriesPerRequest: 1,
+  maxRetriesPerRequest: null, // Essential for retryStrategy to work
   lazyConnect: true,
-  tls: isTls ? { rejectUnauthorized: false } : undefined, // Essential for most cloud Redis providers
+  tls: isTls ? { rejectUnauthorized: false } : undefined,
   retryStrategy: (times) => {
-    if (redis?._hitClientLimit) return null; 
-    if (times > 3) return null;
-    return Math.min(times * 100, 3000);
+    // Exponential backoff: 100ms, 400ms, 900ms... up to 10 seconds
+    const delay = Math.min(times * 100, 10000);
+    return delay;
   },
   enableReadyCheck: true,
-  connectTimeout: 10000, // Increase timeout for cloud connections
+  connectTimeout: 20000,
+  keepAlive: 5000, // Ping every 5s to keep connection active
 });
 
 // Explicitly handle AUTH errors or other fatal errors during connection
