@@ -4,15 +4,17 @@ import Dashboard from './pages/Dashboard';
 import ReportedPosts from './pages/ReportedPosts';
 import UserManagement from './pages/UserManagement';
 import Broadcast from './pages/Broadcast';
+import Criminals from './pages/Criminals';
+import Developer from './pages/Developer';
 import Login from './pages/Login';
 import Sidebar from './components/Sidebar';
-import { isAdmin as checkIsAdmin, clearAuthToken } from './utils/auth';
+import { isStaff as checkIsStaff, clearAuthToken } from './utils/auth';
 
 function App() {
   const [authenticated, setAuthenticated] = useState(null);
 
   useEffect(() => {
-    setAuthenticated(!!checkIsAdmin());
+    setAuthenticated(!!checkIsStaff());
   }, []);
 
   const handleLogout = () => {
@@ -36,6 +38,8 @@ function App() {
             <Route path="/reports" element={<ReportedPosts />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/broadcast" element={<Broadcast />} />
+            <Route path="/criminals" element={<Criminals />} />
+            <Route path="/developer" element={<Developer />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>

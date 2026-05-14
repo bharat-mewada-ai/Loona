@@ -22,7 +22,12 @@ export const getAdminUser = () => {
   }
 };
 
-export const isAdmin = () => {
+export const isStaff = () => {
+  const user = getAdminUser();
+  return user && (user.role === 'admin' || user.role === 'moderator');
+};
+
+export const isSuperAdmin = () => {
   const user = getAdminUser();
   return user && user.role === 'admin';
 };

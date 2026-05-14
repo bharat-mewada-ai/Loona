@@ -19,6 +19,7 @@ import uploadRoutes from "./routes/upload.routes.js";
 import configRoutes from "./routes/config.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import redis from "./utils/redis.js";
+import { optionalAuth } from "./middlewares/auth.js";
 
 // ─── CORS allowlist ───────────────────────────────────────────────────────────
 // In production set ALLOWED_ORIGINS to a comma-separated list, e.g.:
@@ -142,6 +143,23 @@ app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/config", configRoutes);
 app.use("/api/v1/payments", paymentRoutes);
+
+import Analytics from "./models/analytics.model.js";
+app.post("/api/v1/analytics/log", optionalAuth, async (req, res) => {
+  try {
+    const { event, screen, platform, metadata } = req.body;
+    await Analytics.create({
+      event,
+      screen,
+      platform,
+      metadata,
+      userId: req.user?._id
+    });
+    res.status(204).send();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ─── Sentry Error Handler (must be AFTER routes but BEFORE other error handlers) ───
 Sentry.setupExpressErrorHandler(app);

@@ -4,27 +4,54 @@ import { ShieldAlert, Search } from 'lucide-react';
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [results, setResults] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // In a real app, we'd have a get all users endpoint or search endpoint
-  }, []);
+  const handleSearch = async () => {
+    if (!searchTerm) return;
+    setLoading(true);
+    try {
+      const res = await api.get(`/admin/users/search?q=${searchTerm}`);
+      setResults(res.data);
+      setSelectedUser(null);
+    } catch (err) {
+      alert('Search failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDetails = async (userId) => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/admin/users/${userId}/details`);
+      setSelectedUser(res.data);
+    } catch (err) {
+      alert('Failed to fetch details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleBan = async (userId) => {
     if (!window.confirm('Ban this user permanently? They will lose all access.')) return;
     try {
       await api.post(`/admin/users/${userId}/ban`);
       alert('User banned');
+      if (selectedUser) fetchDetails(userId);
     } catch (err) {
       alert('Failed to ban user');
     }
   };
 
-  const handleUnban = async (userId) => {
+  const handleVerify = async (userId) => {
     try {
-      await api.post(`/admin/users/${userId}/unban`);
-      alert('User unbanned');
+      await api.post(`/admin/users/${userId}/verify`);
+      alert('User verified');
+      if (selectedUser) fetchDetails(userId);
     } catch (err) {
-      alert('Failed to unban user');
+      alert('Failed to verify user');
     }
   };
 
@@ -42,29 +69,139 @@ const UserManagement = () => {
         border: '1px solid rgba(255,255,255,0.08)',
         marginBottom: '40px'
       }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={20} color="#71717A" style={{ position: 'absolute', left: '16px', top: '14px' }} />
-          <input 
-            type="text" 
-            placeholder="Search by Email or User ID..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', paddingLeft: '48px', height: '48px' }}
-          />
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search size={20} color="#71717A" style={{ position: 'absolute', left: '16px', top: '14px' }} />
+            <input 
+              type="text" 
+              placeholder="Search by Email or User ID..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              style={{ 
+                width: '100%', 
+                paddingLeft: '48px', 
+                height: '48px', 
+                background: '#0A0A0A', 
+                border: '1px solid #222', 
+                borderRadius: '12px',
+                color: '#FFF',
+                outline: 'none'
+              }}
+            />
+          </div>
+          <button 
+            onClick={handleSearch}
+            disabled={loading}
+            style={{ 
+              background: '#FF453A', 
+              color: '#FFF', 
+              padding: '0 24px', 
+              borderRadius: '12px', 
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              border: 'none'
+            }}
+          >
+            {loading ? '...' : 'Search'}
+          </button>
         </div>
       </div>
 
-      <div style={{ textAlign: 'center', padding: '60px', color: '#71717A' }}>
-        <ShieldAlert size={40} style={{ marginBottom: '16px', opacity: 0.5 }} />
-        <p>Enter a specific User ID or Email to moderate.</p>
-        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
-           <button style={{ background: '#1A1A1A', color: '#FFF', padding: '12px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: '600' }}>
-             Find User
-           </button>
+      {!selectedUser && results.length > 0 && (
+        <div style={{ background: '#141414', borderRadius: '24px', border: '1px solid #222', overflow: 'hidden' }}>
+          {results.map(user => (
+            <TouchableOpacity 
+              key={user._id} 
+              style={{ 
+                padding: '16px 24px', 
+                borderBottom: '1px solid #222', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
+              onClick={() => fetchDetails(user._id)}
+            >
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#FFF' }}>{user.name} {user.isVerified && '✅'}</div>
+                <div style={{ fontSize: '12px', color: '#71717A' }}>{user.email}</div>
+              </div>
+              <div style={{ color: '#FF453A', fontSize: '12px', fontWeight: 'bold' }}>VIEW DETAILS →</div>
+            </TouchableOpacity>
+          ))}
         </div>
-      </div>
+      )}
+
+      {selectedUser && (
+        <div style={{ background: '#141414', padding: '32px', borderRadius: '24px', border: '1px solid #222' }}>
+          <button onClick={() => setSelectedUser(null)} style={{ color: '#71717A', marginBottom: '24px', background: 'none', border: 'none', cursor: 'pointer' }}>← Back to results</button>
+          
+          <div style={{ display: 'flex', gap: '32px' }}>
+             <div style={{ fontSize: '64px', background: '#0A0A0A', width: '120px', height: '120px', borderRadius: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #FF453A' }}>
+                {selectedUser.user.avatar}
+             </div>
+             <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: '28px', color: '#FFF' }}>{selectedUser.user.name}</h3>
+                <p style={{ color: '#71717A' }}>{selectedUser.user.email}</p>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                   <div style={{ background: '#0A0A0A', padding: '8px 16px', borderRadius: '10px', border: '1px solid #222' }}>
+                      <div style={{ fontSize: '10px', color: '#71717A' }}>KARMA</div>
+                      <div style={{ color: '#FFD700', fontWeight: 'bold' }}>{selectedUser.user.karma}</div>
+                   </div>
+                   <div style={{ background: '#0A0A0A', padding: '8px 16px', borderRadius: '10px', border: '1px solid #222' }}>
+                      <div style={{ fontSize: '10px', color: '#71717A' }}>CHATS</div>
+                      <div style={{ color: '#FFF', fontWeight: 'bold' }}>{selectedUser.stats.chatsCount}</div>
+                   </div>
+                   <div style={{ background: '#0A0A0A', padding: '8px 16px', borderRadius: '10px', border: '1px solid #222' }}>
+                      <div style={{ fontSize: '10px', color: '#71717A' }}>CAMPUS</div>
+                      <div style={{ color: '#FFF', fontWeight: 'bold' }}>{selectedUser.user.campus?.toUpperCase()}</div>
+                   </div>
+                </div>
+             </div>
+             <div style={{ gap: '12px', display: 'flex', flexDirection: 'column' }}>
+                <button onClick={() => handleBan(selectedUser.user._id)} style={{ background: selectedUser.user.isBanned ? '#34C759' : '#FF3B30', color: '#FFF', padding: '12px 24px', borderRadius: '12px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>
+                   {selectedUser.user.isBanned ? 'Unban User' : 'Ban User'}
+                </button>
+                <button onClick={() => handleVerify(selectedUser.user._id)} style={{ background: '#0A0A0A', color: selectedUser.user.isVerified ? '#71717A' : '#34C759', padding: '12px 24px', borderRadius: '12px', fontWeight: 'bold', border: '1px solid #222', cursor: 'pointer' }}>
+                   {selectedUser.user.isVerified ? 'Verified' : 'Verify User'}
+                </button>
+             </div>
+          </div>
+
+          <div style={{ marginTop: '40px' }}>
+             <h4 style={{ color: '#FFF', marginBottom: '16px' }}>MODERATION LOGS (Audit)</h4>
+             {selectedUser.logs.length === 0 ? (
+               <p style={{ color: '#71717A' }}>No previous moderation actions taken on this user.</p>
+             ) : (
+               <div style={{ background: '#0A0A0A', borderRadius: '16px', border: '1px solid #222' }}>
+                  {selectedUser.logs.map(log => (
+                    <div key={log._id} style={{ padding: '12px 20px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between' }}>
+                       <div>
+                          <span style={{ color: '#FF453A', fontWeight: 'bold', fontSize: '12px' }}>{log.action}</span>
+                          <span style={{ color: '#71717A', marginLeft: '12px', fontSize: '12px' }}>by {log.performedBy?.name}</span>
+                       </div>
+                       <span style={{ color: '#71717A', fontSize: '12px' }}>{new Date(log.createdAt).toLocaleString()}</span>
+                    </div>
+                  ))}
+               </div>
+             )}
+          </div>
+        </div>
+      )}
+
+      {!searchTerm && !selectedUser && (
+        <div style={{ textAlign: 'center', padding: '60px', color: '#71717A' }}>
+          <ShieldAlert size={40} style={{ marginBottom: '16px', opacity: 0.5 }} />
+          <p>Enter a specific User ID or Email to moderate.</p>
+        </div>
+      )}
     </div>
   );
 };
+
+const TouchableOpacity = ({ children, style, onClick }) => (
+  <div onClick={onClick} style={{ ...style, cursor: 'pointer' }}>{children}</div>
+);
 
 export default UserManagement;

@@ -80,16 +80,23 @@ const ReportedPosts = () => {
                     }}>{post.reportCount} REPORTS</span>
                     <span style={{ color: '#71717A', fontSize: '12px' }}>{post.campus.toUpperCase()}</span>
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '12px', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>{post.author?.avatar || '👤'}</div>
+                    <span style={{ color: '#FFF', fontSize: '13px', fontWeight: '600' }}>{post.author?.name || 'Unknown User'}</span>
+                    <span style={{ color: '#71717A', fontSize: '12px' }}>({post.author?.email})</span>
+                  </div>
+
                   <h4 style={{ fontSize: '18px', marginBottom: '12px' }}>{post.title}</h4>
-                  {post.body && <p style={{ color: '#A1A1AA', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px' }}>{post.body}</p>}
+                  {post.content && <p style={{ color: '#A1A1AA', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px' }}>{post.content}</p>}
                   
                   <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px' }}>
-                    <h5 style={{ fontSize: '12px', color: '#71717A', marginBottom: '8px', textTransform: 'uppercase' }}>Reasons:</h5>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <h5 style={{ fontSize: '11px', color: '#71717A', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>REPORTS DETAIL:</h5>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {post.reports.map((r, i) => (
-                        <span key={i} style={{ background: 'rgba(255,255,255,0.05)', fontSize: '11px', padding: '4px 10px', borderRadius: '20px' }}>
-                          {r.reason}
-                        </span>
+                        <div key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: '8px 12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: '#FFF', fontSize: '12px' }}>{r.reason}</span>
+                          <span style={{ color: '#71717A', fontSize: '10px' }}>by {r.reporter?.name || 'Anon'}</span>
+                        </div>
                       ))}
                     </div>
                   </div>

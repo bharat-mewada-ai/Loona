@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema(
     commentsCount: { type: Number, default: 0 },
     role: {
       type: String,
-      enum: ["user", "admin"],
+      enum: ["user", "moderator", "admin"],
       default: "user",
     },
     // Password — set to 'google_oauth' placeholder for OAuth users (never exposed)

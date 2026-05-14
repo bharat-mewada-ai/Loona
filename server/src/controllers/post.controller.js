@@ -664,8 +664,22 @@ export const deleteComment = async (req, res) => {
 export const deletePost = async (req, res) => {
   const post = await Post.findById(req.params.id);
   if (!post) return res.status(404).json({ error: "Not found" });
-  if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin')
+  
+  const isStaff = req.user.role === 'admin' || req.user.role === 'moderator';
+  if (post.author.toString() !== req.user._id.toString() && !isStaff)
     return res.status(403).json({ error: "Unauthorized" });
+
+  if (isStaff && post.author.toString() !== req.user._id.toString()) {
+    const { default: AuditLog } = await import("../models/auditLog.model.js");
+    await AuditLog.create({
+      action: "POST_DELETE",
+      performedBy: req.user._id,
+      targetId: post._id,
+      targetType: "Post",
+      details: `Deleted reported post by user ID: ${post.author}`,
+      metadata: { authorId: post.author, content: post.content?.substring(0, 50) }
+    });
+  }
 
   const { default: Notification } = await import("../models/notification.model.js");
 
@@ -826,10 +840,14 @@ export const searchUsers = async (req, res) => {
 /* ---------------- ADMIN MODERATION ---------------- */
 export const getReportedPosts = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: "Forbidden: Admin access only" });
+    if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
+      return res.status(403).json({ error: "Forbidden: Staff access only" });
     }
-    const posts = await Post.find({ "reports.0": { $exists: true } }).sort({ reportCount: -1 }).lean();
+    const posts = await Post.find({ "reports.0": { $exists: true } })
+      .populate("author", "name email avatar")
+      .populate("reports.reporter", "name email")
+      .sort({ reportCount: -1 })
+      .lean();
     res.json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -838,8 +856,8 @@ export const getReportedPosts = async (req, res) => {
 
 export const dismissReports = async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: "Forbidden: Admin access only" });
+    if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
+      return res.status(403).json({ error: "Forbidden: Staff access only" });
     }
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: "Post not found" });

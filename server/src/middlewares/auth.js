@@ -89,7 +89,18 @@ export const requireAdmin = (req, res, next) => {
     next();
   } else {
     res.status(403).json({ 
-      error: "Forbidden: Admin access only", 
+      error: "Forbidden: Super Admin access only", 
+      code: "FORBIDDEN" 
+    });
+  }
+};
+
+export const requireStaff = (req, res, next) => {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'moderator')) {
+    next();
+  } else {
+    res.status(403).json({ 
+      error: "Forbidden: Staff access only", 
       code: "FORBIDDEN" 
     });
   }

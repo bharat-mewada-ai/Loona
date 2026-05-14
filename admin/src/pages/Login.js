@@ -17,8 +17,8 @@ export default function Login({ onLogin }) {
       const res = await api.post('/auth/login', { email, password });
       const { user, token } = res.data;
       
-      if (user.role !== 'admin') {
-        setError('Access Denied: You do not have admin privileges.');
+      if (user.role !== 'admin' && user.role !== 'moderator') {
+        setError('Access Denied: You do not have staff privileges.');
         setLoading(false);
         return;
       }
