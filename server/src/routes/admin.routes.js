@@ -8,6 +8,14 @@ import Analytics from "../models/analytics.model.js";
 import os from "os";
 import mongoose from "mongoose";
 import redis from "../utils/redis.js";
+import { v2 as cloudinary } from "cloudinary";
+
+// Configure cloudinary once for admin usage stats
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 import { broadcastNotification } from "../utils/marketingNotifications.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -139,6 +147,27 @@ router.get("/health", requireAuth, requireAdmin, asyncHandler(async (req, res) =
 
   const dbStatus = mongoose.connection.readyState === 1 ? "Connected" : "Disconnected";
   
+  // Get storage stats
+  let cloudinaryStats = { usage: 0, limit: 0, percent: 0 };
+  let mongodbStats = { dataSize: 0, storageSize: 0 };
+
+  try {
+    const cloudUsage = await cloudinary.api.usage();
+    cloudinaryStats = {
+      usage: (cloudUsage.storage.usage / (1024 * 1024 * 1024)).toFixed(2), // GB
+      limit: (cloudUsage.storage.limit / (1024 * 1024 * 1024)).toFixed(2), // GB
+      percent: cloudUsage.storage.used_percent.toFixed(2)
+    };
+  } catch (e) { console.error("Cloudinary stats failed", e.message); }
+
+  try {
+    const dbStats = await mongoose.connection.db.stats();
+    mongodbStats = {
+      dataSize: (dbStats.dataSize / (1024 * 1024)).toFixed(2), // MB
+      storageSize: (dbStats.storageSize / (1024 * 1024)).toFixed(2) // MB
+    };
+  } catch (e) { console.error("Mongo stats failed", e.message); }
+
   // Get recent logs
   const recentLogs = await AuditLog.find().sort({ createdAt: -1 }).limit(20).populate("performedBy", "name").lean();
 
@@ -149,6 +178,10 @@ router.get("/health", requireAuth, requireAdmin, asyncHandler(async (req, res) =
       cpuLoad: os.loadavg(),
       platform: os.platform(),
       cpus: os.cpus().length
+    },
+    storage: {
+      cloudinary: cloudinaryStats,
+      mongodb: mongodbStats
     },
     database: {
       mongodb: dbStatus,

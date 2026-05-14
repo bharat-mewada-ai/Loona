@@ -56,6 +56,35 @@ const Developer = () => {
          <StatCard icon={<Database />} label="MONGODB" value={health.database.mongodb} color="#AF52DE" />
       </div>
 
+      {/* Storage Overview */}
+      <div style={{ marginBottom: '40px', background: 'rgba(255,255,255,0.02)', padding: '24px', borderRadius: '24px', border: '1px solid #222' }}>
+         <h4 style={{ color: '#FFF', marginBottom: '16px', fontSize: '14px', fontWeight: 'bold', letterSpacing: '1px' }}>STORAGE OVERVIEW</h4>
+         <div style={{ display: 'flex', gap: '32px' }}>
+            <div style={{ flex: 1 }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ color: '#71717A', fontSize: '12px' }}>CLOUDINARY (Media)</span>
+                  <span style={{ color: '#FFF', fontSize: '12px' }}>{health.storage.cloudinary.usage} / {health.storage.cloudinary.limit} GB</span>
+               </div>
+               <div style={{ height: '8px', background: '#222', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: '#32D74B', width: `${health.storage.cloudinary.percent}%` }} />
+               </div>
+               <div style={{ marginTop: '4px', textAlign: 'right', color: '#32D74B', fontSize: '10px' }}>{health.storage.cloudinary.percent}% Used</div>
+            </div>
+            <div style={{ flex: 1 }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ color: '#71717A', fontSize: '12px' }}>MONGODB (Data)</span>
+                  <span style={{ color: '#FFF', fontSize: '12px' }}>{health.storage.mongodb.dataSize} MB Used</span>
+               </div>
+               <div style={{ height: '8px', background: '#222', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: '#AF52DE', width: `${(health.storage.mongodb.dataSize / 512 * 100).toFixed(1)}%` }} />
+               </div>
+               <div style={{ marginTop: '4px', textAlign: 'right', color: '#AF52DE', fontSize: '10px' }}>
+                  Limit: 512 MB ({(health.storage.mongodb.dataSize / 512 * 100).toFixed(1)}%)
+               </div>
+            </div>
+         </div>
+      </div>
+
       <div style={{ display: 'flex', gap: '32px' }}>
          {/* Usage Analytics */}
          <div style={{ flex: 1 }}>
