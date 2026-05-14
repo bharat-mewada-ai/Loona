@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { Megaphone, Send, Info } from 'lucide-react';
 
 const Broadcast = () => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [targetType, setTargetType] = useState('campus'); // 'campus' or 'individual'
   const [campus, setCampus] = useState('all');
+  const [targetValue, setTargetValue] = useState(''); // ID or Email
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [recipients, setRecipients] = useState([]);
@@ -30,10 +32,19 @@ const Broadcast = () => {
     setLoading(true);
     setStatus(null);
     try {
-      const { data } = await api.post('/admin/broadcast', { title, body, campus });
+      const payload = { title, body };
+      if (targetType === 'campus') {
+        payload.campus = campus;
+      } else {
+        if (targetValue.includes('@')) payload.targetEmail = targetValue;
+        else payload.targetId = targetValue;
+      }
+
+      const { data } = await api.post('/admin/broadcast', payload);
       setStatus({ type: 'success', message: data.message });
       setTitle('');
       setBody('');
+      setTargetValue('');
     } catch (err) {
       setStatus({ type: 'error', message: err.response?.data?.error || 'Failed to send broadcast' });
     } finally {
@@ -56,18 +67,50 @@ const Broadcast = () => {
           border: '1px solid rgba(255,255,255,0.08)'
         }}>
           <form onSubmit={handleBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={labelStyle}>Target Campus</label>
-              <select 
-                value={campus} 
-                onChange={(e) => setCampus(e.target.value)}
-                style={inputStyle}
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                type="button"
+                onClick={() => setTargetType('campus')}
+                style={targetType === 'campus' ? activeTabStyle : tabStyle}
               >
-                <option value="all">All Campuses</option>
-                <option value="ogi">OGI</option>
-                <option value="lnct">LNCT</option>
-              </select>
+                Campus Wide
+              </button>
+              <button 
+                type="button"
+                onClick={() => setTargetType('individual')}
+                style={targetType === 'individual' ? activeTabStyle : tabStyle}
+              >
+                Individual User
+              </button>
             </div>
+
+            {targetType === 'campus' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={labelStyle}>Target Campus</label>
+                <select 
+                  value={campus} 
+                  onChange={(e) => setCampus(e.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="all">All Campuses</option>
+                  <option value="ogi">OGI (Oriental)</option>
+                  <option value="lnct">LNCT</option>
+                </select>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={labelStyle}>User ID or Email</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. 64b3f... or user@example.com" 
+                  value={targetValue}
+                  onChange={(e) => setTargetValue(e.target.value)}
+                  style={inputStyle}
+                  required
+                />
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label style={labelStyle}>Notification Title</label>
@@ -94,20 +137,6 @@ const Broadcast = () => {
               />
             </div>
 
-            <div style={{ 
-              background: 'rgba(10, 132, 255, 0.05)', 
-              padding: '16px', 
-              borderRadius: '16px', 
-              display: 'flex', 
-              gap: '12px',
-              border: '1px solid rgba(10, 132, 255, 0.1)'
-            }}>
-              <Info size={20} color="#0A84FF" style={{ flexShrink: 0 }} />
-              <p style={{ fontSize: '13px', color: '#0A84FF', lineHeight: '1.5' }}>
-                This will send a push notification to all users in the selected group who have notifications enabled. 
-              </p>
-            </div>
-
             {status && (
               <div style={{ 
                 padding: '16px', 
@@ -124,7 +153,7 @@ const Broadcast = () => {
 
             <button 
               type="submit" 
-              disabled={loading || !title || !body}
+              disabled={loading || !title || !body || (targetType === 'individual' && !targetValue)}
               style={{
                 marginTop: '12px',
                 background: loading ? '#333' : '#FF453A',
@@ -138,8 +167,7 @@ const Broadcast = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '10px',
-                transition: 'all 0.2s ease'
+                gap: '10px'
               }}
             >
               {loading ? 'Sending...' : <><Send size={18} /> Send Broadcast</>}
@@ -162,15 +190,16 @@ const Broadcast = () => {
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
              {recipients.map(u => (
-               <div key={u._id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+               <div key={u._id} 
+                    onClick={() => { setTargetType('individual'); setTargetValue(u._id); }}
+                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: targetValue === u._id ? '1px solid #FF453A' : '1px solid transparent' }}>
                   <span style={{ fontSize: '20px' }}>{u.avatar || '👤'}</span>
                   <div>
                      <div style={{ color: '#FFF', fontSize: '13px', fontWeight: 'bold' }}>{u.name}</div>
-                     <div style={{ color: '#71717A', fontSize: '10px' }}>{u.campus.toUpperCase()}</div>
+                     <div style={{ color: '#71717A', fontSize: '10px' }}>ID: {u._id}</div>
                   </div>
                </div>
              ))}
-             {recipients.length === 0 && <p style={{ color: '#71717A', fontSize: '13px', textAlign: 'center' }}>No reachable users yet.</p>}
           </div>
         </div>
       </div>
@@ -178,22 +207,9 @@ const Broadcast = () => {
   );
 };
 
-const labelStyle = {
-  fontSize: '14px',
-  fontWeight: '600',
-  color: '#71717A',
-  marginLeft: '4px'
-};
-
-const inputStyle = {
-  background: '#0A0A0A',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '12px',
-  padding: '14px 16px',
-  color: '#FFFFFF',
-  fontSize: '15px',
-  outline: 'none',
-  transition: 'border-color 0.2s ease'
-};
+const labelStyle = { fontSize: '14px', fontWeight: '600', color: '#71717A', marginLeft: '4px' };
+const inputStyle = { background: '#0A0A0A', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '14px 16px', color: '#FFFFFF', fontSize: '15px', outline: 'none' };
+const tabStyle = { flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid #222', background: 'transparent', color: '#71717A', fontWeight: '600', cursor: 'pointer' };
+const activeTabStyle = { ...tabStyle, background: '#FF453A20', color: '#FF453A', border: '1px solid #FF453A' };
 
 export default Broadcast;

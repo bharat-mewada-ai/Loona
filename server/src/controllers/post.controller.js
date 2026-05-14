@@ -683,46 +683,6 @@ export const deleteComment = async (req, res) => {
   res.json({ message: "Deleted" });
 };
 
-/* ---------------- DELETE POST ---------------- */
-export const deletePost = async (req, res) => {
-  const post = await Post.findById(req.params.id);
-  if (!post) return res.status(404).json({ error: "Not found" });
-  
-  const isStaff = req.user.role === 'admin' || req.user.role === 'moderator';
-  if (post.author.toString() !== req.user._id.toString() && !isStaff)
-    return res.status(403).json({ error: "Unauthorized" });
-
-  if (isStaff && post.author.toString() !== req.user._id.toString()) {
-    const { default: AuditLog } = await import("../models/auditLog.model.js");
-    const contentSnippet = `${post.title || ""}${post.body ? ": " + post.body.substring(0, 40) : ""}`;
-    await AuditLog.create({
-      action: "POST_DELETE",
-      performedBy: req.user._id,
-      targetId: post._id,
-      targetType: "Post",
-      details: `Deleted post by ${post.author}. Content: "${contentSnippet}..."`,
-      metadata: { 
-        authorId: post.author, 
-        title: post.title,
-        body: post.body,
-        image: post.image 
-      }
-    });
-  }
-
-  const { default: Notification } = await import("../models/notification.model.js");
-
-  await Promise.all([
-    Comment.deleteMany({ postId: post._id }),
-    Vote.deleteMany({ postId: post._id }),
-    BhandaraVote.deleteMany({ postId: post._id }),
-    Notification.deleteMany({ "data.postId": post._id }),
-    post.deleteOne()
-  ]);
-
-  invalidateCache("/api/posts");
-  res.json({ message: "Deleted" });
-};
 
 /* ---------------- REACT (duplicate-reaction guard) ---------------- */
 export const reactPost = async (req, res) => {
@@ -781,7 +741,7 @@ export const reportPost = async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
 
-    // 1. Create a dedicated report entry
+    // 1. Create report
     await Report.create({
       targetType: "post",
       targetId: postId,
@@ -789,15 +749,54 @@ export const reportPost = async (req, res) => {
       reason
     });
 
-    // 2. Increment report count in the post itself for auto-hide logic
+    // 2. Increment count (Threshold is now 3, but NO auto-hide per user request)
     post.reportCount = (post.reportCount || 0) + 1;
-    if (post.reportCount >= 5) post.hidden = true;
+    
+    // Threshold check for internal flagging (not hiding)
+    if (post.reportCount >= 3) {
+      // We could set a 'isFlagged' flag if we want, but user wants it visible until mod deletes.
+    }
 
-    // Also keep a local reference in reports array for backward compatibility/admin views
     post.reports.push({ reason, reporter: userId });
-
     await post.save();
-    res.json({ message: "Reported successfully" });
+
+    res.json({ message: "Reported successfully. Moderators will review it." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ---------------- DELETE ---------------- */
+export const deletePost = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: "Not found" });
+
+    // Allow author OR staff (Admin/Mod) to delete
+    const isStaff = ['admin', 'moderator', 'super-admin'].includes(req.user.role);
+    if (post.author.toString() !== req.user._id.toString() && !isStaff) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const authorId = post.author;
+    const postTitle = post.title || "your post";
+
+    await Post.findByIdAndDelete(req.params.id);
+
+    // ─── Notify Author if deleted by Staff ──────────────────────────────────
+    if (isStaff && authorId.toString() !== req.user._id.toString()) {
+      createNotification({
+        recipient: authorId,
+        sender: req.user._id,
+        type: "system",
+        title: "Post Removed 🚫",
+        body: `Your post "${postTitle.substring(0, 30)}..." was removed for violating community guidelines.`,
+        data: { action: 'delete' }
+      });
+    }
+
+    invalidateCache("/api/posts");
+    res.json({ message: "Deleted" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

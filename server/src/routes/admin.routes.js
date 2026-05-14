@@ -25,19 +25,23 @@ const router = express.Router();
  * BROADCAST PUSH NOTIFICATION (Super Admin Only)
  */
 router.post("/broadcast", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-  const { title, body, campus } = req.body;
+  const { title, body, campus, targetId, targetEmail } = req.body;
   if (!title || !body) {
     return res.status(400).json({ error: "Title and body are required" });
   }
 
-  const count = await broadcastNotification(title, body, { type: "admin_broadcast" }, campus);
+  let target = campus;
+  if (targetId) target = { userId: targetId };
+  else if (targetEmail) target = { email: targetEmail };
+
+  const count = await broadcastNotification(title, body, { type: "admin_broadcast" }, target);
   
   await AuditLog.create({
     action: "BROADCAST",
     performedBy: req.user._id,
     targetType: "System",
-    details: `Broadcast: ${title}`,
-    metadata: { campus, count }
+    details: `Broadcast: ${title}${targetId ? ' to user ' + targetId : ''}`,
+    metadata: { target, count }
   });
 
   res.json({ message: `Successfully broadcasted to ${count || 0} users`, count });

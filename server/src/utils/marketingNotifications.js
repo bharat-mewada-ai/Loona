@@ -14,15 +14,25 @@ const SPICY_MESSAGES = [
 /**
  * Send a notification to ALL users (or specific campus) who have a push token
  */
-export const broadcastNotification = async (title, body, data = {}, campus = null) => {
+export const broadcastNotification = async (title, body, data = {}, target = null) => {
   try {
     const query = { expoPushToken: { $exists: true, $ne: "" } };
-    if (campus && campus !== "all") query.campus = campus;
+    
+    // Check if target is campus or specific user
+    if (target) {
+      if (typeof target === 'string' && ['ogi', 'lnct', 'oriental'].includes(target)) {
+         query.campus = target;
+      } else if (target.userId) {
+         query._id = target.userId;
+      } else if (target.email) {
+         query.email = target.email;
+      }
+    }
     
     const users = await User.find(query).select("expoPushToken");
     const tokens = users.map(u => u.expoPushToken);
     
-    if (tokens.length === 0) return;
+    if (tokens.length === 0) return 0;
 
     logger.info(`[Marketing] Broadcasting to ${tokens.length} users: ${title}`);
     
