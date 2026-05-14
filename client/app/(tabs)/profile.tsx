@@ -213,6 +213,48 @@ export default function ProfileScreen() {
           <ActivityItem icon="bookmark" label="Saved Posts" count={Array.isArray(savedPosts) ? savedPosts.length : 0} color="#007AFF" onPress={() => setActiveView('saved')} />
         </View>
 
+        <Text style={[s.sectionTitle, { color: themeColors.txt3, marginTop: 25 }]}>SETTINGS</Text>
+        <View style={[s.activityBox, { backgroundColor: themeColors.card }]}>
+          <TouchableOpacity 
+            style={[s.settingRow, { borderBottomColor: themeColors.bdr }]} 
+            onPress={() => setEditModalVisible(true)}
+          >
+            <View style={s.rowLeft}>
+              <View style={[s.iconBox, { backgroundColor: '#AF52DE20' }]}>
+                <Ionicons name="person" size={20} color="#AF52DE" />
+              </View>
+              <Text style={[s.settingLabel, { color: themeColors.txt }]}>Anonymous Identity</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={themeColors.txt3} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[s.settingRow, { borderBottomColor: themeColors.bdr }]} 
+            onPress={() => setSettingsVisible(true)}
+          >
+            <View style={s.rowLeft}>
+              <View style={[s.iconBox, { backgroundColor: '#34C75920' }]}>
+                <Ionicons name="notifications" size={20} color="#34C759" />
+              </View>
+              <Text style={[s.settingLabel, { color: themeColors.txt }]}>Notifications</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={themeColors.txt3} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={s.settingRow} 
+            onPress={handleLogout}
+          >
+            <View style={s.rowLeft}>
+              <View style={[s.iconBox, { backgroundColor: '#FF3B3020' }]}>
+                <Ionicons name="log-out" size={20} color="#FF3B30" />
+              </View>
+              <Text style={[s.settingLabel, { color: themeColors.txt }]}>Sign Out</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={themeColors.txt3} />
+          </TouchableOpacity>
+        </View>
+
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -409,6 +451,7 @@ const s = StyleSheet.create({
   subHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   subTitle: { fontSize: 18, fontWeight: '800' },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  iconBox: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   userBio: { fontSize: 14, marginTop: 10, textAlign: 'center', paddingHorizontal: 40, opacity: 0.8 },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 12 },
   userTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
