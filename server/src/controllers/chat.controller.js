@@ -38,7 +38,7 @@ export const getChats = async (req, res) => {
 export const startChat = async (req, res) => {
   try {
     const { targetUserId, postId } = req.body;
-    if (!targetUserId || !postId) return res.status(400).json({ error: "Missing required fields" });
+    if (!targetUserId) return res.status(400).json({ error: "Missing targetUserId" });
     if (targetUserId === req.user._id.toString()) return res.status(400).json({ error: "Cannot chat with yourself" });
 
     // Check if chat already exists

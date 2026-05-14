@@ -368,6 +368,10 @@ export const blockUser = async (req, res) => {
       { upsert: true }
     );
 
+    // Invalidate blocks cache
+    const { redis } = await import("../utils/redis.js");
+    if (redis) await redis.del(`blocks:${req.user._id}`);
+
     res.json({ message: "User blocked successfully." });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -381,6 +385,10 @@ export const unblockUser = async (req, res) => {
     const { default: Block } = await import("../models/block.model.js");
     
     await Block.findOneAndDelete({ blocker: req.user._id, blocked: userId });
+    // Invalidate blocks cache
+    const { redis } = await import("../utils/redis.js");
+    if (redis) await redis.del(`blocks:${req.user._id}`);
+
     res.json({ message: "User unblocked successfully." });
   } catch (err) {
     res.status(500).json({ error: err.message });
