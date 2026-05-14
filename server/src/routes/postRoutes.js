@@ -5,7 +5,7 @@ import {
   getMyPosts, getUserPosts, searchPosts, searchUsers,
   toggleSavePost, getSavedPosts, toggleGoing, viewPost, getTrendingTags
 } from "../controllers/post.controller.js";
-import { requireAuth, requireAdmin, optionalAuth } from "../middlewares/auth.js";
+import { requireAuth, requireAdmin, requireStaff, optionalAuth } from "../middlewares/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { postLimiter, voteLimiter } from "../middlewares/limiters.js";
 import {
@@ -31,8 +31,8 @@ router.get("/saved",     requireAuth,                asyncHandler(getSavedPosts)
 router.get("/user/:userId", requireAuth,             asyncHandler(getUserPosts));
 
 // ─── Admin moderation (must be before /:id to avoid "reported" being cast as ObjectId)
-router.get("/reported",           requireAuth, requireAdmin, asyncHandler(getReportedPosts));
-router.get("/stats/detailed",     requireAuth, requireAdmin, asyncHandler(getDetailedStats));
+router.get("/reported",           requireAuth, requireStaff, asyncHandler(getReportedPosts));
+router.get("/stats/detailed",     requireAuth, requireStaff, asyncHandler(getDetailedStats));
 
 router.get("/:id",                                   optionalAuth, asyncHandler(getPostById));
 router.get("/:id/comments", getCommentsRules, validate, asyncHandler(getComments));
