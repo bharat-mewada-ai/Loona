@@ -205,27 +205,7 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Premium Promo Card */}
-        <TouchableOpacity 
-          style={s.premiumPromo} 
-          onPress={() => router.push('/premium')}
-          activeOpacity={0.9}
-        >
-          <LinearGradient
-            colors={['#c8f53a', '#a6d42d']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={s.premiumGradient}
-          >
-            <View style={s.premiumContent}>
-              <View>
-                <Text style={s.premiumTitle}>Loona Pro 💎</Text>
-                <Text style={s.premiumSubtitle}>Get exclusive perks and a golden badge</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={24} color="#000" />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+
 
         <Text style={[s.sectionTitle, { color: themeColors.txt3 }]}>YOUR ACTIVITY</Text>
         <View style={[s.activityBox, { backgroundColor: themeColors.card }]}>
