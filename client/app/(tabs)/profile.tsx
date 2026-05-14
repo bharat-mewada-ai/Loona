@@ -230,7 +230,7 @@ export default function ProfileScreen() {
 
           <TouchableOpacity 
             style={[s.settingRow, { borderBottomColor: themeColors.bdr }]} 
-            onPress={() => setSettingsVisible(true)}
+            onPress={() => router.push('/notifications')}
           >
             <View style={s.rowLeft}>
               <View style={[s.iconBox, { backgroundColor: '#34C75920' }]}>
@@ -249,7 +249,7 @@ export default function ProfileScreen() {
               <View style={[s.iconBox, { backgroundColor: '#FF3B3020' }]}>
                 <Ionicons name="log-out" size={20} color="#FF3B30" />
               </View>
-              <Text style={[s.settingLabel, { color: themeColors.txt }]}>Sign Out</Text>
+              <Text style={[s.settingLabel, { color: themeColors.txt }]}>Log Out</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.txt3} />
           </TouchableOpacity>
