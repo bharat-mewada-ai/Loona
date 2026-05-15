@@ -38,7 +38,18 @@ interface UIState {
   openReportSheet: (id: string) => void;
   closeReportSheet: () => void;
   
-  openAuthorProfile: (profile: { userId: string; postId: string; anonName: string; anonAvatar: string; isSelf: boolean; postCampus: string; bio?: string; isVerified?: boolean }) => void;
+  openAuthorProfile: (profile: { 
+    userId: string; 
+    postId: string; 
+    anonName: string; 
+    anonAvatar: string; 
+    isSelf: boolean; 
+    postCampus: string; 
+    bio?: string; 
+    isVerified?: boolean;
+    isPremium?: boolean;
+    badges?: { name: string; icon: string }[];
+  }) => void;
   closeAuthorProfile: () => void;
 
   // ── Comment sheet ─────────────────────────────────────────────────────────
@@ -61,6 +72,11 @@ interface UIState {
   closeFeedbackSheet: () => void;
   openPrivacySheet: () => void;
   closePrivacySheet: () => void;
+  
+  // ── Upload sheet ─────────────────────────────────────────────────────────
+  showUploadSheet: boolean;
+  openUploadSheet: () => void;
+  closeUploadSheet: () => void;
 
   // ── Haptics ────────────────────────────────────────────────────────────────
   hapticsEnabled: boolean;
@@ -117,6 +133,11 @@ export const useUIStore = create<UIState>((set) => ({
   closeFeedbackSheet: () => set({ showFeedbackSheet: false }),
   openPrivacySheet: () => set({ showPrivacySheet: true }),
   closePrivacySheet: () => set({ showPrivacySheet: false }),
+
+  // Upload sheet
+  showUploadSheet: false,
+  openUploadSheet: () => set({ showUploadSheet: true }),
+  closeUploadSheet: () => set({ showUploadSheet: false }),
 
   // Haptics
   hapticsEnabled: true,

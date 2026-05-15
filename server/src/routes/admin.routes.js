@@ -212,6 +212,17 @@ router.get("/analytics/summary", requireAuth, requireAdmin, asyncHandler(async (
   });
 }));
 
+import ErrorLog from "../models/errorLog.model.js";
+
+router.get("/errors", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const errors = await ErrorLog.find()
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .populate("userId", "name email")
+    .lean();
+  res.json(errors);
+}));
+
 router.get("/criminals", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const criminals = await Post.aggregate([
     { $match: { "reports.0": { $exists: true } } },

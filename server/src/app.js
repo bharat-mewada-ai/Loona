@@ -51,22 +51,22 @@ const allowedOrigins = new Set([
 export const corsOptions = {
   origin: (origin, callback) => {
     // logger.info(`[CORS] Origin: ${origin}`);
-    
+
     // Allow requests with no Origin header (native mobile apps, curl, internal server calls)
     if (!origin) return callback(null, true);
-    
+
     // In development, we can be more lenient if needed, but we keep the whitelist check
     // to catch configuration issues early.
     if (process.env.NODE_ENV !== 'production') {
       if (allowedOrigins.has(origin)) return callback(null, true);
       // Fallback for dynamic local IPs in dev
       if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.startsWith('http://192.168.') || origin.startsWith('http://10.')) {
-         return callback(null, true);
+        return callback(null, true);
       }
     }
 
     if (allowedOrigins.has(origin)) return callback(null, true);
-    
+
     logger.warn(`[CORS] Blocked request from unlisted origin: ${origin}`);
     callback(new Error(`CORS policy: origin '${origin}' is not allowed`));
   },
@@ -127,8 +127,8 @@ app.get("/health", (req, res) =>
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.get("/api/v1/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
+  res.json({
+    status: "ok",
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
     uptime: process.uptime()
@@ -172,7 +172,7 @@ app.use((err, req, res, next) => {
     url: req.originalUrl,
     method: req.method
   });
-  
+
   Sentry.captureException(err);
 
   res.status(err.status || 500).json({

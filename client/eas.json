@@ -39,7 +39,8 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://loona-backend.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://loona-backend.onrender.com/api",
+        "EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME": "dsi50mzaz"
       }
     }
   },

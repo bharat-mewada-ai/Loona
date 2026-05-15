@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Platform } from 'react-native';
 import * as Updates from 'expo-updates';
+import { API_URL } from '../constants';
 
 const { width } = Dimensions.get('window');
 
@@ -23,6 +24,23 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('CRITICAL UI ERROR:', error, errorInfo);
+    
+    // Report crash to backend
+    fetch(`${API_URL}/errors/log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: error.message,
+        stack: error.stack,
+        component: 'ErrorBoundary',
+        platform: Platform.OS === 'web' ? 'web' : 'mobile',
+        metadata: {
+          componentStack: errorInfo.componentStack,
+          device: Platform.OS,
+          timestamp: new Date().toISOString(),
+        }
+      })
+    }).catch(err => console.log('Failed to report crash:', err));
   }
 
   private handleReload = async () => {

@@ -1,5 +1,5 @@
 export type Campus = "ogi" | "lnct" | "all";
-export type TabFilter = "all" | "discussion" | "confess" | "stories" | "events" | "bhandara" | "place";
+export type TabFilter = "all" | "discussion" | "confess" | "stories" | "events" | "bhandara" | "place" | "offers";
 
 export interface User {
   _id: string;
@@ -15,6 +15,7 @@ export interface User {
   campusRank: number;
   isPrivate: boolean;
   isVerified: boolean;
+  isPremium: boolean;
   notificationsEnabled: boolean;
   bio: string;
   tags: string[];
@@ -60,6 +61,8 @@ export interface Post {
     bio?: string;
     isVerified?: boolean;
     isTopContributor?: boolean;
+    isPremium?: boolean;
+    badges?: { name: string; icon: string }[];
     tags?: string[];
   };   
   isPoll?: boolean;
@@ -67,6 +70,13 @@ export interface Post {
   userVote?: number | null;
   bhandaraCountYes?: number;
   bhandaraCountNo?: number;
+  hasGone?: boolean;
+  goingCount?: number;
+  offerBrand?: string;
+  isExclusive?: boolean;
+  offerDiscount?: string;
+  isSaved?: boolean;
+  externalLink?: string;
 }
 
 export interface AuthResponse {

@@ -269,10 +269,10 @@ export const useReport = () => {
 export const useMyPosts = () => {
   return useInfiniteQuery({
     queryKey: ['myPosts'],
-    queryFn: ({ pageParam = null }: { pageParam?: string | null }) =>
-      postsApi.getMyPosts(pageParam || undefined),
-    getNextPageParam: (last: any) => (last.hasMore ? last.nextCursor : undefined),
-    initialPageParam: null,
+    queryFn: ({ pageParam = 1 }: { pageParam?: number }) =>
+      postsApi.getMyPosts(pageParam),
+    getNextPageParam: (last: any) => (last.hasMore ? last.page + 1 : undefined),
+    initialPageParam: 1,
   });
 };
 

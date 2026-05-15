@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Activity, Cpu, Database, HardDrive, Terminal } from 'lucide-react';
+import { Activity, Cpu, Database, HardDrive, Terminal, AlertTriangle } from 'lucide-react';
 
 const Developer = () => {
   const [health, setHealth] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [errors, setErrors] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     try {
-      const [hRes, aRes] = await Promise.all([
+      const [hRes, aRes, eRes] = await Promise.all([
         api.get('/admin/health'),
-        api.get('/admin/analytics/summary')
+        api.get('/admin/analytics/summary'),
+        api.get('/admin/errors')
       ]);
       setHealth(hRes.data);
       setAnalytics(aRes.data);
+      setErrors(eRes.data);
     } catch (err) {
       console.error('Failed to fetch dev stats');
     } finally {
@@ -148,8 +151,51 @@ const Developer = () => {
                  </div>
                ))}
             </div>
-         </div>
-      </div>
+          </div>
+       </div>
+
+       {/* Crash Logs */}
+       <div style={{ marginTop: '40px' }}>
+          <h4 style={{ color: '#FFF', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+             <AlertTriangle size={18} color="#FF9F0A" /> RECENT APP CRASHES & ERRORS
+          </h4>
+          <div style={{ background: '#141414', borderRadius: '24px', border: '1px solid #222', overflow: 'hidden' }}>
+             {errors.map(error => (
+               <div key={error._id} style={{ padding: '20px 24px', borderBottom: '1px solid #222' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                     <span style={{ color: '#FF453A', fontWeight: 'bold', fontSize: '14px' }}>{error.message}</span>
+                     <span style={{ color: '#71717A', fontSize: '12px' }}>{new Date(error.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                     <span style={{ background: '#222', color: '#AAA', padding: '2px 8px', borderRadius: '4px', fontSize: '10px' }}>{error.platform.toUpperCase()}</span>
+                     <span style={{ background: '#222', color: '#AAA', padding: '2px 8px', borderRadius: '4px', fontSize: '10px' }}>{error.component}</span>
+                     {error.userId && <span style={{ color: '#0A84FF', fontSize: '10px' }}>User: {error.userId.name} ({error.userId.email})</span>}
+                  </div>
+                  <pre style={{ 
+                    background: '#0A0A0A', 
+                    padding: '16px', 
+                    borderRadius: '12px', 
+                    color: '#FF453A', 
+                    fontSize: '11px', 
+                    overflowX: 'auto',
+                    border: '1px solid rgba(255, 69, 58, 0.1)',
+                    maxHeight: '200px'
+                  }}>
+                    {error.stack || 'No stack trace provided'}
+                  </pre>
+                  {error.metadata?.componentStack && (
+                    <details style={{ marginTop: '12px' }}>
+                      <summary style={{ color: '#71717A', fontSize: '11px', cursor: 'pointer' }}>View Component Stack</summary>
+                      <pre style={{ color: '#71717A', fontSize: '10px', marginTop: '8px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+                        {error.metadata.componentStack}
+                      </pre>
+                    </details>
+                  )}
+               </div>
+             ))}
+             {errors.length === 0 && <p style={{ padding: '24px', color: '#71717A' }}>No crashes reported yet. Safe orbit!</p>}
+          </div>
+       </div>
     </div>
   );
 };

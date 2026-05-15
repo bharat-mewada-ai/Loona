@@ -16,6 +16,10 @@ export interface CreatePostDto {
   };
   isPoll?: boolean;
   pollOptions?: string[];
+  offerBrand?: string;
+  isExclusive?: boolean;
+  offerDiscount?: string;
+  externalLink?: string;
 }
 
 export const postsApi = {
@@ -24,6 +28,7 @@ export const postsApi = {
     campus?: string;
     type?: string;
     page?: number;
+    cursor?: string;
     limit?: number;
   }): Promise<PaginatedPosts> => {
     const { data } = await client.get<PaginatedPosts>('/posts', { params });
@@ -123,7 +128,7 @@ export const postsApi = {
   },
 
   // ── My posts ──────────────────────────────────────────────────────────────
-  getMyPosts: async (page = 1): Promise<PaginatedPosts> => {
+  getMyPosts: async (page: number = 1): Promise<PaginatedPosts> => {
     const { data } = await client.get<PaginatedPosts>('/posts/mine', { params: { page } });
     return data;
   },
