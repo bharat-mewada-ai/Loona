@@ -114,22 +114,31 @@ export interface PaginatedPosts {
 }
 export interface Chat {
   _id: string;
-  participants: string[];
-  lastMessage?: string;
+  participants?: string[];
+  lastMessage?: any;
   unreadCount?: number;
   identities?: {
     me: { name: string; avatar: string };
     other: { name: string; avatar: string };
   };
-  updatedAt: string;
+  updatedAt?: string;
+  // Flattened fields from backend getChats
+  name?: string;
+  avatar?: string;
+  preview?: string;
+  unread?: number;
+  time?: string;
+  lastActive?: string;
 }
 
 export interface Message {
   _id: string;
   chatId: string;
-  senderId: string;
+  senderId?: string;
   content: string;
   image?: string;
   senderType: 'me' | 'other';
+  senderName?: string;
+  senderAvatar?: string;
   createdAt: string;
 }

@@ -36,7 +36,7 @@ export const authApi = {
     return data;
   },
 
-  updateProfile: async (payload: { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[]; notificationsEnabled?: boolean }): Promise<User> => {
+  updateProfile: async (payload: { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[]; notificationsEnabled?: boolean; campus?: string }): Promise<User> => {
     const { data } = await client.patch<User>('/auth/update-profile', payload);
     return data;
   },
