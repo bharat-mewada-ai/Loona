@@ -198,6 +198,15 @@ export default function ComposeSheet() {
       return;
     }
 
+    // Guard: campus must be set (race condition edge case)
+    if (!user?.campus) {
+      Alert.alert('Error', 'Campus not set. Please log out and log in again.');
+      return;
+    }
+
+    // Guard: normalize 'all' or unknown types to 'discussion'
+    const postType = (composeType === 'all' || !composeType) ? 'discussion' : composeType;
+
     const cleanOptions = isPoll ? pollOptions.map(o => o.trim()).filter(o => o.length > 0) : [];
     
     if (isPoll && cleanOptions.length < 2) {
@@ -218,8 +227,8 @@ export default function ComposeSheet() {
         offerDiscount: composeType === 'offers' ? offerDiscount.trim() || undefined : undefined,
         externalLink: (isEvent || composeType === 'offers') ? externalLink.trim() || undefined : undefined,
         isExclusive: composeType === 'offers' ? isExclusive : undefined,
-        campus: user?.campus!,
-        type: composeType,
+        campus: user.campus,
+        type: postType,
         burnAfter24h: burn,
         isPoll,
         pollOptions: isPoll ? cleanOptions : undefined,

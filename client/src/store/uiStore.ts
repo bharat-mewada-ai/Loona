@@ -96,7 +96,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   // Compose sheet
   showComposeSheet: false,
-  composeType: 'thought' as TabFilter,
+  composeType: 'discussion' as TabFilter,
   openComposeSheet: (type) =>
     set({ showComposeSheet: true, composeType: type }),
   closeComposeSheet: () => set({ showComposeSheet: false }),

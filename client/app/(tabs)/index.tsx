@@ -268,8 +268,17 @@ export default function Feed() {
               <FeedSkeleton count={5} />
             ) : (
               <EmptyState 
-                type={activeTab === 'all' ? 'feed' : (activeTab === 'discussion' ? 'discussions' : activeTab) as any} 
-                onAction={() => openComposeSheet(activeTab === 'all' ? 'all' : activeTab as any)}
+                type={
+                  activeTab === 'all' ? 'feed' :
+                  activeTab === 'discussion' ? 'discussions' :
+                  activeTab === 'confess' ? 'confessions' :
+                  activeTab === 'stories' ? 'stories' :
+                  activeTab === 'events' ? 'events' :
+                  activeTab === 'bhandara' ? 'bhandara' :
+                  activeTab === 'offers' ? 'offers' :
+                  activeTab === 'place' ? 'place' : 'feed'
+                }
+                onAction={() => openComposeSheet(activeTab === 'all' ? 'discussion' : activeTab as any)}
               />
             )
           }
@@ -281,7 +290,8 @@ export default function Feed() {
         <TouchableOpacity 
           style={[s.fab, { backgroundColor: themeColors.ogi }]} 
           onPress={() => {
-            const type = activeTab === 'all' ? 'all' : activeTab;
+            // Never pass 'all' or 'place' as a post type — default to 'discussion'
+            const type = (activeTab === 'all' || activeTab === 'place') ? 'discussion' : activeTab;
             openComposeSheet(type as any);
           }}
           activeOpacity={0.9}

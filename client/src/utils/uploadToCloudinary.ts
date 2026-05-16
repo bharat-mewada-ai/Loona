@@ -15,13 +15,18 @@ export interface CloudinaryResult {
  * Flow:
  * 1. Fetch short-lived signature from /api/upload/sign (Auth required)
  * 2. POST image + signature to Cloudinary
- * 3. Return results
+ * 3. Return the secure_url (CDN link) for storing in the post
+ *
+ * IMPORTANT: We do NOT send `transformation` as a FormData field on signed
+ * uploads — that is a delivery concept, not an upload param.
+ * The server uses `eager` in the signature so the optimized variant is
+ * generated immediately after upload.
  */
 export async function uploadToCloudinary(
   localUri: string
 ): Promise<CloudinaryResult> {
   // 1. Get signed signature from our API
-  let signData;
+  let signData: any;
   try {
     const { data } = await client.get('/upload/sign');
     signData = data;
@@ -29,7 +34,7 @@ export async function uploadToCloudinary(
     throw new Error(`Failed to get upload signature: ${err.message}`);
   }
 
-  const { timestamp, signature, folder, cloudName, apiKey } = signData;
+  const { timestamp, signature, folder, cloudName, apiKey, eager } = signData;
 
   // 2. Prepare FormData
   const filename = localUri.split('/').pop() ?? 'upload.jpg';
@@ -50,12 +55,13 @@ export async function uploadToCloudinary(
     } as any);
   }
 
-  // Add signed parameters required by Cloudinary
+  // Only include params that were part of the signature — exact match required
   body.append('api_key', apiKey);
   body.append('timestamp', timestamp.toString());
   body.append('signature', signature);
   body.append('folder', folder);
-  body.append('transformation', 'q_auto,f_auto,w_1200,c_limit');
+  // eager must match what the server signed
+  if (eager) body.append('eager', eager);
 
   const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
 
@@ -71,8 +77,11 @@ export async function uploadToCloudinary(
 
   const data = await response.json();
 
+  // Use the eager URL if available (already optimized), else fall back to secure_url
+  const url = (data.eager?.[0]?.secure_url ?? data.secure_url) as string;
+
   return {
-    url: data.secure_url as string,
+    url,
     publicId: data.public_id as string,
     width: data.width as number,
     height: data.height as number,

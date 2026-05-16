@@ -128,8 +128,8 @@ export const postsApi = {
   },
 
   // ── My posts ──────────────────────────────────────────────────────────────
-  getMyPosts: async (page: number = 1): Promise<PaginatedPosts> => {
-    const { data } = await client.get<PaginatedPosts>('/posts/mine', { params: { page } });
+  getMyPosts: async (cursor?: string): Promise<PaginatedPosts> => {
+    const { data } = await client.get<PaginatedPosts>('/posts/mine', { params: { cursor } });
     return data;
   },
 

@@ -4,6 +4,7 @@ import User from "../models/user.model.js";
 import Vote from "../models/vote.model.js";
 import Report from "../models/report.model.js";
 import BhandaraVote from "../models/bhandaraVote.model.js";
+import AuditLog from "../models/auditLog.model.js";
 import redis from "../utils/redis.js";
 import { checkContent } from "../utils/moderation.js";
 import { generateAnonIdentity } from "../utils/anonIdentity.js";
@@ -26,11 +27,17 @@ const updatePostScore = (post) => {
 /* ---------------- CREATE POST ---------------- */
 export const createPost = async (req, res) => {
   const {
-    title, body, campus, type, burnAfter24h, image,
+    title, body, type, burnAfter24h, image,
     eventDate, eventLocation, offerBrand, offerDiscount, externalLink, isExclusive,
     isPoll, pollOptions
   } = req.body;
-  if (!title || !campus) return res.status(400).json({ error: "Title and campus are required" });
+
+  // Always use the authenticated user's campus from the DB — never trust the client-sent value.
+  // This prevents 403 campus-mismatch errors caused by stale client state.
+  const campus = req.user.campus;
+
+  if (!title) return res.status(400).json({ error: "Title is required" });
+  if (!campus) return res.status(400).json({ error: "Your account has no campus set. Please log out and log in again." });
 
   // ─── Double-Post Lock (Idempotency) ──────────────────────────────────────────
   const lockKey = `lock:post:${req.user._id}`;
@@ -40,12 +47,7 @@ export const createPost = async (req, res) => {
       return res.status(429).json({ error: 'Please wait a moment before posting again.' });
     }
   } catch (err) {
-    // If Redis fails, we still allow the post (don't block users if infrastructure has issues)
-  }
-
-  // Strict Restriction: User can only post to their own registered campus
-  if (campus !== req.user.campus) {
-    return res.status(403).json({ error: `You belong to ${req.user.campus.toUpperCase()}. You can only post to your own campus.` });
+    // If Redis fails, still allow the post
   }
 
   // Reject base64 images — clients must upload to Cloudinary first and send the CDN URL
@@ -97,39 +99,31 @@ export const createPost = async (req, res) => {
   req.user.karma += 5;
 
   // Streak logic — compare calendar dates in UTC to avoid timezone drift
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-
-  if (!req.user.lastPostDate) {
-    // Very first post ever
-    req.user.streak = 1;
-  } else {
-    const lastPost = new Date(req.user.lastPostDate);
-    lastPost.setUTCHours(0, 0, 0, 0);
-    const diffDays = Math.round((today.getTime() - lastPost.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      // Already posted today — keep streak as-is (don't double-increment)
-    } else if (diffDays === 1) {
-      // Posted yesterday — extend the streak
-      req.user.streak = (req.user.streak || 0) + 1;
-    } else {
-      // Gap of 2+ days — reset
-      req.user.streak = 1;
-    }
-  }
-
-  req.user.lastPostDate = new Date();
-  await checkAndAwardBadges(req.user);
-  await req.user.save();
-
-
   res.status(201).json(post);
 
   // ─── Background Tasks ──────────────────────────────────────────────────────
   // These are important but shouldn't block the user's response
   (async () => {
     try {
+      // ── Streak & Badge Logic (Background) ──
+      const user = await User.findById(req.user._id);
+      if (user) {
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        if (!user.lastPostDate) {
+          user.streak = 1;
+        } else {
+          const lastPost = new Date(user.lastPostDate);
+          lastPost.setUTCHours(0, 0, 0, 0);
+          const diffDays = Math.round((today.getTime() - lastPost.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays === 1) user.streak = (user.streak || 0) + 1;
+          else if (diffDays > 1) user.streak = 1;
+        }
+        user.lastPostDate = new Date();
+        await checkAndAwardBadges(user);
+        await user.save();
+      }
+
       if (burnAfter24h) await scheduleBurn(post._id);
 
       // Mentions parsing
@@ -791,6 +785,21 @@ export const deletePost = async (req, res) => {
     const postTitle = post.title || "your post";
 
     await Post.findByIdAndDelete(req.params.id);
+
+    // ─── Audit Log (staff actions only) ────────────────────────────────────────
+    if (isStaff) {
+      try {
+        await AuditLog.create({
+          action: "POST_DELETE",
+          performedBy: req.user._id,
+          targetId: req.params.id,
+          targetType: "Post",
+          details: `Deleted post by ${authorId}. Content: "${(postTitle).substring(0, 40)}..."`
+        });
+      } catch (auditErr) {
+        logger.error("[deletePost] AuditLog failed:", auditErr.message);
+      }
+    }
 
     // ─── Notify Author if deleted by Staff ──────────────────────────────────
     if (isStaff && authorId.toString() !== req.user._id.toString()) {

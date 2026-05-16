@@ -27,7 +27,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
-  const [votedLocal, setVotedLocal] = useState(post.hasVoted);
+  const [votedLocal, setVotedLocal] = useState(post.hasVoted ?? false);
+  const initialVoted = post.hasVoted ?? false; // used for delta calculation only
   // Priority: post.isSaved (fresh from server) -> user store (immediate local feedback)
   const isSaved = post.isSaved || user?.savedPosts?.some(id => id === post._id || (typeof id === 'object' && (id as any)._id === post._id));
 
@@ -220,7 +221,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           >
             <Text style={s.actionIcon}>🥔</Text>
             <Text style={[s.actionCount, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>
-              {post.upvotes + (votedLocal ? 1 : 0)}
+              {post.upvotes + (votedLocal === initialVoted ? 0 : votedLocal ? 1 : -1)}
             </Text>
           </TouchableOpacity>
 

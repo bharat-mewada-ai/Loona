@@ -100,8 +100,8 @@ export const createPostRules = [
     .escape()
     .isLength({ max: 5000 }).withMessage("Body must be at most 5000 characters"),
   body("campus")
+    .optional()   // server uses req.user.campus — this field is accepted but ignored
     .trim()
-    .notEmpty().withMessage("campus is required")
     .isIn(VALID_CAMPUSES).withMessage(`campus must be one of: ${VALID_CAMPUSES.join(", ")}`),
   body("type")
     .optional()

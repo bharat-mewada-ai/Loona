@@ -1,33 +1,50 @@
 import { Tabs } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Colors, getColors } from '../../src/theme/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
-
 import { Ionicons } from '@expo/vector-icons';
 
 const THEME = {
   bg: '#0a0a0f',
-  active: '#ff6b35', // Premium Orange
+  active: '#ff6b35',
   inactive: '#44444a',
   border: 'rgba(255,255,255,0.05)',
 };
 
+// Height of the visible icon + label content area
+const TAB_CONTENT_HEIGHT = 56;
+
 function TabBar({ state, navigation }: any) {
   const { isDark } = useUIStore();
   const themeColors = getColors(isDark);
+  // insets.bottom = Android nav bar height (0 on gesture nav, ~48dp on 3-button nav)
+  const insets = useSafeAreaInsets();
+  const bottomPad = insets.bottom;
 
   const tabs = [
-    { name: 'index', icon: 'home-outline', label: 'Feed' },
-    { name: 'nearby', icon: 'location-outline', label: 'Nearby' },
-    { name: 'chats', icon: 'chatbubble-outline', label: 'Chats' },
-    { name: 'profile', icon: 'person-outline', label: 'Profile' },
+    { name: 'index',   icon: 'home-outline',      label: 'Feed'    },
+    { name: 'nearby',  icon: 'location-outline',   label: 'Nearby'  },
+    { name: 'chats',   icon: 'chatbubble-outline', label: 'Chats'   },
+    { name: 'profile', icon: 'person-outline',     label: 'Profile' },
   ];
 
-  const activeColor = themeColors.ogi; // Loona Orange/Lime depending on theme
+  const activeColor   = themeColors.ogi;
   const inactiveColor = isDark ? '#44444a' : '#999';
 
   return (
-    <View style={[s.bar, { backgroundColor: themeColors.bg, borderTopColor: themeColors.bdr }]}>
+    <View
+      style={[
+        s.bar,
+        {
+          backgroundColor: themeColors.bg,
+          borderTopColor: themeColors.bdr,
+          // System nav buttons live in the bottom padding — they never overlap icons
+          paddingBottom: bottomPad,
+          height: TAB_CONTENT_HEIGHT + bottomPad,
+        },
+      ]}
+    >
       {tabs.map((tab, i) => {
         const focused = state.index === i;
         return (
@@ -40,16 +57,25 @@ function TabBar({ state, navigation }: any) {
             accessibilityLabel={`${tab.label} tab`}
             accessibilityState={{ selected: focused }}
           >
-            {/* Top Indicator Line */}
-            {focused && <View style={[s.indicator, { backgroundColor: activeColor, shadowColor: activeColor }]} />}
-            
-            <View style={s.iconWrap}>
-              <Ionicons 
-                name={tab.icon as any} 
-                size={24} 
-                color={focused ? activeColor : inactiveColor} 
+            {/* Top indicator stripe */}
+            {focused && (
+              <View
+                style={[
+                  s.indicator,
+                  { backgroundColor: activeColor, shadowColor: activeColor },
+                ]}
               />
-              <Text style={[s.niLabel, { color: focused ? activeColor : inactiveColor }]}>{tab.label}</Text>
+            )}
+
+            <View style={s.iconWrap}>
+              <Ionicons
+                name={tab.icon as any}
+                size={24}
+                color={focused ? activeColor : inactiveColor}
+              />
+              <Text style={[s.niLabel, { color: focused ? activeColor : inactiveColor }]}>
+                {tab.label}
+              </Text>
             </View>
           </TouchableOpacity>
         );
@@ -67,9 +93,9 @@ export default function TabsLayout() {
         tabBar={(props) => <TabBar {...props} />}
         screenOptions={{ headerShown: false }}
       >
-        <Tabs.Screen name="index" />
-        <Tabs.Screen name="nearby" />
-        <Tabs.Screen name="chats" />
+        <Tabs.Screen name="index"   />
+        <Tabs.Screen name="nearby"  />
+        <Tabs.Screen name="chats"   />
         <Tabs.Screen name="profile" />
       </Tabs>
     </View>
@@ -79,36 +105,31 @@ export default function TabsLayout() {
 const s = StyleSheet.create({
   bar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: THEME.bg,
+    // Icons align to top of bar; bottomPad handles the system nav area
+    alignItems: 'flex-start',
     borderTopWidth: 1,
-    borderTopColor: THEME.border,
-    paddingBottom: 10, // Standard padding
-    height: 60, // Standard height
   },
   ni: {
     flex: 1,
     alignItems: 'center',
-    height: '100%',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    height: TAB_CONTENT_HEIGHT,
   },
   indicator: {
     position: 'absolute',
     top: -1,
     width: '50%',
     height: 3,
-    backgroundColor: THEME.active,
     borderBottomLeftRadius: 3,
     borderBottomRightRadius: 3,
-    shadowColor: THEME.active,
     shadowOpacity: 0.5,
     shadowRadius: 10,
     elevation: 5,
   },
   iconWrap: {
     alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
+    gap: 4,
   },
   niLabel: {
     fontSize: 11,

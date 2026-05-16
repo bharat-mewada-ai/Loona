@@ -87,7 +87,7 @@ const ReportedPosts = () => {
                   </div>
 
                   <h4 style={{ fontSize: '18px', marginBottom: '12px' }}>{post.title}</h4>
-                  {post.content && <p style={{ color: '#A1A1AA', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px' }}>{post.content}</p>}
+                  {post.body && <p style={{ color: '#A1A1AA', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px' }}>{post.body}</p>}
                   
                   <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px' }}>
                     <h5 style={{ fontSize: '11px', color: '#71717A', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>REPORTS DETAIL:</h5>

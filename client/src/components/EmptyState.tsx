@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useUIStore } from '../store/uiStore';
 import { getColors } from '../theme/colors';
 
-type EmptyStateType = 'feed' | 'stories' | 'discussions' | 'confessions' | 'events' | 'bhandara' | 'nearby' | 'search' | 'notifications' | 'chats';
+type EmptyStateType = 'feed' | 'stories' | 'discussions' | 'confessions' | 'events' | 'bhandara' | 'nearby' | 'search' | 'notifications' | 'chats' | 'place' | 'offers';
 
 interface Props {
   type: EmptyStateType;
@@ -83,12 +83,26 @@ const EMPTY_CONFIGS: Record<EmptyStateType, {
     subtitle: "Reply to posts or wave at people nearby to start anonymous conversations.",
     cta: undefined,
   },
+  place: {
+    emoji: '📍',
+    title: "Nothing nearby.",
+    subtitle: "No posts from people near you right now. Check back later!",
+    cta: undefined,
+  },
+  offers: {
+    emoji: '🏷️',
+    title: "No offers yet.",
+    subtitle: "No campus deals or discounts posted yet. Be the first to share one!",
+    cta: "Post an offer",
+    ctaEmoji: "💳",
+  },
 };
 
 export default function EmptyState({ type, onAction }: Props) {
   const isDark = useUIStore(s => s.isDark);
   const themeColors = getColors(isDark);
-  const config = EMPTY_CONFIGS[type];
+  // Safety fallback: if an unrecognised type is passed, use the generic feed config
+  const config = EMPTY_CONFIGS[type] ?? EMPTY_CONFIGS['feed'];
 
   return (
     <View style={s.container}>

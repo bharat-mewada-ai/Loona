@@ -22,8 +22,8 @@ router.get('/sign', requireAuth, asyncHandler(async (req, res) => {
   const paramsToSign = {
     timestamp,
     folder: 'loona',
-    // Limit uploaded file size to 5MB at Cloudinary level (transformation)
-    transformation: 'q_auto,f_auto,w_1200,c_limit',
+    // eager applies transformations AFTER upload (correct for signed direct upload)
+    eager: 'q_auto,f_auto,w_1200,c_limit',
   };
 
   const signature = cloudinary.utils.api_sign_request(
@@ -37,6 +37,7 @@ router.get('/sign', requireAuth, asyncHandler(async (req, res) => {
     folder: 'loona',
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
     apiKey: process.env.CLOUDINARY_API_KEY,
+    eager: 'q_auto,f_auto,w_1200,c_limit',
   });
 }));
 

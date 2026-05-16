@@ -259,7 +259,7 @@ export const updateProfile = async (req, res) => {
   const userId = req.user._id;
   try {
     const { avatar, name, bio, isPrivate, tags, notificationsEnabled } = req.body;
-    console.log(`[UpdateProfile] Request for user ${userId}:`, req.body);
+    logger.info(`[UpdateProfile] Start for user ${userId}`);
 
     const updateData = {};
     if (avatar) updateData.avatar = avatar;
@@ -293,7 +293,7 @@ export const updateProfile = async (req, res) => {
             Post.updateMany({ author: userId }, { $set: cascadeUpdate }),
             Comment.updateMany({ author: userId }, { $set: cascadeUpdate })
           ]);
-          console.log(`[UpdateProfile] Cascade identity update successful for ${userId}`);
+          logger.info(`[UpdateProfile] Cascade identity update successful for ${userId}`);
         } catch (e) {
           console.error(`[UpdateProfile] Cascade error:`, e.message);
         }
@@ -304,10 +304,10 @@ export const updateProfile = async (req, res) => {
     delete userObj.password;
     if (!userObj.tags) userObj.tags = [];
 
-    console.log(`[UpdateProfile] Success for user ${userId}`);
+    logger.info(`[UpdateProfile] Success for user ${userId}`);
     res.json(userObj);
   } catch (err) {
-    console.error(`[UpdateProfile] FATAL ERROR for user ${userId}:`, err);
+    logger.error(`[UpdateProfile] FATAL ERROR for user ${userId}:`, err.message);
     res.status(500).json({ 
       error: err.message, 
       stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 

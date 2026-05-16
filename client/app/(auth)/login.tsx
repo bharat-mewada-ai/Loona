@@ -70,9 +70,6 @@ export default function LoginScreen() {
     preferLocalhost: true,
   });
 
-  if (Platform.OS === 'web') {
-    console.log("[DEBUG] Google Redirect URI:", redirectUri);
-  }
 
   const [request, response_web, promptAsync] = Google.useAuthRequest({
     webClientId: GOOGLE_AUTH.WEB_CLIENT_ID,
