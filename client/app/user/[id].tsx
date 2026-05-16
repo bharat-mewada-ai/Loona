@@ -48,10 +48,8 @@ export default function UserProfileScreen() {
   const primaryColor = user.campus === 'lnct' ? themeColors.lnct : themeColors.ogi;
 
   const handleStartChat = () => {
-    if (activeCampus === 'all') {
-      Alert.alert('Sneak In Mode', 'You cannot message in Sneak In mode.');
-      return;
-    }
+    if (startingChat) return;
+    
     startChat(
       { targetUserId: user._id, postId: '' },
       {
@@ -59,6 +57,10 @@ export default function UserProfileScreen() {
           closeAuthorProfile();
           router.push(`/chat/${chat._id}`);
         },
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error || err?.message || 'Could not start chat';
+          Alert.alert('Message Failed', msg);
+        }
       }
     );
   };

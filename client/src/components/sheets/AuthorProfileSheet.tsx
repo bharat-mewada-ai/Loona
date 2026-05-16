@@ -21,7 +21,7 @@ export default function AuthorProfileSheet() {
   const isSameCampus = authorProfile.postCampus === user?.campus;
 
   const handleStartChat = () => {
-    if (isPending || !isSameCampus) return;
+    if (isPending) return;
     startChat(
       { targetUserId: authorProfile.userId, postId: authorProfile.postId },
       {
@@ -29,6 +29,10 @@ export default function AuthorProfileSheet() {
           closeAuthorProfile();
           router.push(`/chat/${chat._id}`);
         },
+        onError: (err: any) => {
+          const msg = err?.response?.data?.error || err?.message || 'Could not start chat';
+          Alert.alert('Message Failed', msg);
+        }
       }
     );
   };
@@ -102,19 +106,13 @@ export default function AuthorProfileSheet() {
 
           {!authorProfile.isSelf ? (
             <>
-              {isSameCampus ? (
-                <TouchableOpacity 
-                  style={[s.dmBtn, { backgroundColor: themeColors.ogi }, isPending && s.btnDisabled]} 
-                  onPress={handleStartChat}
-                  disabled={isPending}
-                >
-                  <Text style={s.dmTxt}>{isPending ? 'Starting Chat...' : '💬 Send a Message'}</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={[s.dmBtn, { backgroundColor: themeColors.bg2, opacity: 0.8 }]}>
-                  <Text style={[s.dmTxt, { color: themeColors.txt3 }]}>🚫 Cannot message other campuses</Text>
-                </View>
-              )}
+              <TouchableOpacity 
+                style={[s.dmBtn, { backgroundColor: themeColors.ogi }, isPending && s.btnDisabled]} 
+                onPress={handleStartChat}
+                disabled={isPending}
+              >
+                <Text style={s.dmTxt}>{isPending ? 'Starting Chat...' : '💬 Send a Message'}</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity 
                 style={[s.blockBtn, { borderColor: themeColors.danger }]} 
