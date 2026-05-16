@@ -32,12 +32,26 @@ export const cacheMiddleware = (ttlSeconds) => async (req, res, next) => {
 
 export const invalidateCache = async (prefix) => {
   if (!redisClient || redisClient.status !== "ready") return;
-  try {
-    const keys = await redisClient.keys(`cache:${prefix}*`);
-    if (keys.length > 0) {
-      await redisClient.del(...keys);
+  
+  // ─── Non-Blocking Invalidation ──────────────────────────────────────────────
+  // We fire-and-forget the invalidation so it doesn't slow down the user's response.
+  (async () => {
+    try {
+      let cursor = '0';
+      const pattern = `cache:${prefix}*`;
+      
+      do {
+        // SCAN is much safer than KEYS in production as it doesn't block Redis
+        const [nextCursor, keys] = await redisClient.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = nextCursor;
+        
+        if (keys.length > 0) {
+          await redisClient.del(...keys);
+        }
+      } while (cursor !== '0');
+      
+    } catch (err) {
+      logger.error("Redis Cache Invalidate Error:", err.message);
     }
-  } catch (err) {
-    logger.error("Redis Cache Invalidate Error:", err.message);
-  }
+  })();
 };

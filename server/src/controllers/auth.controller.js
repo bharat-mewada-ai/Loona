@@ -200,11 +200,16 @@ export const getMe = async (req, res) => {
   const rankKey = `campusRank:${req.user.campus}:${req.user.karma}`;
   let rank = await redis.get(rankKey);
   if (!rank) {
-    rank = await User.countDocuments({
-      campus: req.user.campus,
-      karma: { $gt: req.user.karma }
-    }) + 1;
-    await redis.set(rankKey, rank, 'EX', 300);
+    // Optimization: Only count if karma is non-zero, otherwise rank is just "Low" or ignored
+    if (req.user.karma > 0) {
+      rank = await User.countDocuments({
+        campus: req.user.campus,
+        karma: { $gt: req.user.karma }
+      }) + 1;
+      await redis.set(rankKey, rank, 'EX', 600); // 10 min cache
+    } else {
+      rank = "N/A";
+    }
   } else {
     rank = parseInt(rank, 10);
   }

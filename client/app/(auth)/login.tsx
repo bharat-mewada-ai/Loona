@@ -10,7 +10,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useGoogleAuth } from '../../src/hooks/useAuth';
 import { Colors } from '../../src/theme/colors';
-import { CAMPUSES_LIST as CAMPUSES } from '../../src/constants';
+import { CAMPUSES_LIST as CAMPUSES, GOOGLE_AUTH } from '../../src/constants';
 import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
 import type { Campus } from '../../src/types';
@@ -18,10 +18,8 @@ import type { Campus } from '../../src/types';
 WebBrowser.maybeCompleteAuthSession();
 
 // ─── Native Google Sign-In Configuration ──────────────────────────────────────
-const WEB_CLIENT_ID = '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com';
-
 GoogleSignin.configure({
-  webClientId: WEB_CLIENT_ID,
+  webClientId: GOOGLE_AUTH.WEB_CLIENT_ID,
   offlineAccess: true,
   scopes: ['profile', 'email'],
 });
@@ -77,7 +75,9 @@ export default function LoginScreen() {
   }
 
   const [request, response_web, promptAsync] = Google.useAuthRequest({
-    webClientId: WEB_CLIENT_ID,
+    webClientId: GOOGLE_AUTH.WEB_CLIENT_ID,
+    androidClientId: GOOGLE_AUTH.ANDROID_CLIENT_ID,
+    iosClientId: GOOGLE_AUTH.IOS_CLIENT_ID,
     responseType: Platform.OS === 'web' ? 'token' : 'id_token',
     redirectUri,
   });

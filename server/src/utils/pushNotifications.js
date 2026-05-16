@@ -1,14 +1,4 @@
-/**
- * server/src/utils/pushNotifications.js
- *
- * Expo Push Notification helper.
- * Sends push notifications via Expo's push API.
- * No SDK needed — uses the HTTP API directly.
- *
- * Usage:
- *   import { sendPush } from '../utils/pushNotifications.js';
- *   await sendPush(user.expoPushToken, 'New comment!', 'Someone replied to your post');
- */
+import logger from "./logger.js";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -43,9 +33,10 @@ export const sendPushNotification = async (token, title, body, data = {}) => {
     });
 
     const json = await res.json();
+    logger.info(`[Push] Expo response: ${res.status} ${JSON.stringify(json)}`);
     // Log delivery errors from Expo (e.g. token invalid, app uninstalled)
     if (json.data?.status === "error") {
-      console.warn(`[Push] Delivery error for token ${token}:`, json.data.message);
+      logger.warn(`[Push] Delivery error for token ${token}:`, json.data.message);
     }
   } catch (err) {
     // Non-blocking — a push failure should never crash a request
@@ -66,23 +57,25 @@ export const sendPushBatch = async (messages) => {
   if (valid.length === 0) return;
 
   try {
-    await fetch(EXPO_PUSH_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(
-        valid.map((m) => ({
-          to: m.token,
-          title: m.title,
-          body: m.body,
-          data: m.data ?? {},
-          sound: "default",
-          priority: "high",
-        }))
-      ),
-    });
+      const res = await fetch(EXPO_PUSH_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(
+          valid.map((m) => ({
+            to: m.token,
+            title: m.title,
+            body: m.body,
+            data: m.data ?? {},
+            sound: "default",
+            priority: "high",
+          }))
+        ),
+      });
+      const json = await res.json();
+      logger.info(`[Push] Batch Expo response: ${res.status} ${JSON.stringify(json)}`);
   } catch (err) {
     console.error("[Push] Batch send failed:", err.message);
   }

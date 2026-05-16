@@ -91,27 +91,6 @@ export const createPost = async (req, res) => {
   };
 
   const post = await Post.create(postData);
-  if (burnAfter24h) await scheduleBurn(post._id);
-
-  // ─── Parse Mentions (Max 5) ────────────────────────────────────────────────
-  const textToParse = `${title} ${body || ""}`;
-  const mentions = textToParse.match(/@[a-zA-Z0-9_]+/g);
-  if (mentions) {
-    const usernames = [...new Set(mentions.map(m => m.slice(1)))].slice(0, 5);
-    const mentionedUsers = await User.find({ name: { $in: usernames } }).select('_id');
-    for (const u of mentionedUsers) {
-      if (u._id.toString() !== req.user._id.toString()) {
-        createNotification({
-          recipient: u._id,
-          sender: req.user._id,
-          type: "mention",
-          title: "You were mentioned! 🏷️",
-          body: `Someone mentioned you in a new post.`,
-          data: { postId: post._id }
-        });
-      }
-    }
-  }
 
   // ─── Update user stats + streak ─────────────────────────────────────────────────────
   req.user.postCount += 1;
@@ -145,14 +124,46 @@ export const createPost = async (req, res) => {
   await req.user.save();
 
 
-  // Invalidate feed and leaderboard cache so new post/karma appears immediately
-  invalidateCache("/api/posts");
-  invalidateCache("/api/auth/leaderboard");
-
-  const io = req.app.get("io");
-  if (io) io.emit("leaderboardUpdate");
-
   res.status(201).json(post);
+
+  // ─── Background Tasks ──────────────────────────────────────────────────────
+  // These are important but shouldn't block the user's response
+  (async () => {
+    try {
+      if (burnAfter24h) await scheduleBurn(post._id);
+
+      // Mentions parsing
+      const textToParse = `${title} ${body || ""}`;
+      const mentions = textToParse.match(/@[a-zA-Z0-9_]+/g);
+      if (mentions) {
+        const usernames = [...new Set(mentions.map(m => m.slice(1)))].slice(0, 5);
+        const mentionedUsers = await User.find({ name: { $in: usernames } }).select('_id');
+        for (const u of mentionedUsers) {
+          if (u._id.toString() !== req.user._id.toString()) {
+            createNotification({
+              recipient: u._id,
+              sender: req.user._id,
+              type: "mention",
+              title: "You were mentioned! 🏷️",
+              body: `Someone mentioned you in a new post.`,
+              data: { postId: post._id }
+            });
+          }
+        }
+      }
+
+      await checkAndAwardBadges(req.user);
+      await req.user.save();
+
+      invalidateCache("/api/posts");
+      invalidateCache("/api/auth/leaderboard");
+
+      const io = req.app.get("io");
+      if (io) io.emit("leaderboardUpdate");
+    } catch (bgErr) {
+      logger.error("[Post] Background task error:", bgErr.message);
+    }
+  })();
 };
 
 /* ---------------- GET ALL POSTS (lean for perf) ---------------- */
@@ -195,16 +206,13 @@ export const getPosts = async (req, res) => {
     }
   }
 
-  const [posts, total] = await Promise.all([
-    Post.find(filter)
+  const posts = await Post.find(filter)
       .hint({ campus: 1, hidden: 1, createdAt: -1 })
       .populate("author", "bio isVerified tags name avatar isPremium badges")
       .select("-reports")
       .sort({ _id: -1 })
-      .limit(parseInt(limit))
-      .lean(),
-    Post.countDocuments(filter),
-  ]);
+      .limit(parseInt(limit) + 1) // Fetch one extra to determine hasMore
+      .lean();
 
   // Fetch top 3 contributors for campus
   let topUserIds = [];
@@ -256,10 +264,11 @@ export const getPosts = async (req, res) => {
     };
   });
 
-  const hasMore = posts.length === parseInt(limit);
+  const hasMore = posts.length > parseInt(limit);
+  if (hasMore) posts.pop(); // Remove the extra post
   const nextCursor = hasMore ? posts[posts.length - 1]._id : null;
 
-  res.json({ posts: formattedPosts, total, nextCursor, hasMore });
+  res.json({ posts: formattedPosts, total: -1, nextCursor, hasMore });
 };
 
 /* ---------------- GET SINGLE POST (lean) ---------------- */

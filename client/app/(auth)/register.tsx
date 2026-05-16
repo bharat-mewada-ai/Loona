@@ -11,7 +11,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as AuthSession from 'expo-auth-session';
 import { useGoogleAuth } from '../../src/hooks/useAuth';
 import { Colors } from '../../src/theme/colors';
-import { CAMPUSES_LIST as CAMPUSES } from '../../src/constants';
+import { CAMPUSES_LIST as CAMPUSES, GOOGLE_AUTH } from '../../src/constants';
 import type { Campus } from '../../src/types';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -24,10 +24,9 @@ export default function RegisterScreen() {
   const [errorMsg, setErrorMsg] = useState('');
   
   const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com',
-    androidClientId: '612057986452-8ov2v6ouhqk1bsktvl2je8mj0j9nrc7r.apps.googleusercontent.com',
-    iosClientId: '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com',
-    clientId: '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com',
+    webClientId: GOOGLE_AUTH.WEB_CLIENT_ID,
+    androidClientId: GOOGLE_AUTH.ANDROID_CLIENT_ID,
+    iosClientId: GOOGLE_AUTH.IOS_CLIENT_ID,
   });
 
   // Animation state

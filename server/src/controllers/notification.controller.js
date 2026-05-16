@@ -5,20 +5,20 @@ export const getNotifications = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const [notifications, total] = await Promise.all([
-      Notification.find({ recipient: req.user._id })
+    const notifications = await Notification.find({ recipient: req.user._id })
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      Notification.countDocuments({ recipient: req.user._id }),
-    ]);
+        .limit(parseInt(limit) + 1)
+        .lean();
+
+    const hasMore = notifications.length > parseInt(limit);
+    if (hasMore) notifications.pop();
 
     res.json({
       notifications,
-      total,
+      total: -1,
       page: parseInt(page),
-      hasMore: total > skip + notifications.length,
+      hasMore,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

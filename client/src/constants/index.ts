@@ -13,6 +13,13 @@ export const API_URL = ENV_URL
 
 console.log('[Config] API_URL:', API_URL);
 
+// ─── Google Auth Configuration ────────────────────────────────────────────────
+export const GOOGLE_AUTH = {
+  WEB_CLIENT_ID: '329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com',
+  ANDROID_CLIENT_ID: '329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com',
+  IOS_CLIENT_ID: '612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com', // Placeholder if not defined
+};
+
 // ─── Campus type & data ───────────────────────────────────────────────────────
 export type Campus = 'ogi' | 'lnct' | 'all';
 

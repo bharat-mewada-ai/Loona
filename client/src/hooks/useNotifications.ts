@@ -85,7 +85,7 @@ async function registerForPushNotificationsAsync() {
 
   try {
     token = (await Notifications.getExpoPushTokenAsync({
-      projectId: '6858e77a-2483-4852-947d-8153b30e0142' // Replace with your Expo project ID
+      projectId: '205832d2-b843-4d50-8c80-5d2d9b1b130a' 
     })).data;
   } catch (e) {
     console.error('Failed to get push token', e);
