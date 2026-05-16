@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, 
   Modal, ActivityIndicator, Alert, Switch, TextInput, Platform,
   Dimensions, Image, Share, Linking, FlatList
 } from 'react-native';
@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { triggerHaptic } from '../../src/utils/haptics';
 import StandardCard from '../../src/components/cards/StandardCard';
 import { CAMPUSES_LIST } from '../../src/constants';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 

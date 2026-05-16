@@ -1,8 +1,9 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, 
   ActivityIndicator, Dimensions, Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';

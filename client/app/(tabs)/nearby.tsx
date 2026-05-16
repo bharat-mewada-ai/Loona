@@ -3,7 +3,6 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
   Dimensions, 
   Animated, 
   Easing, 
@@ -12,6 +11,7 @@ import {
   FlatList,
   Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
 import { StatusBar } from 'expo-status-bar';

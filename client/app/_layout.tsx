@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
@@ -166,25 +167,27 @@ function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthLoader>
-          <StatusBar 
-            style={isDark ? "light" : "dark"} 
-            translucent={false} 
-            backgroundColor={isDark ? "#000" : "#fff"}
-          />
-          {content}
-          
-          {/* Global UI Sheets */}
-          {showComposeSheet && <ComposeSheet />}
-          {showReportSheet && <ReportSheet />}
-          {showCommentSheet && <CommentSheet />}
-          {showFeedbackSheet && <FeedbackSheet />}
-          {showPrivacySheet && <PrivacySheet />}
-          {showStoryViewer && <StoryViewer />}
-          <AuthorProfileSheet />
-        </AuthLoader>
-      </QueryClientProvider>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthLoader>
+            <StatusBar 
+              style={isDark ? "light" : "dark"} 
+              translucent={false} 
+              backgroundColor={isDark ? "#000" : "#fff"}
+            />
+            {content}
+            
+            {/* Global UI Sheets */}
+            {showComposeSheet && <ComposeSheet />}
+            {showReportSheet && <ReportSheet />}
+            {showCommentSheet && <CommentSheet />}
+            {showFeedbackSheet && <FeedbackSheet />}
+            {showPrivacySheet && <PrivacySheet />}
+            {showStoryViewer && <StoryViewer />}
+            <AuthorProfileSheet />
+          </AuthLoader>
+        </QueryClientProvider>
+      </SafeAreaProvider>
     </ErrorBoundary>
   );
 }

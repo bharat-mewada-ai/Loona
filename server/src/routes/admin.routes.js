@@ -157,10 +157,14 @@ router.get("/health", requireAuth, requireAdmin, asyncHandler(async (req, res) =
 
   try {
     const cloudUsage = await cloudinary.api.usage();
+    const storageUsage = cloudUsage.storage.usage || 0;
+    const creditsLimit = cloudUsage.credits?.limit || 25; // Default 25GB/Credits for Free plan
+    const usedPercent = cloudUsage.credits?.used_percent || 0;
+    
     cloudinaryStats = {
-      usage: (cloudUsage.storage.usage / (1024 * 1024 * 1024)).toFixed(2), // GB
-      limit: (cloudUsage.storage.limit / (1024 * 1024 * 1024)).toFixed(2), // GB
-      percent: cloudUsage.storage.used_percent.toFixed(2)
+      usage: (storageUsage / (1024 * 1024 * 1024)).toFixed(2), // GB
+      limit: creditsLimit.toFixed(2), // GB (Credits are roughly 1GB each)
+      percent: usedPercent.toFixed(2)
     };
   } catch (e) { console.error("Cloudinary stats failed", e.message); }
 
