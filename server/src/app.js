@@ -18,6 +18,7 @@ import notificationRoutes from "./routes/notification.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import configRoutes from "./routes/config.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
+import errorRoutes from "./routes/error.routes.js";
 import redis from "./utils/redis.js";
 import { optionalAuth } from "./middlewares/auth.js";
 
@@ -143,6 +144,7 @@ app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/config", configRoutes);
 app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/errors", errorRoutes);
 
 import Analytics from "./models/analytics.model.js";
 app.post("/api/v1/analytics/log", optionalAuth, async (req, res) => {

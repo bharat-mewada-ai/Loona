@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Platform } from 'react-native';
 import * as Updates from 'expo-updates';
+import * as Application from 'expo-application';
 import { API_URL } from '../constants';
 
 const { width } = Dimensions.get('window');
@@ -26,6 +27,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     console.error('CRITICAL UI ERROR:', error, errorInfo);
     
     // Report crash to backend
+    // Note: We use the /v1 prefix as configured in the server
     fetch(`${API_URL}/errors/log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -37,6 +39,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         metadata: {
           componentStack: errorInfo.componentStack,
           device: Platform.OS,
+          version: Application.nativeApplicationVersion || '1.0.0',
           timestamp: new Date().toISOString(),
         }
       })
