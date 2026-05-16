@@ -204,8 +204,8 @@ export const startChatRules = [
     .notEmpty().withMessage("targetUserId is required")
     .isMongoId().withMessage("targetUserId must be a valid user ID"),
   body("postId")
+    .optional()
     .trim()
-    .notEmpty().withMessage("postId is required")
     .isMongoId().withMessage("postId must be a valid post ID"),
 ];
 
@@ -214,10 +214,15 @@ export const sendMessageRules = [
   param("chatId")
     .isMongoId().withMessage("Invalid chat ID"),
   body("content")
+    .optional()
     .trim()
-    .notEmpty().withMessage("Message content is required")
     .isLength({ max: 1000 }).withMessage("Message must be at most 1000 characters")
     .matches(/^[^<>]*$/).withMessage("Message contains invalid characters"),
+  body("image")
+    .optional()
+    .trim()
+    .isURL({ protocols: ["http", "https"], require_protocol: true })
+    .withMessage("image must be a valid http/https URL"),
 ];
 
 // ─── Feedback rules ───────────────────────────────────────────────────────────
