@@ -90,7 +90,11 @@ export const googleLogin = async (req, res) => {
         // Truly new user
         if (!campus) return res.status(400).json({ error: "Campus is required for new users" });
         
-        const anonName = "Potato_" + Math.floor(Math.random() * 9000 + 1000);
+        const prefixes = ["Bindaas", "Jugaadi", "Toofani", "Dhasu", "Gabru", "Dabang", "Shana", "Chulbuli", "Sanskari", "Bakar", "Masala", "Desi", "Tikka", "Naan", "Chai", "Samosa", "Jalebi"];
+        const suffixes = ["Panda", "Ninja", "Ghost", "Pirate", "Ranger", "Pilot", "Guru", "Beast", "Knight", "King", "Queen", "Hero", "Wizard", "Professor", "Tiger", "Fox", "Hawk", "Lover", "Idol"];
+        const randomPref = prefixes[Math.floor(Math.random() * prefixes.length)];
+        const randomSuff = suffixes[Math.floor(Math.random() * suffixes.length)];
+        const anonName = `${randomPref}_${randomSuff}_${Math.floor(Math.random() * 900 + 100)}`;
         try {
           user = await User.create({
             googleId,
