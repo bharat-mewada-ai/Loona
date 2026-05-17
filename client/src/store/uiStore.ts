@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Appearance } from 'react-native';
 import type { Campus, TabFilter } from '../types';
 
 interface UIState {
@@ -83,63 +86,72 @@ interface UIState {
   toggleHaptics: () => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
-  // Theme
-  isDark: false,
-  toggleDark: () => set((s) => ({ isDark: !s.isDark })),
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      // Theme
+      isDark: Appearance.getColorScheme() === 'dark',
+      toggleDark: () => set((s) => ({ isDark: !s.isDark })),
 
-  // Feed filters
-  activeCampus: 'all',
-  activeTab: 'all',
-  setCampus: (activeCampus) => set({ activeCampus }),
-  setTab: (activeTab) => set({ activeTab }),
+      // Feed filters
+      activeCampus: 'all',
+      activeTab: 'all',
+      setCampus: (activeCampus) => set({ activeCampus }),
+      setTab: (activeTab) => set({ activeTab }),
 
-  // Compose sheet
-  showComposeSheet: false,
-  composeType: 'discussion' as TabFilter,
-  openComposeSheet: (type) =>
-    set({ showComposeSheet: true, composeType: type }),
-  closeComposeSheet: () => set({ showComposeSheet: false }),
-  setComposeType: (composeType) => set({ composeType }),
+      // Compose sheet
+      showComposeSheet: false,
+      composeType: 'discussion' as TabFilter,
+      openComposeSheet: (type) =>
+        set({ showComposeSheet: true, composeType: type }),
+      closeComposeSheet: () => set({ showComposeSheet: false }),
+      setComposeType: (composeType) => set({ composeType }),
 
-  // Report sheet
-  showReportSheet: false,
-  reportPostId: null,
-  authorProfile: null,
+      // Report sheet
+      showReportSheet: false,
+      reportPostId: null,
+      authorProfile: null,
 
-  openReportSheet: (id) => set({ showReportSheet: true, reportPostId: id }),
-  closeReportSheet: () => set({ showReportSheet: false, reportPostId: null }),
+      openReportSheet: (id) => set({ showReportSheet: true, reportPostId: id }),
+      closeReportSheet: () => set({ showReportSheet: false, reportPostId: null }),
 
-  openAuthorProfile: (profile) => set({ authorProfile: profile }),
-  closeAuthorProfile: () => set({ authorProfile: null }),
+      openAuthorProfile: (profile) => set({ authorProfile: profile }),
+      closeAuthorProfile: () => set({ authorProfile: null }),
 
-  // Comment sheet
-  showCommentSheet: false,
-  commentPostId: null,
-  openCommentSheet: (postId) => set({ showCommentSheet: true, commentPostId: postId }),
-  closeCommentSheet: () => set({ showCommentSheet: false, commentPostId: null }),
+      // Comment sheet
+      showCommentSheet: false,
+      commentPostId: null,
+      openCommentSheet: (postId) => set({ showCommentSheet: true, commentPostId: postId }),
+      closeCommentSheet: () => set({ showCommentSheet: false, commentPostId: null }),
 
-  // Story Viewer
-  showStoryViewer: false,
-  activeStoryId: null,
-  storyList: [],
-  openStoryViewer: (id, list = []) => set({ showStoryViewer: true, activeStoryId: id, storyList: list }),
-  closeStoryViewer: () => set({ showStoryViewer: false, activeStoryId: null, storyList: [] }),
+      // Story Viewer
+      showStoryViewer: false,
+      activeStoryId: null,
+      storyList: [],
+      openStoryViewer: (id, list = []) => set({ showStoryViewer: true, activeStoryId: id, storyList: list }),
+      closeStoryViewer: () => set({ showStoryViewer: false, activeStoryId: null, storyList: [] }),
 
-  // Support Sheets
-  showFeedbackSheet: false,
-  showPrivacySheet: false,
-  openFeedbackSheet: () => set({ showFeedbackSheet: true }),
-  closeFeedbackSheet: () => set({ showFeedbackSheet: false }),
-  openPrivacySheet: () => set({ showPrivacySheet: true }),
-  closePrivacySheet: () => set({ showPrivacySheet: false }),
+      // Support Sheets
+      showFeedbackSheet: false,
+      showPrivacySheet: false,
+      openFeedbackSheet: () => set({ showFeedbackSheet: true }),
+      closeFeedbackSheet: () => set({ showFeedbackSheet: false }),
+      openPrivacySheet: () => set({ showPrivacySheet: true }),
+      closePrivacySheet: () => set({ showPrivacySheet: false }),
 
-  // Upload sheet
-  showUploadSheet: false,
-  openUploadSheet: () => set({ showUploadSheet: true }),
-  closeUploadSheet: () => set({ showUploadSheet: false }),
+      // Upload sheet
+      showUploadSheet: false,
+      openUploadSheet: () => set({ showUploadSheet: true }),
+      closeUploadSheet: () => set({ showUploadSheet: false }),
 
-  // Haptics
-  hapticsEnabled: true,
-  toggleHaptics: () => set((s) => ({ hapticsEnabled: !s.hapticsEnabled })),
-}));
+      // Haptics
+      hapticsEnabled: true,
+      toggleHaptics: () => set((s) => ({ hapticsEnabled: !s.hapticsEnabled })),
+    }),
+    {
+      name: 'loona-ui-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({ isDark: state.isDark }),
+    }
+  )
+);

@@ -38,18 +38,11 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
 
   // Route to specialized card
   switch (post.type) {
-    case 'confess':
-      return <ConfessionCard post={post} onDelete={handleDelete} />;
-    
     case 'stories':
       return <StoryCard post={post} onDelete={handleDelete} />;
     
     case 'offers':
       return <OfferCard post={post} onDelete={handleDelete} />;
-    
-    case 'events':
-    case 'bhandara':
-      return <EventCard post={post} onDelete={handleDelete} />;
     
     default:
       return (

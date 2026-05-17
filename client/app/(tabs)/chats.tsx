@@ -53,7 +53,7 @@ export default function ChatsScreen() {
         data={filteredChats}
         keyExtractor={i => i._id}
         contentContainerStyle={s.scroll}
-        ListHeaderComponent={() => (
+        ListHeaderComponent={
           <View style={[s.searchBox, { backgroundColor: themeColors.card2 }]}>
             <Ionicons name="search-outline" size={18} color={themeColors.txt3} style={{ marginRight: 10 }} />
             <TextInput
@@ -64,7 +64,7 @@ export default function ChatsScreen() {
               onChangeText={setSearchQuery}
             />
           </View>
-        )}
+        }
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={s.item} 

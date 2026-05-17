@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable, TextInput, Alert } from 'react-native';
 import { Colors } from '../../theme/colors';
 import { useUIStore } from '../../store/uiStore';
 import { useReport } from '../../hooks/usePosts';
@@ -30,6 +30,7 @@ export default function ReportSheet() {
           setIsOther(false);
           setOtherReason('');
           closeReportSheet();
+          Alert.alert('Report Submitted', 'Thank you for keeping the community safe.');
         } 
       }
     );

@@ -1,3 +1,4 @@
+import axios from "axios";
 import logger from "./logger.js";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -16,23 +17,25 @@ export const sendPushNotification = async (token, title, body, data = {}) => {
   if (!token.startsWith("ExponentPushToken[")) return; // not a valid Expo token
 
   try {
-    const res = await fetch(EXPO_PUSH_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
+    const res = await axios.post(
+      EXPO_PUSH_URL,
+      {
         to: token,
         title,
         body,
         data,
         sound: "default",
         priority: "high",
-      }),
-    });
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      }
+    );
 
-    const json = await res.json();
+    const json = res.data;
     logger.info(`[Push] Expo response: ${res.status} ${JSON.stringify(json)}`);
     // Log delivery errors from Expo (e.g. token invalid, app uninstalled)
     if (json.data?.status === "error") {
@@ -57,24 +60,24 @@ export const sendPushBatch = async (messages) => {
   if (valid.length === 0) return;
 
   try {
-      const res = await fetch(EXPO_PUSH_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(
-          valid.map((m) => ({
-            to: m.token,
-            title: m.title,
-            body: m.body,
-            data: m.data ?? {},
-            sound: "default",
-            priority: "high",
-          }))
-        ),
-      });
-      const json = await res.json();
+      const res = await axios.post(
+        EXPO_PUSH_URL,
+        valid.map((m) => ({
+          to: m.token,
+          title: m.title,
+          body: m.body,
+          data: m.data ?? {},
+          sound: "default",
+          priority: "high",
+        })),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      );
+      const json = res.data;
       logger.info(`[Push] Batch Expo response: ${res.status} ${JSON.stringify(json)}`);
   } catch (err) {
     console.error("[Push] Batch send failed:", err.message);

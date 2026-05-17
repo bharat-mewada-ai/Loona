@@ -52,8 +52,19 @@ function AuthLoader({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+import * as Notifications from 'expo-notifications';
+
 // Required for web OAuth popup flow to complete
 WebBrowser.maybeCompleteAuthSession();
+
+// Configure foreground notification behavior
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },

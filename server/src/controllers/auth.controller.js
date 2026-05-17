@@ -195,15 +195,14 @@ export const getMe = async (req, res) => {
   const userObj = req.user.toObject();
   if (!userObj.tags) userObj.tags = [];
 
-  // Calculate campusRank with 5 min Redis Cache
+  // Calculate globalRank with 5 min Redis Cache
   const { default: redis } = await import("../utils/redis.js");
-  const rankKey = `campusRank:${req.user.campus}:${req.user.karma}`;
+  const rankKey = `globalRank:${req.user.karma}`;
   let rank = await redis.get(rankKey);
   if (!rank) {
     // Optimization: Only count if karma is non-zero, otherwise rank is just "Low" or ignored
     if (req.user.karma > 0) {
       rank = await User.countDocuments({
-        campus: req.user.campus,
         karma: { $gt: req.user.karma }
       }) + 1;
       await redis.set(rankKey, rank, 'EX', 600); // 10 min cache

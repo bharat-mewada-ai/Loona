@@ -29,8 +29,13 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
   const [votedLocal, setVotedLocal] = useState(post.hasVoted ?? false);
   const initialVoted = post.hasVoted ?? false; // used for delta calculation only
-  // Priority: post.isSaved (fresh from server) -> user store (immediate local feedback)
-  const isSaved = post.isSaved || user?.savedPosts?.some(id => id === post._id || (typeof id === 'object' && (id as any)._id === post._id));
+  const isSavedFromServer = post.isSaved || user?.savedPosts?.some(id => id === post._id || (typeof id === 'object' && (id as any)._id === post._id));
+  const [isSavedLocal, setIsSavedLocal] = useState(isSavedFromServer);
+
+  // Sync when server data updates
+  React.useEffect(() => {
+    setIsSavedLocal(isSavedFromServer);
+  }, [isSavedFromServer]);
 
   const handleVote = () => {
     triggerHaptic('selection');
@@ -40,7 +45,11 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
   const handleSave = () => {
     triggerHaptic('selection');
-    toggleSave(post._id);
+    setVotedLocal(v => v); // dummy
+    setIsSavedLocal(v => !v);
+    toggleSave(post._id, {
+      onError: () => setIsSavedLocal(v => !v)
+    });
   };
 
   const handlePollVote = (index: number) => {
@@ -65,7 +74,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
     const authorId = post.author?._id || (typeof post.author === 'string' ? post.author : null);
     
     // Fallback for "My Posts" view where author might be hidden by server
-    const finalUserId = authorId || (post.author?._id === user?._id || !authorId ? user?._id : null);
+    const finalUserId = authorId;
 
     if (!finalUserId) return;
 
@@ -184,8 +193,16 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
       )}
 
       <View style={s.contentArea}>
-        <Text style={[s.title, { color: themeColors.txt }]}>{post.title}</Text>
-        {!!post.body && <Text style={[s.body, { color: themeColors.txt2 }]}>{post.body}</Text>}
+        <Text style={[s.textBody, { color: themeColors.txt }]}>
+          {post.title}
+          {!!post.body && `\n\n${post.body}`}
+        </Text>
+        {(post.type === 'events' || post.type === 'bhandara') && (post.eventDate || post.eventLocation) && (
+          <View style={{ marginTop: 12, padding: 12, backgroundColor: themeColors.card2, borderRadius: 12, gap: 6 }}>
+            {!!post.eventDate && <Text style={{ color: '#3B82F6', fontSize: 13, fontWeight: '700' }}>📅 {new Date(post.eventDate).toLocaleDateString()} at {new Date(post.eventDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>}
+            {!!post.eventLocation && <Text style={{ color: themeColors.txt2, fontSize: 13, fontWeight: '500' }}>📍 {post.eventLocation}</Text>}
+          </View>
+        )}
       </View>
 
       {post.isPoll && post.pollOptions && (
@@ -237,8 +254,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
             style={s.actionBtn}
             onPress={handleSave}
           >
-            <Ionicons name={isSaved ? "bookmark" : "bookmark-outline"} size={18} color={isSaved ? themeColors.ogi : themeColors.txt3} />
-            <Text style={[s.actionCount, { color: themeColors.txt3 }]}>{isSaved ? 'Saved' : 'Save'}</Text>
+            <Ionicons name={isSavedLocal ? "bookmark" : "bookmark-outline"} size={18} color={isSavedLocal ? themeColors.ogi : themeColors.txt3} />
+            <Text style={[s.actionCount, { color: themeColors.txt3 }]}>{isSavedLocal ? 'Saved' : 'Save'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -269,8 +286,7 @@ const s = StyleSheet.create({
   statusTxt: { fontSize: 11, fontWeight: '800' },
   moreBtn: { padding: 4 },
   contentArea: { paddingHorizontal: 16, paddingVertical: 8 },
-  title: { fontSize: 16, fontWeight: '500', lineHeight: 24, fontFamily: 'PlusJakartaSans_500Medium' },
-  body: { fontSize: 15, marginTop: 8, lineHeight: 24, fontFamily: 'PlusJakartaSans_400Regular', opacity: 0.8 },
+  textBody: { fontSize: 15, lineHeight: 24, fontFamily: 'PlusJakartaSans_400Regular', opacity: 0.9 },
   mediaContainer: { marginHorizontal: 16, height: 300, borderRadius: 20, overflow: 'hidden', marginTop: 8 },
   mediaImg: { width: '100%', height: '100%' },
   pollWrap: { paddingHorizontal: 16, gap: 8, marginTop: 12 },

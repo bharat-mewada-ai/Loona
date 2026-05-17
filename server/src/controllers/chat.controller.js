@@ -53,6 +53,10 @@ export const startChat = async (req, res) => {
         User.findById(targetUserId).select('name avatar')
       ]);
 
+      if (!u1 || !u2) {
+        return res.status(404).json({ error: "One or both users not found." });
+      }
+
       chat = await Chat.create({
         participants: [req.user._id, targetUserId],
         anonIdentities: {
