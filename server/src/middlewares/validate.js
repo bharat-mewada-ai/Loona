@@ -204,7 +204,7 @@ export const startChatRules = [
     .notEmpty().withMessage("targetUserId is required")
     .isMongoId().withMessage("targetUserId must be a valid user ID"),
   body("postId")
-    .optional()
+    .optional({ checkFalsy: true })
     .trim()
     .isMongoId().withMessage("postId must be a valid post ID"),
 ];

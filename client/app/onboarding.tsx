@@ -31,7 +31,7 @@ const SLIDES = [
   {
     id: '3',
     title: 'Earn Potatoes',
-    desc: 'Get karma for your contributions and climb the campus leaderboard. Be a legend!',
+    desc: 'Get potatoes for your contributions and climb the campus leaderboard. Be a legend!',
     icon: 'flame-outline',
     colors: ['#FF3B30', '#FF2D55'],
   },

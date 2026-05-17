@@ -197,13 +197,13 @@ export const getMe = async (req, res) => {
 
   // Calculate globalRank with 5 min Redis Cache
   const { default: redis } = await import("../utils/redis.js");
-  const rankKey = `globalRank:${req.user.karma}`;
+  const rankKey = `globalRank:${req.user._id}`;
   let rank = await redis.get(rankKey);
   if (!rank) {
-    // Optimization: Only count if karma is non-zero, otherwise rank is just "Low" or ignored
-    if (req.user.karma > 0) {
+    // Optimization: Only count if potato is non-zero, otherwise rank is just "Low" or ignored
+    if (req.user.potato > 0) {
       rank = await User.countDocuments({
-        karma: { $gt: req.user.karma }
+        potato: { $gt: req.user.potato }
       }) + 1;
       await redis.set(rankKey, rank, 'EX', 600); // 10 min cache
     } else {
@@ -241,10 +241,10 @@ export const getLeaderboard = async (req, res) => {
   try {
     const [campusWarData, topUsersData] = await Promise.all([
       User.aggregate([
-        { $group: { _id: "$campus", karma: { $sum: "$karma" } } },
+        { $group: { _id: "$campus", karma: { $sum: "$potato" } } },
         { $sort: { karma: -1 } },
       ]),
-      User.find().sort({ karma: -1 }).limit(10).select("name avatar karma campus").lean(),
+      User.find().sort({ potato: -1 }).limit(10).select("name avatar potato campus").lean(),
     ]);
 
     res.json({ campusWar: campusWarData, topUsers: topUsersData });
@@ -257,7 +257,7 @@ export const getLeaderboard = async (req, res) => {
 export const updateProfile = async (req, res) => {
   const userId = req.user._id;
   try {
-    const { avatar, name, bio, isPrivate, tags, notificationsEnabled } = req.body;
+    const { avatar, name, bio, isPrivate, tags, notificationsEnabled, campus } = req.body;
     logger.info(`[UpdateProfile] Start for user ${userId}`);
 
     const updateData = {};
@@ -271,6 +271,7 @@ export const updateProfile = async (req, res) => {
     if (isPrivate !== undefined) updateData.isPrivate = isPrivate;
     if (tags !== undefined) updateData.tags = tags;
     if (notificationsEnabled !== undefined) updateData.notificationsEnabled = notificationsEnabled;
+    if (campus !== undefined) updateData.campus = campus;
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
@@ -364,6 +365,7 @@ export const blockUser = async (req, res) => {
     }
 
     const { default: Block } = await import("../models/block.model.js");
+    const { default: redis } = await import("../utils/redis.js");
     
     // Use upsert-like logic to avoid duplicate errors
     await Block.findOneAndUpdate(
@@ -373,7 +375,6 @@ export const blockUser = async (req, res) => {
     );
 
     // Invalidate blocks cache
-    const { redis } = await import("../utils/redis.js");
     if (redis) await redis.del(`blocks:${req.user._id}`);
 
     res.json({ message: "User blocked successfully." });
@@ -390,7 +391,7 @@ export const unblockUser = async (req, res) => {
     
     await Block.findOneAndDelete({ blocker: req.user._id, blocked: userId });
     // Invalidate blocks cache
-    const { redis } = await import("../utils/redis.js");
+    const { default: redis } = await import("../utils/redis.js");
     if (redis) await redis.del(`blocks:${req.user._id}`);
 
     res.json({ message: "User unblocked successfully." });
@@ -434,7 +435,7 @@ export const registerPushToken = async (req, res) => {
 // --- GET PUBLIC PROFILE ------------------------------------------------------
 export const getPublicProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select("name avatar karma streak bio tags campus isPrivate postCount").lean();
+    const user = await User.findById(req.params.userId).select("name avatar potato streak bio tags campus isPrivate postCount").lean();
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(user);
   } catch (err) {

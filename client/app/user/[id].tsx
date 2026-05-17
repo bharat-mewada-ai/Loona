@@ -51,7 +51,7 @@ export default function UserProfileScreen() {
     if (startingChat) return;
     
     startChat(
-      { targetUserId: user._id, postId: '' },
+      { targetUserId: user._id },
       {
         onSuccess: (chat) => {
           closeAuthorProfile();

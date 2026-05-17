@@ -13,11 +13,14 @@ import { formatDistanceToNow } from '../../utils/time';
 import { useRouter } from 'expo-router';
 import EmojiPicker from '../EmojiPicker';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CommentSheet() {
   const { showCommentSheet, closeCommentSheet, commentPostId, isDark } = useUIStore();
   const themeColors = getColors(isDark);
+  const themeColors = getColors(isDark);
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
   
   const { data, isLoading } = useComments(commentPostId || '');
   const { data: postData, isLoading: postLoading } = usePost(commentPostId || '');
@@ -188,7 +191,7 @@ export default function CommentSheet() {
               contentContainerStyle={s.listContent}
             />
 
-            <View style={[s.inputWrap, { borderTopColor: themeColors.bdr, backgroundColor: themeColors.card }]}>
+            <View style={[s.inputWrap, { borderTopColor: themeColors.bdr, backgroundColor: themeColors.card, paddingBottom: insets.bottom + 12 }]}>
               {replyTo && (
                 <View style={[s.replyInfo, { backgroundColor: themeColors.card2 }]}>
                   <Text style={[s.replyTxt, { color: themeColors.txt2 }]}>Replying to <Text style={{ fontWeight: '800' }}>{replyTo.name}</Text></Text>
@@ -256,7 +259,7 @@ const s = StyleSheet.create({
   actionTxt: { fontSize: 12, fontWeight: '700' },
   emptyState: { alignItems: 'center', marginTop: 100 },
   empty: { fontSize: 14, fontWeight: '600' },
-  inputWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12, paddingBottom: Platform.OS === 'ios' ? 34 : 12, borderTopWidth: 0.5 },
+  inputWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12, borderTopWidth: 0.5 },
   inputBar: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   inpBox: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, borderRadius: 25, borderWidth: 1, minHeight: 45, gap: 10 },
   inp: { flex: 1, paddingVertical: 8, fontSize: 14, maxHeight: 100 },

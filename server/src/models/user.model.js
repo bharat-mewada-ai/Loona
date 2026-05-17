@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    karma: {
+    potato: {
       type: Number,
       default: 0,
     },
@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema(
     commentsCount: { type: Number, default: 0 },
     role: {
       type: String,
-      enum: ["user", "moderator", "admin"],
+      enum: ["user", "moderator", "admin", "super-admin"],
       default: "user",
     },
     // Password — set to 'google_oauth' placeholder for OAuth users (never exposed)
@@ -102,7 +102,7 @@ userSchema.pre('validate', async function() {
 });
 
 // Note: email unique index is already declared via { unique: true } on the field above.
-// Only the campus+karma compound index is added here.
-userSchema.index({ campus: 1, karma: -1 });
+// Only the campus+potato compound index is added here.
+userSchema.index({ campus: 1, potato: -1 });
 
 export default mongoose.model("User", userSchema);

@@ -48,7 +48,7 @@ export default function PrivacySheet() {
               Your data is used solely to:{'\n'}
               • Authenticate your account and maintain your session{'\n'}
               • Display campus-specific content in your feed{'\n'}
-              • Calculate your karma score and streak for the leaderboard{'\n'}
+              • Calculate your potato score and streak for the leaderboard{'\n'}
               • Send you push notifications for replies and messages (only if permitted){'\n'}
               • Moderate content and enforce community guidelines
             </Text>
@@ -89,7 +89,7 @@ export default function PrivacySheet() {
               • Post content that is illegal, hateful, harassing, or threatening{'\n'}
               • Share personal information (phone numbers, home addresses) of other users{'\n'}
               • Attempt to deanonymize or identify other users{'\n'}
-              • Use bots or scripts to inflate karma or reactions{'\n'}
+              • Use bots or scripts to inflate potatoes or reactions{'\n'}
               • Post spam, advertisements, or phishing links{'\n\n'}
               Violation of these rules may result in immediate and permanent account termination.
             </Text>

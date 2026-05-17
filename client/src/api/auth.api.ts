@@ -29,7 +29,7 @@ export const authApi = {
 
   // ── Campus leaderboard ───────────────────────────────────────────────────
   getLeaderboard: async (): Promise<{
-    campusWar: { _id: string; karma: number }[];
+    campusWar: { _id: string; potato: number }[];
     topUsers: User[];
   }> => {
     const { data } = await client.get('/auth/leaderboard');

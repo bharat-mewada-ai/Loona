@@ -37,7 +37,7 @@ import { useDeletePost } from "../../src/hooks/usePosts";
 export default function Feed() {
   useAnalytics('home');
   const router = useRouter();
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, refetch } = usePosts();
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading, refetch } = usePosts();
   const { mutate: deletePost } = useDeletePost();
   const { data: leaderboardData } = useLeaderboard();
   
@@ -230,10 +230,6 @@ export default function Feed() {
 
       {/* Feed List */}
       {activeTab === 'events' ? (
-        <ScrollView 
-          refreshControl={<RefreshControl refreshing={isLoading && posts.length > 0} onRefresh={refetch} tintColor={themeColors.ogi} />}
-          contentContainerStyle={{ paddingTop: 10 }}
-        >
           <EventsView 
             posts={posts} 
             isLoading={isLoading} 
@@ -241,7 +237,6 @@ export default function Feed() {
             onDelete={(id) => deletePost(id)}
             userLocation={userLocation}
           />
-        </ScrollView>
       ) : (
         <FlatList
           data={posts}
@@ -254,7 +249,7 @@ export default function Feed() {
           removeClippedSubviews={true}
           windowSize={7}
           refreshControl={
-            <RefreshControl refreshing={isLoading && posts.length > 0} onRefresh={refetch} tintColor={themeColors.ogi} />
+            <RefreshControl refreshing={isFetching && !isFetchingNextPage} onRefresh={refetch} tintColor={themeColors.ogi} />
           }
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) fetchNextPage();

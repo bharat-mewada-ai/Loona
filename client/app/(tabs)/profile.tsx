@@ -50,7 +50,7 @@ export default function ProfileScreen() {
   const { data: savedPosts } = useSavedPosts();
   
   const myPosts = myPostsData?.pages?.flatMap((p: any) => p?.posts ?? []) ?? [];
-  const karma = user?.karma ?? 0;
+  const potato = user?.potato ?? 0;
   const postCount = user?.postCount ?? 0;
   const repliesCount = user?.commentsCount ?? 0;
   const campus = user?.campus?.toUpperCase() || 'OGI';
@@ -184,7 +184,7 @@ export default function ProfileScreen() {
               <Text style={[s.statLabel, { color: themeColors.txt3 }]}>Posts</Text>
             </View>
             <View style={s.statItem}>
-              <Text style={[s.statNum, { color: themeColors.ogi }]}>{karma > 999 ? `${(karma/1000).toFixed(1)}k` : karma}</Text>
+              <Text style={[s.statNum, { color: themeColors.ogi }]}>{potato > 999 ? `${(potato/1000).toFixed(1)}k` : potato}</Text>
               <Text style={[s.statLabel, { color: themeColors.txt3 }]}>Potatoes</Text>
             </View>
             <View style={s.statItem}>
@@ -194,20 +194,18 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Karma Card */}
+        {/* Potato Card */}
         <TouchableOpacity style={[s.karmaCard, { backgroundColor: themeColors.card }]} activeOpacity={0.9}>
           <View style={s.karmaLeft}>
             <View style={s.flameCircle}>
-              <Text style={{ fontSize: 24 }}>🔥</Text>
+              <Text style={{ fontSize: 28 }}>🥔</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.karmaNum, { color: themeColors.ogi }]}>{karma.toLocaleString()}</Text>
-              <Text style={[s.karmaLabel, { color: themeColors.txt3 }]}>Campus Karma · Top Contributor at {campus}</Text>
+            <View>
+              <Text style={[s.karmaNum, { color: themeColors.ogi }]}>{potato.toLocaleString()}</Text>
+              <Text style={[s.karmaLabel, { color: themeColors.txt3 }]}>Campus Potatoes · Top Contributor at {campus}</Text>
             </View>
           </View>
         </TouchableOpacity>
-
-
 
         <Text style={[s.sectionTitle, { color: themeColors.txt3 }]}>YOUR ACTIVITY</Text>
         <View style={[s.activityBox, { backgroundColor: themeColors.card }]}>
@@ -304,7 +302,12 @@ export default function ProfileScreen() {
                 <SettingRow icon="document-outline" label="Privacy Policy" onPress={openPrivacySheet} />
                 <SettingRow icon="chatbubble-outline" label="Give Feedback" onPress={openFeedbackSheet} />
                 <SettingRow icon="log-out-outline" label="Log Out" onPress={handleLogout} />
-                <SettingRow icon="trash-outline" label="Delete Account" destructive onPress={() => deleteAccount()} />
+                <SettingRow icon="trash-outline" label="Delete Account" destructive onPress={() => {
+                  Alert.alert('Delete Account?', 'This cannot be undone', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Delete', style: 'destructive', onPress: () => deleteAccount() }
+                  ]);
+                }} />
               </View>
               <View style={{ height: 40 }} />
             </ScrollView>
@@ -391,7 +394,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
             <View style={{ padding: 20, gap: 15 }}>
-              {CAMPUSES_LIST.filter(c => c.value !== 'all').map(c => (
+              {CAMPUSES_LIST.map(c => (
                 <TouchableOpacity 
                   key={c.value} 
                   style={[s.settingRow, { backgroundColor: themeColors.card2, borderRadius: 15, paddingHorizontal: 20, borderBottomWidth: 0 }]}

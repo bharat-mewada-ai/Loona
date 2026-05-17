@@ -8,14 +8,14 @@ export const initCronJobs = () => {
   cron.schedule("0 9 * * 1", async () => {
     logger.info("Running Weekly Karma Digest...");
     try {
-      const users = await User.find({ notificationsEnabled: true, karma: { $gt: 0 } });
+      const users = await User.find({ notificationsEnabled: true, potato: { $gt: 0 } });
       
       for (const user of users) {
         await createNotification({
           recipient: user._id,
           type: "system",
           title: "Weekly Karma Digest 🏆",
-          body: `You have ${user.karma} total Karma! Keep up the great work on campus.`,
+          body: `You have ${user.potato} total Potatoes! Keep up the great work on campus.`,
           data: { type: "leaderboard" }
         });
       }

@@ -48,14 +48,14 @@ export default function LeaderboardScreen() {
 
   const campusWarData = data?.campusWar || [];
   const topUsers = data?.topUsers || [];
-  const totalPotato = campusWarData.reduce((sum: number, c: any) => sum + c.karma, 0);
+  const totalPotato = campusWarData.reduce((sum: number, c: any) => sum + c.potato, 0);
 
   // Sorting for Versus logic
-  const sortedCampuses = [...campusWarData].sort((a, b) => b.karma - a.karma);
+  const sortedCampuses = [...campusWarData].sort((a, b) => b.potato - a.potato);
   const leadCampus = sortedCampuses[0];
   const secondCampus = sortedCampuses[1];
   
-  const leadGap = leadCampus && secondCampus ? leadCampus.karma - secondCampus.karma : 0;
+  const leadGap = leadCampus && secondCampus ? leadCampus.potato - secondCampus.potato : 0;
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: themeColors.bg }]}>
@@ -95,7 +95,7 @@ export default function LeaderboardScreen() {
               <View style={[s.vsSide, { alignItems: 'flex-end' }]}>
                 <Text style={s.vsEmoji}>{getCampusEmoji(leadCampus._id)}</Text>
                 <Text style={[s.vsName, { color: getCampusColor(leadCampus._id, themeColors) }]}>{getCampusName(leadCampus._id)}</Text>
-                <Text style={[s.vsScore, { color: themeColors.txt }]}>{leadCampus.karma.toLocaleString()}</Text>
+                <Text style={[s.vsScore, { color: themeColors.txt }]}>{leadCampus.potato.toLocaleString()}</Text>
               </View>
               
               <View style={s.vsCircle}>
@@ -105,7 +105,7 @@ export default function LeaderboardScreen() {
               <View style={[s.vsSide, { alignItems: 'flex-start' }]}>
                 <Text style={s.vsEmoji}>{getCampusEmoji(secondCampus._id)}</Text>
                 <Text style={[s.vsName, { color: getCampusColor(secondCampus._id, themeColors) }]}>{getCampusName(secondCampus._id)}</Text>
-                <Text style={[s.vsScore, { color: themeColors.txt }]}>{secondCampus.karma.toLocaleString()}</Text>
+                <Text style={[s.vsScore, { color: themeColors.txt }]}>{secondCampus.potato.toLocaleString()}</Text>
               </View>
             </View>
             
@@ -131,9 +131,9 @@ export default function LeaderboardScreen() {
                 <Text style={[s.campusName, { color: themeColors.txt }]}>{getCampusName(c._id)}</Text>
                 <View style={s.barWrap}>
                   <View style={[s.barBg, { backgroundColor: themeColors.card2 }]}>
-                    <View style={[s.barFill, { width: `${Math.min(100, (c.karma / leadCampus.karma) * 100)}%`, backgroundColor: color }]} />
+                    <View style={[s.barFill, { width: `${Math.min(100, (c.potato / leadCampus.potato) * 100)}%`, backgroundColor: color }]} />
                   </View>
-                  <Text style={[s.barVal, { color: themeColors.txt3 }]}>{c.karma.toLocaleString()} 🥔</Text>
+                  <Text style={[s.barVal, { color: themeColors.txt3 }]}>{c.potato.toLocaleString()} 🥔</Text>
                 </View>
               </View>
             </View>
@@ -154,7 +154,7 @@ export default function LeaderboardScreen() {
                 <Text style={[s.legendCampus, { color: getCampusColor(u.campus, themeColors) }]}>{getCampusName(u.campus)}</Text>
               </View>
               <View style={s.legendScore}>
-                <Text style={[s.legendScoreVal, { color: themeColors.ogi }]}>{u.karma.toLocaleString()} 🥔</Text>
+                <Text style={[s.legendScoreVal, { color: themeColors.ogi }]}>{u.potato.toLocaleString()} 🥔</Text>
               </View>
             </View>
           ))}

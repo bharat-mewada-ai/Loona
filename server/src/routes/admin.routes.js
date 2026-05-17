@@ -62,12 +62,12 @@ router.get("/users/search", requireAuth, requireStaff, asyncHandler(async (req, 
   };
 
   // If query is valid ObjectId
-  if (q.match(/^[0-9a-fA-C]{24}$/i)) {
+  if (q.match(/^[0-9a-fA-F]{24}$/i)) {
     filter.$or.push({ _id: q });
   }
 
   const users = await User.find(filter)
-    .select("name email avatar campus role karma isBanned isVerified lastActive createdAt")
+    .select("name email avatar campus role potato isBanned isVerified lastActive createdAt")
     .limit(10)
     .lean();
 

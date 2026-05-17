@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Alert } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../api/auth.api';
 import { useAuthStore } from '../store/authStore';
@@ -48,6 +49,7 @@ export const useLeaderboard = () => {
     queryKey: ['leaderboard'],
     queryFn: authApi.getLeaderboard,
     refetchInterval: 10_000, // live potato updates every 10s
+    staleTime: 10_000,
   });
 };
 
@@ -56,6 +58,7 @@ export const useMe = () => {
   const query = useQuery({
     queryKey: ['me'],
     queryFn: authApi.me,
+    staleTime: 60_000,
   });
 
   useEffect(() => {
@@ -69,7 +72,7 @@ export const useMe = () => {
 
 export const useUpdateProfile = () => {
   const setUser = useAuthStore((s) => s.setUser);
-  return useMutation<User, Error, { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[]; notificationsEnabled?: boolean }>({
+  return useMutation<User, Error, { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[]; notificationsEnabled?: boolean; campus?: string }>({
     mutationFn: (payload) => authApi.updateProfile(payload),
     onSuccess: (updatedUser) => {
       setUser(updatedUser);
@@ -78,7 +81,7 @@ export const useUpdateProfile = () => {
       console.error('Update Profile Failed:', error);
       const msg = error.response?.data?.error || error.message;
       const stack = error.response?.data?.stack;
-      alert(`Update Failed: ${msg}\n${stack ? 'Check console for stack.' : ''}`);
+      Alert.alert('Update Failed', `${msg}\n${stack ? 'Check console for stack.' : ''}`);
     }
   });
 };

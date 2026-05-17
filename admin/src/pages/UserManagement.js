@@ -146,8 +146,8 @@ const UserManagement = () => {
                 <p style={{ color: '#71717A' }}>{selectedUser.user.email}</p>
                 <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
                    <div style={{ background: '#0A0A0A', padding: '8px 16px', borderRadius: '10px', border: '1px solid #222' }}>
-                      <div style={{ fontSize: '10px', color: '#71717A' }}>KARMA</div>
-                      <div style={{ color: '#FFD700', fontWeight: 'bold' }}>{selectedUser.user.karma}</div>
+                      <div style={{ fontSize: '10px', color: '#71717A' }}>POTATOES</div>
+                      <div style={{ color: '#FFD700', fontWeight: 'bold' }}>{selectedUser.user.potato}</div>
                    </div>
                    <div style={{ background: '#0A0A0A', padding: '8px 16px', borderRadius: '10px', border: '1px solid #222' }}>
                       <div style={{ fontSize: '10px', color: '#71717A' }}>CHATS</div>

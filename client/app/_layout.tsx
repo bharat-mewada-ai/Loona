@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
+import * as Updates from 'expo-updates';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -73,7 +74,7 @@ const queryClient = new QueryClient({
 function RootLayout() {
   const { loadStoredAuth, user } = useAuthStore();
   const { 
-    isDark, setCampus, 
+    isDark, setCampus, loadStoredTheme,
     showComposeSheet, showReportSheet, showCommentSheet, 
     showFeedbackSheet, showPrivacySheet, showStoryViewer 
   } = useUIStore();
@@ -90,14 +91,19 @@ function RootLayout() {
       // expo-updates OTA only works in production builds, not in Expo Go / dev / web
       if (__DEV__ || Platform.OS === 'web') return;
       try {
-        const Updates = require('expo-updates');
+        console.log('[OTA] Checking for updates... Channel:', Updates.channel ?? 'unknown');
         const update = await Updates.checkForUpdateAsync();
         if (update.isAvailable) {
+          console.log('[OTA] Update found — downloading...');
           await Updates.fetchUpdateAsync();
+          console.log('[OTA] Update downloaded — reloading app');
           await Updates.reloadAsync();
+        } else {
+          console.log('[OTA] App is up to date.');
         }
-      } catch (error) {
-        // You can also add an error report here
+      } catch (error: any) {
+        // Log so we can see in Metro / logcat if OTA fails
+        console.warn('[OTA] Update check failed:', error?.message ?? error);
       }
     }
     onFetchUpdateAsync();
@@ -132,6 +138,7 @@ function RootLayout() {
 
   useEffect(() => {
     loadStoredAuth();
+    loadStoredTheme();
   }, []);
 
   useEffect(() => {

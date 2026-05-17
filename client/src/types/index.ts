@@ -6,7 +6,7 @@ export interface User {
   name: string;        
   email: string;
   campus: Campus;
-  karma: number;
+  potato: number;
   streak: number;
   avatar: string;      
   postCount: number;

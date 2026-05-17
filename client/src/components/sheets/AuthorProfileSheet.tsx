@@ -23,7 +23,7 @@ export default function AuthorProfileSheet() {
   const handleStartChat = () => {
     if (isPending) return;
     startChat(
-      { targetUserId: authorProfile.userId, postId: authorProfile.postId },
+      { targetUserId: authorProfile.userId, ...(authorProfile.postId ? { postId: authorProfile.postId } : {}) },
       {
         onSuccess: (chat) => {
           closeAuthorProfile();

@@ -9,7 +9,7 @@ export const chatApi = {
   },
 
   // Start a new chat or get existing one
-  startChat: async (targetUserId: string, postId: string): Promise<Chat> => {
+  startChat: async (targetUserId: string, postId?: string): Promise<Chat> => {
     const res = await client.post<Chat>('/chats/start', { targetUserId, postId });
     return res.data;
   },

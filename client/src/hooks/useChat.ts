@@ -16,7 +16,7 @@ export const useChats = () => {
 export const useStartChat = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ targetUserId, postId }: { targetUserId: string; postId: string }) =>
+    mutationFn: ({ targetUserId, postId }: { targetUserId: string; postId?: string }) =>
       chatApi.startChat(targetUserId, postId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['chats'] });

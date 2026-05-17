@@ -96,7 +96,7 @@ export const createPost = async (req, res) => {
 
   // ─── Update user stats + streak ─────────────────────────────────────────────────────
   req.user.postCount += 1;
-  req.user.karma += 5;
+  req.user.potato += 5;
 
   // Streak logic — compare calendar dates in UTC to avoid timezone drift
   res.status(201).json(post);
@@ -146,8 +146,7 @@ export const createPost = async (req, res) => {
         }
       }
 
-      await checkAndAwardBadges(req.user);
-      await req.user.save();
+
 
       invalidateCache("/api/posts");
       invalidateCache("/api/auth/leaderboard");
@@ -217,7 +216,7 @@ export const getPosts = async (req, res) => {
     if (cachedTop) topUserIds = JSON.parse(cachedTop);
     else {
       const topUsersQuery = filter.campus ? { campus: filter.campus } : {};
-      const topUsers = await User.find(topUsersQuery).sort({ karma: -1 }).limit(3).select("_id").lean();
+      const topUsers = await User.find(topUsersQuery).sort({ potato: -1 }).limit(3).select("_id").lean();
       topUserIds = topUsers.map(u => u._id.toString());
       await redis.set(topKey, JSON.stringify(topUserIds), 'EX', 3600); // cache 1 hour
     }
@@ -232,6 +231,10 @@ export const getPosts = async (req, res) => {
     }).select('postId').lean();
     postIdsWithVotes = new Set(userVotes.map(v => v.postId.toString()));
   }
+
+  const hasMore = posts.length > parseInt(limit);
+  if (hasMore) posts.pop(); // Remove the extra post
+  const nextCursor = hasMore ? posts[posts.length - 1]._id : null;
 
   const formattedPosts = posts.map(p => {
     const userId = req.user?._id?.toString();
@@ -258,16 +261,13 @@ export const getPosts = async (req, res) => {
     };
   });
 
-  const hasMore = posts.length > parseInt(limit);
-  if (hasMore) posts.pop(); // Remove the extra post
-  const nextCursor = hasMore ? posts[posts.length - 1]._id : null;
-
   res.json({ posts: formattedPosts, total: -1, nextCursor, hasMore });
 };
 
 /* ---------------- GET SINGLE POST (lean) ---------------- */
 export const getPostById = async (req, res) => {
   const post = await Post.findById(req.params.id)
+    .populate("author", "bio isVerified tags name avatar isPremium badges")
     .select("-reports")
     .lean();
   if (!post || post.hidden) return res.status(404).json({ error: "Post not found" });
@@ -323,18 +323,18 @@ export const votePost = async (req, res) => {
   // Karma logic for author
   const postAuthor = await User.findByIdAndUpdate(
     post.author,
-    { $inc: { karma: existingVote ? -1 : 1, upvotesReceived: existingVote ? -1 : 1 } },
+    { $inc: { potato: existingVote ? -1 : 1, upvotesReceived: existingVote ? -1 : 1 } },
     { new: true }
   );
 
-  if (postAuthor && postAuthor.karma >= 100 && !postAuthor.isVerified) {
+  if (postAuthor && postAuthor.potato >= 100 && !postAuthor.isVerified) {
     postAuthor.isVerified = true;
     createNotification({
       recipient: postAuthor._id,
       sender: null,
       type: "system",
       title: "You are Verified! 🌟",
-      body: "Congratulations! You reached 100 Karma and earned the Verified checkmark."
+      body: "Congratulations! You reached 100 Potatoes and earned the Verified checkmark."
     });
   }
 
@@ -549,7 +549,7 @@ export const toggleSavePost = async (req, res) => {
       user.savedPosts.push(id);
     }
     await user.save();
-    res.json({ isSaved: !isSaved });
+    res.json({ saved: !isSaved });
   } catch (err) { res.status(500).json({ error: "Server error" }); }
 };
 
@@ -618,16 +618,16 @@ export const addComment = async (req, res) => {
 
   // Update user stats
   req.user.commentsCount = (req.user.commentsCount || 0) + 1;
-  req.user.karma += 2;
+  req.user.potato += 2;
   
-  if (req.user.karma >= 100 && !req.user.isVerified) {
+  if (req.user.potato >= 100 && !req.user.isVerified) {
     req.user.isVerified = true;
     createNotification({
       recipient: req.user._id,
       sender: null,
       type: "system",
       title: "You are Verified! 🌟",
-      body: "Congratulations! You reached 100 Karma and earned the Verified checkmark."
+      body: "Congratulations! You reached 100 Potatoes and earned the Verified checkmark."
     });
   }
   
@@ -873,7 +873,7 @@ export const searchUsers = async (req, res) => {
       name: { $regex: q, $options: "i" },
       // Only show public users or whatever logic
     })
-      .select("name avatar campus karma")
+      .select("name avatar campus potato")
       .limit(10)
       .lean();
 

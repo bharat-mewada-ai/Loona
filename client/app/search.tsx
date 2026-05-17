@@ -121,7 +121,7 @@ export default function SearchScreen() {
                     {item.isVerified && <Text style={{ fontSize: 14 }}>✅</Text>}
                   </View>
                   <Text style={[s.userSub, { color: themeColors.txt3 }]}>
-                    {item.campus?.toUpperCase()} · {item.karma} Karma
+                    {item.campus?.toUpperCase()} · {item.potato} Potatoes
                   </Text>
                 </View>
                 <Text style={{ color: themeColors.txt3, fontSize: 18 }}>›</Text>

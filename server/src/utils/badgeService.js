@@ -3,7 +3,7 @@ import logger from './logger.js';
 const BADGE_DEFINITIONS = [
   { id: 'first_post', name: 'Trailblazer', icon: '🚀', description: 'Posted your first Loona' },
   { id: 'hot_poster', name: 'Spicy', icon: '🔥', description: 'Had a post go trending' },
-  { id: 'legend', name: 'Legend', icon: '👑', description: 'Reached 100 karma' },
+  { id: 'legend', name: 'Legend', icon: '👑', description: 'Reached 100 Potatoes' },
   { id: 'streak_7', name: 'Consistent', icon: '⚡', description: 'Maintained a 7-day streak' },
   { id: 'verified', name: 'Verified', icon: '✅', description: 'Verified account' },
   { id: 'top_contributor', name: 'Top Contributor', icon: '🏆', description: 'Top 10 in campus' }
@@ -30,8 +30,8 @@ export const checkAndAwardBadges = async (user) => {
     newBadges.push({ name: 'Trailblazer', icon: '🚀' });
   }
 
-  // 2. Legend (Karma > 100)
-  if (user.karma >= 100 && !existingBadgeNames.has('Legend')) {
+  // 2. Legend (Potato >= 100)
+  if (user.potato >= 100 && !existingBadgeNames.has('Legend')) {
     newBadges.push({ name: 'Legend', icon: '👑' });
   }
 
