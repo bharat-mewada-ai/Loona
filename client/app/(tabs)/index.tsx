@@ -264,14 +264,14 @@ export default function Feed() {
             ) : (
               <EmptyState 
                 type={
-                  activeTab === 'all' ? 'feed' :
-                  activeTab === 'discussion' ? 'discussions' :
-                  activeTab === 'confess' ? 'confessions' :
-                  activeTab === 'stories' ? 'stories' :
-                  activeTab === 'events' ? 'events' :
-                  activeTab === 'bhandara' ? 'bhandara' :
-                  activeTab === 'offers' ? 'offers' :
-                  activeTab === 'place' ? 'place' : 'feed'
+                  (activeTab as string) === 'all' ? 'feed' :
+                  (activeTab as string) === 'discussion' ? 'discussions' :
+                  (activeTab as string) === 'confess' ? 'confessions' :
+                  (activeTab as string) === 'stories' ? 'stories' :
+                  (activeTab as string) === 'events' ? 'events' :
+                  (activeTab as string) === 'bhandara' ? 'bhandara' :
+                  (activeTab as string) === 'offers' ? 'offers' :
+                  (activeTab as string) === 'place' ? 'place' : 'feed'
                 }
                 onAction={() => openComposeSheet(activeTab === 'all' ? 'discussion' : activeTab as any)}
               />

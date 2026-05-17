@@ -22,6 +22,7 @@ export interface User {
   createdAt: string;
   role: 'user' | 'admin';
   savedPosts: string[];
+  premiumExpiresAt?: string;
 }
 
 export interface Post {

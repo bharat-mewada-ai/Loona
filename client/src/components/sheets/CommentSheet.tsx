@@ -18,7 +18,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function CommentSheet() {
   const { showCommentSheet, closeCommentSheet, commentPostId, isDark } = useUIStore();
   const themeColors = getColors(isDark);
-  const themeColors = getColors(isDark);
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
   

@@ -33,7 +33,7 @@
         "backgroundColor": "#FF6B35"
       },
       "package": "com.loona.app",
-      "versionCode": 23,
+      "versionCode": 24,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",

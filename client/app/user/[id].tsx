@@ -155,7 +155,7 @@ export default function UserProfileScreen() {
 
             <View style={s.statsBar}>
               <View style={s.statBox}>
-                <Text style={[s.statNum, { color: themeColors.txt }]}>{user.karma}</Text>
+                <Text style={[s.statNum, { color: themeColors.txt }]}>{user.potato}</Text>
                 <Text style={[s.statLbl, { color: themeColors.txt3 }]}>Potato</Text>
               </View>
               <View style={s.statBox}>
