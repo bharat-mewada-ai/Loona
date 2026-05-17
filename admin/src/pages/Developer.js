@@ -89,9 +89,24 @@ const Developer = () => {
                   <span style={{ color: '#FFF', fontSize: '12px' }}>{health.storage.cloudinary.usage} / {health.storage.cloudinary.limit} GB</span>
                </div>
                <div style={{ height: '8px', background: '#222', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: '#32D74B', width: `${health.storage.cloudinary.percent}%` }} />
+                  <div style={{ height: '100%', background: '#32D74B', width: `${Math.min(parseFloat(health.storage.cloudinary.percent), 100)}%` }} />
                </div>
                <div style={{ marginTop: '4px', textAlign: 'right', color: '#32D74B', fontSize: '10px' }}>{health.storage.cloudinary.percent}% Used</div>
+               {/* Extra Cloudinary stats */}
+               <div style={{ display: 'flex', gap: '16px', marginTop: '12px' }}>
+                 <div style={{ flex: 1, background: '#141414', borderRadius: '12px', padding: '10px 14px', border: '1px solid #222' }}>
+                   <div style={{ color: '#71717A', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '4px' }}>BANDWIDTH</div>
+                   <div style={{ color: '#64D2FF', fontSize: '16px', fontWeight: 'bold' }}>{health.storage.cloudinary.bandwidthMB ?? '—'} <span style={{ fontSize: '10px', color: '#71717A' }}>MB</span></div>
+                 </div>
+                 <div style={{ flex: 1, background: '#141414', borderRadius: '12px', padding: '10px 14px', border: '1px solid #222' }}>
+                   <div style={{ color: '#71717A', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '4px' }}>RESOURCES</div>
+                   <div style={{ color: '#FF9F0A', fontSize: '16px', fontWeight: 'bold' }}>{health.storage.cloudinary.resources ?? '—'}</div>
+                 </div>
+                 <div style={{ flex: 1, background: '#141414', borderRadius: '12px', padding: '10px 14px', border: '1px solid #222' }}>
+                   <div style={{ color: '#71717A', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '4px' }}>API CALLS</div>
+                   <div style={{ color: '#AF52DE', fontSize: '16px', fontWeight: 'bold' }}>{health.storage.cloudinary.requests ?? '—'}</div>
+                 </div>
+               </div>
             </div>
             <div style={{ flex: 1 }}>
                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -99,10 +114,20 @@ const Developer = () => {
                   <span style={{ color: '#FFF', fontSize: '12px' }}>{health.storage.mongodb.dataSize} MB Used</span>
                </div>
                <div style={{ height: '8px', background: '#222', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: '#AF52DE', width: `${(health.storage.mongodb.dataSize / 512 * 100).toFixed(1)}%` }} />
+                  <div style={{ height: '100%', background: '#AF52DE', width: `${Math.min((health.storage.mongodb.dataSize / 512 * 100), 100).toFixed(1)}%` }} />
                </div>
                <div style={{ marginTop: '4px', textAlign: 'right', color: '#AF52DE', fontSize: '10px' }}>
                   Limit: 512 MB ({(health.storage.mongodb.dataSize / 512 * 100).toFixed(1)}%)
+               </div>
+               <div style={{ display: 'flex', gap: '16px', marginTop: '12px' }}>
+                 <div style={{ flex: 1, background: '#141414', borderRadius: '12px', padding: '10px 14px', border: '1px solid #222' }}>
+                   <div style={{ color: '#71717A', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '4px' }}>STORAGE SIZE</div>
+                   <div style={{ color: '#32D74B', fontSize: '16px', fontWeight: 'bold' }}>{health.storage.mongodb.storageSize} <span style={{ fontSize: '10px', color: '#71717A' }}>MB</span></div>
+                 </div>
+                 <div style={{ flex: 1, background: '#141414', borderRadius: '12px', padding: '10px 14px', border: '1px solid #222' }}>
+                   <div style={{ color: '#71717A', fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.5px', marginBottom: '4px' }}>STATUS</div>
+                   <div style={{ color: health.database.mongodb === 'Connected' ? '#32D74B' : '#FF453A', fontSize: '13px', fontWeight: 'bold' }}>{health.database.mongodb}</div>
+                 </div>
                </div>
             </div>
          </div>
