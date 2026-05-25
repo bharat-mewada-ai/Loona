@@ -24,3 +24,8 @@ build/
 bin/
 obj/
 out/
+
+# Scratch
+scratch/
+server/scratch/
+
