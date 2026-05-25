@@ -27,6 +27,15 @@ const ConfessionCard = React.memo(({ post, onDelete, onReport }: Props) => {
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
+  const isAuthor = !!(user?._id && (
+    typeof post.author === 'string' 
+      ? post.author === user._id 
+      : post.author?._id === user._id
+  ));
+  const isAdmin = user?.role === 'admin';
+  const canDelete = isAuthor || isAdmin;
+  const canReport = !isAuthor;
+
   const handleReact = (r: string) => {
     triggerHaptic('impact');
     react({ id: post._id, reaction: r });
@@ -51,7 +60,7 @@ const ConfessionCard = React.memo(({ post, onDelete, onReport }: Props) => {
           </Text>
         </View>
         <View style={s.headerActions}>
-          {post.author?._id !== user?._id && (
+          {canReport && (
             <TouchableOpacity 
               onPress={onReport} 
               style={s.actionBtn}
@@ -61,7 +70,7 @@ const ConfessionCard = React.memo(({ post, onDelete, onReport }: Props) => {
               <Ionicons name="flag-outline" size={16} color={themeColors.txt3} />
             </TouchableOpacity>
           )}
-          {(post.author?._id === user?._id || user?.role === 'admin') && (
+          {canDelete && (
             <TouchableOpacity 
               onPress={onDelete} 
               style={s.actionBtn}

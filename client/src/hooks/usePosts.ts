@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { Alert } from 'react-native';
 import { postsApi } from '../api/posts.api';
 import { useUIStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
@@ -200,6 +201,10 @@ export const useDeletePost = () => {
       qc.invalidateQueries({ queryKey: ['stats'] });
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
     },
+    onError: (err: any) => {
+      const msg = err.response?.data?.error || err.message || 'Could not delete post';
+      Alert.alert('Delete Failed', msg);
+    }
   });
 };
 

@@ -23,6 +23,15 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
+  const isAuthor = !!(user?._id && (
+    typeof post.author === 'string' 
+      ? post.author === user._id 
+      : post.author?._id === user._id
+  ));
+  const isAdmin = user?.role === 'admin';
+  const canDelete = isAuthor || isAdmin;
+  const canReport = !isAuthor;
+
   const [votedLocal, setVotedLocal] = useState(post.hasVoted);
   const [goingLocal, setGoingLocal] = useState(post.hasGone);
   const [goingCount, setGoingCount] = useState(post.goingCount || 0);
@@ -87,7 +96,7 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
               <Text style={{ color: '#000', fontSize: 10, fontWeight: '900' }}>
                 {isBhandara ? '🍛 BHANDARA' : '🎉 EVENT'}
               </Text>
-              {(post.author?._id === user?._id || user?.role === 'admin') && (
+              {canDelete && (
                 <TouchableOpacity onPress={onDelete}>
                   <Text style={{ color: '#000', fontSize: 14, fontWeight: '800' }}>✕</Text>
                 </TouchableOpacity>
@@ -107,7 +116,7 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
               <View style={[s.tag, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
                 <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '900' }}>SPONSORED</Text>
               </View>
-              {(post.author?._id === user?._id || user?.role === 'admin') && (
+              {canDelete && (
                 <TouchableOpacity onPress={onDelete} style={s.deleteBtn}>
                   <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '800' }}>⋮</Text>
                 </TouchableOpacity>
@@ -175,9 +184,11 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
             <Text style={[s.fTxt, { color: themeColors.txt3 }]}>💬 {post.commentCount || 0}</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={() => openReportSheet(post._id)}>
-          <Ionicons name="flag-outline" size={16} color={themeColors.txt3} />
-        </TouchableOpacity>
+        {canReport && (
+          <TouchableOpacity onPress={() => openReportSheet(post._id)}>
+            <Ionicons name="flag-outline" size={16} color={themeColors.txt3} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

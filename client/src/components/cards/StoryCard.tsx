@@ -18,6 +18,14 @@ export default function StoryCard({ post, onDelete }: Props) {
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
+  const isAuthor = !!(user?._id && (
+    typeof post.author === 'string' 
+      ? post.author === user._id 
+      : post.author?._id === user._id
+  ));
+  const isAdmin = user?.role === 'admin';
+  const canDelete = isAuthor || isAdmin;
+
   const [votedLocal, setVotedLocal] = useState(post.hasVoted);
 
   const handleVote = () => {
@@ -42,7 +50,7 @@ export default function StoryCard({ post, onDelete }: Props) {
       )}
       <View style={s.header}>
         <Text style={s.emoji}>{post.anonAvatar || '📖'}</Text>
-        {(post.author?._id === user?._id || user?.role === 'admin') && (
+        {canDelete && (
           <TouchableOpacity onPress={onDelete} style={s.menuBtn}>
             <Text style={{ fontSize: 20, color: '#FFF', fontWeight: '800' }}>⋮</Text>
           </TouchableOpacity>

@@ -27,6 +27,15 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
+  const isAuthor = !!(user?._id && (
+    typeof post.author === 'string' 
+      ? post.author === user._id 
+      : post.author?._id === user._id
+  ));
+  const isAdmin = user?.role === 'admin';
+  const canDelete = isAuthor || isAdmin;
+  const canReport = !isAuthor;
+
   const [votedLocal, setVotedLocal] = useState(post.hasVoted ?? false);
   const initialVoted = post.hasVoted ?? false; // used for delta calculation only
   const isSavedFromServer = post.isSaved || user?.savedPosts?.some(id => id === post._id || (typeof id === 'object' && (id as any)._id === post._id));
@@ -167,7 +176,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               <Text style={[s.statusTxt, { color: '#3B82F6' }]}>🎉 Event</Text>
             </View>
           )}
-          {post.author?._id !== user?._id && (
+          {canReport && (
             <TouchableOpacity 
               onPress={onReport} 
               style={s.moreBtn}
@@ -177,7 +186,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               <Text style={{ fontSize: 16 }}>🚩</Text>
             </TouchableOpacity>
           )}
-          {(post.author?._id === user?._id || user?.role === 'admin') && (
+          {canDelete && (
             <TouchableOpacity 
               onPress={onDelete} 
               style={s.moreBtn}

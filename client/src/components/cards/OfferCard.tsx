@@ -17,6 +17,15 @@ export default function OfferCard({ post, onDelete }: Props) {
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
+  const isAuthor = !!(user?._id && (
+    typeof post.author === 'string' 
+      ? post.author === user._id 
+      : post.author?._id === user._id
+  ));
+  const isAdmin = user?.role === 'admin';
+  const canDelete = isAuthor || isAdmin;
+  const canReport = !isAuthor;
+
   const handleOpenLink = () => {
     if (post.externalLink) {
       triggerHaptic('impact');
@@ -54,12 +63,12 @@ export default function OfferCard({ post, onDelete }: Props) {
         </TouchableOpacity>
         
         <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-          {post.author?._id !== user?._id && (
+          {canReport && (
             <TouchableOpacity onPress={() => openReportSheet(post._id)} style={s.delBtn}>
               <Ionicons name="flag-outline" size={16} color={themeColors.txt3} />
             </TouchableOpacity>
           )}
-          {onDelete && (post.author?._id === user?._id || user?.role === 'admin') && (
+          {onDelete && canDelete && (
             <TouchableOpacity onPress={onDelete} style={s.delBtn}>
               <Ionicons name="trash-outline" size={16} color={themeColors.txt3} />
             </TouchableOpacity>
