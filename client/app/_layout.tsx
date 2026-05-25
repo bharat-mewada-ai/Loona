@@ -50,6 +50,7 @@ import { useMe } from '../src/hooks/useAuth';
 
 function AuthLoader({ children }: { children: React.ReactNode }) {
   useMe(); // This hook updates useAuthStore automatically
+  useNotifications(); // Initialize push notifications here inside the QueryClientProvider context
   return <>{children}</>;
 }
 
@@ -110,8 +111,6 @@ function RootLayout() {
   }, []);
 
   // Initialize push notifications on startup
-  useNotifications();
-
   const [fontsLoaded, fontError] = useFonts({
     Syne_700Bold,
     PlusJakartaSans_400Regular,
