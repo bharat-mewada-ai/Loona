@@ -347,14 +347,19 @@ export const votePost = async (req, res) => {
       type: "upvote",
       title: "New Potato! 🥔",
       body: `Someone upvoted your post: "${post.title.substring(0, 30)}${post.title.length > 30 ? '...' : ''}"`,
-      data: { postId: post._id }
+      data: { postId: post._id, type: "potato_update" }
     });
   }
 
   invalidateCache("/api/posts");
   invalidateCache("/api/auth/leaderboard");
   const io = req.app.get("io");
-  if (io) io.emit("leaderboardUpdate");
+  if (io) {
+    io.emit("leaderboardUpdate");
+    if (postAuthor) {
+      io.to(`user:${post.author}`).emit("potato_update", { potato: postAuthor.potato });
+    }
+  }
 
   res.json({ upvotes: post.upvotes, score: post.score, hasVoted: !existingVote });
 };
@@ -796,8 +801,9 @@ export const deletePost = async (req, res) => {
     // ─── Notify Author if deleted by Staff & Deduct Potatoes if reported ───
     if (isStaff && authorId.toString() !== req.user._id.toString()) {
       let penaltyApplied = false;
+      let updatedAuthor = null;
       if (post.reportCount > 0) {
-        await User.findByIdAndUpdate(authorId, { $inc: { potato: -20 } });
+        updatedAuthor = await User.findByIdAndUpdate(authorId, { $inc: { potato: -20 } }, { new: true });
         penaltyApplied = true;
       }
 
@@ -807,8 +813,15 @@ export const deletePost = async (req, res) => {
         type: "system",
         title: "Post Removed 🚫",
         body: `Your post "${postTitle.substring(0, 30)}..." was removed for violating community guidelines.${penaltyApplied ? ' 20 Potatoes have been deducted as a penalty.' : ''}`,
-        data: { action: 'delete' }
+        data: { action: 'delete', type: penaltyApplied ? 'potato_update' : undefined }
       });
+
+      if (penaltyApplied && updatedAuthor) {
+        const io = req.app.get("io");
+        if (io) {
+          io.to(`user:${authorId}`).emit("potato_update", { potato: updatedAuthor.potato });
+        }
+      }
     }
 
     invalidateCache("/api/posts");

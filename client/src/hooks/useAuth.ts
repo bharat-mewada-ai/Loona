@@ -59,7 +59,8 @@ export const useMe = () => {
   const query = useQuery({
     queryKey: ['me'],
     queryFn: authApi.me,
-    staleTime: 60_000,
+    staleTime: 5000,
+    refetchInterval: 10_000, // Auto-sync user details and potato count in background every 10s
     // Only run when we actually have a token — prevents a race-condition
     // where the query fires before loadStoredAuth() finishes and causes a
     // spurious 401 → token-refresh-fail → logout() loop.

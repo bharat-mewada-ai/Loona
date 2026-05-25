@@ -142,7 +142,13 @@ router.post("/users/:userId/adjust-potatoes", requireAuth, requireStaff, asyncHa
     body: numericAmount > 0 
       ? `The admin has awarded you ${numericAmount} 🥔 Potatoes! Enjoy.` 
       : `The admin has deducted ${Math.abs(numericAmount)} 🥔 Potatoes from your account.`,
+    data: { type: "potato_update", amount: numericAmount }
   });
+
+  const io = req.app.get("io");
+  if (io) {
+    io.to(`user:${user._id}`).emit("potato_update", { potato: user.potato });
+  }
 
   res.json({ message: "Potatoes adjusted successfully", potato: user.potato });
 }));

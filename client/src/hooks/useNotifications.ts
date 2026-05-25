@@ -36,6 +36,7 @@ export const useMarkNotificationsRead = () => {
 export const useNotifications = () => {
   const { user } = useAuthStore();
   const router = useRouter();
+  const qc = useQueryClient();
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
 
@@ -49,8 +50,18 @@ export const useNotifications = () => {
       }
     });
 
-    // Handle tapping on notification (Deep-linking)
+    // Handle notifications in foreground & deep-linking
     if (Platform.OS !== 'web') {
+      // Invalidate query when user receives potato-related notifications in foreground
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        const title = notification.request.content.title?.toLowerCase() || '';
+        const body = notification.request.content.body?.toLowerCase() || '';
+        const data = notification.request.content.data || {};
+        if (data?.type === 'potato_update' || title.includes('potato') || body.includes('potato')) {
+          qc.invalidateQueries({ queryKey: ['me'] });
+        }
+      });
+
       responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
         const data = response.notification.request.content.data;
         
@@ -65,6 +76,9 @@ export const useNotifications = () => {
     }
 
     return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
       if (responseListener.current) {
         responseListener.current.remove();
       }
