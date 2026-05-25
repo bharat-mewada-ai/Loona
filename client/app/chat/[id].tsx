@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
-import { useMessages, useSendMessage, useRevealIdentity } from '../../src/hooks/useChat';
+import { useMessages, useSendMessage, useRevealIdentity, useDeleteChat } from '../../src/hooks/useChat';
 import { useBlockUser } from '../../src/hooks/useAuth';
 import { useAuthStore } from '../../src/store/authStore';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,10 +29,11 @@ export default function ChatRoomScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  const { data, isLoading } = useMessages(id as string);
+  const { data, isLoading, isError } = useMessages(id as string);
   const { mutate: sendMessage, isPending } = useSendMessage();
   const { mutate: blockUser } = useBlockUser();
   const { mutate: reveal } = useRevealIdentity();
+  const { mutate: deleteChat } = useDeleteChat();
 
   const messages = data?.messages || [];
   const chatInfo = data?.chat;
@@ -144,6 +145,31 @@ export default function ChatRoomScreen() {
     );
   };
 
+  const handleDeleteChat = () => {
+    Alert.alert(
+      "Delete Chat?",
+      "Are you sure you want to delete this entire chat and all its messages? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: () => {
+            deleteChat(id as string, {
+              onSuccess: () => {
+                router.back();
+                Alert.alert("Deleted", "Chat has been deleted.");
+              },
+              onError: (err: any) => {
+                Alert.alert("Error", err.response?.data?.error || "Could not delete chat.");
+              }
+            });
+          }
+        }
+      ]
+    );
+  };
+
   const renderTicks = (item: any) => {
     const isMe = item.senderType === 'me';
     if (!isMe) return null;
@@ -180,6 +206,24 @@ export default function ChatRoomScreen() {
     );
   }
 
+  if (isError || (!isLoading && !data)) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>🚫</Text>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: themeColors.txt, marginBottom: 8 }}>Chat Unavailable</Text>
+        <Text style={{ fontSize: 14, color: themeColors.txt3, textAlign: 'center', marginBottom: 24 }}>
+          This conversation has been deleted or is no longer available.
+        </Text>
+        <TouchableOpacity 
+          style={{ backgroundColor: themeColors.ogi, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 }}
+          onPress={() => router.replace('/chats')}
+        >
+          <Text style={{ color: '#FFF', fontWeight: '700' }}>Back to Chats</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -209,8 +253,11 @@ export default function ChatRoomScreen() {
             </View>
           </TouchableOpacity>
           <View style={s.headerRight}>
-            <TouchableOpacity onPress={handleBlock}>
-              <Ionicons name="shield-outline" size={20} color={themeColors.danger} />
+            <TouchableOpacity onPress={handleBlock} style={{ marginRight: 14 }}>
+              <Ionicons name="shield-outline" size={20} color={themeColors.danger} style={{ opacity: 0.9 }} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleDeleteChat}>
+              <Ionicons name="trash-outline" size={20} color={themeColors.danger} />
             </TouchableOpacity>
           </View>
         </View>
@@ -423,7 +470,7 @@ const s = StyleSheet.create({
   headerAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   headerName: { fontSize: 16, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
   statusTxt: { fontSize: 11, marginTop: 1 },
-  headerRight: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', marginRight: 8 },
   listContent: { padding: 16, paddingBottom: 32 },
   msgWrapper: { marginBottom: 12, maxWidth: '85%' },
   msgLeft: { alignSelf: 'flex-start' },

@@ -31,4 +31,10 @@ export const chatApi = {
     const res = await client.post(`/chats/${chatId}/reveal`);
     return res.data;
   },
+
+  // Delete a chat room and its history
+  deleteChat: async (chatId: string): Promise<{ success: boolean; message: string }> => {
+    const res = await client.delete<{ success: boolean; message: string }>(`/chats/${chatId}`);
+    return res.data;
+  },
 };

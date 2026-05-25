@@ -317,20 +317,7 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    // Create in-app notification for the other user
-    let notifTitle = title; // reuse the title computed for push
-    createNotification({
-      recipient: otherId,
-      sender: req.user._id,
-      type: "message",
-      title: notifTitle,
-      body: image && !content ? "Sent a photo 📷" : `${content.slice(0, 60)}${content.length > 60 ? '...' : ''}`,
-      data: { chatId: chatId.toString() }
-    });
-
-    // Send Push Notification (non-blocking)
-    const targetUser = await User.findById(otherId).select("expoPushToken").lean();
-    
+    // Compute push & notification title early to avoid reference errors
     let title = "New Message";
     if (chat.isAnonymous && !chat.isRevealed) {
       if (chat.anonAuthorId && req.user._id.toString() === chat.anonAuthorId.toString()) {
@@ -344,6 +331,19 @@ export const sendMessage = async (req, res) => {
       title = `${senderIdentity.avatar} ${senderIdentity.name}`;
     }
 
+    // Create in-app notification for the other user
+    createNotification({
+      recipient: otherId,
+      sender: req.user._id,
+      type: "message",
+      title: title,
+      body: image && !content ? "Sent a photo 📷" : `${content.slice(0, 60)}${content.length > 60 ? '...' : ''}`,
+      data: { chatId: chatId.toString() }
+    });
+
+    // Send Push Notification (non-blocking)
+    const targetUser = await User.findById(otherId).select("expoPushToken").lean();
+    
     sendPushNotification(
       targetUser?.expoPushToken,
       title,
@@ -406,6 +406,37 @@ export const revealIdentity = async (req, res) => {
     }
 
     res.json({ success: true, message: "Identity revealed successfully!", chat });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Delete an entire chat and all its messages
+export const deleteChat = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    // Verify chat exists and user is a participant
+    const chat = await Chat.findOne({ _id: chatId, participants: req.user._id });
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
+    }
+
+    // Delete all messages in the chat
+    await Message.deleteMany({ chatId });
+
+    // Delete the chat itself
+    await Chat.deleteOne({ _id: chatId });
+
+    // Emit socket event to notify other participant
+    const otherId = chat.participants.find(p => p.toString() !== req.user._id.toString()).toString();
+    const io = req.app.get("io");
+    if (io) {
+      io.to(chatId).emit("chatDeleted", { chatId });
+      io.to(`user:${otherId}`).emit("chatDeleted", { chatId });
+    }
+
+    res.json({ success: true, message: "Chat deleted successfully!" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

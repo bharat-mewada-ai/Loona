@@ -87,27 +87,10 @@ function RootLayout() {
     }
   }, [user?._id]);
 
+  // Expo Updates are handled automatically on start via checkAutomatically: "ON_LOAD" in app.json.
+  // We disable manual checkForUpdateAsync to prevent startup crash/reload loops on Android.
   useEffect(() => {
-    async function onFetchUpdateAsync() {
-      // expo-updates OTA only works in production builds, not in Expo Go / dev / web
-      if (__DEV__ || Platform.OS === 'web') return;
-      try {
-        console.log('[OTA] Checking for updates... Channel:', Updates.channel ?? 'unknown');
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
-          console.log('[OTA] Update found — downloading...');
-          await Updates.fetchUpdateAsync();
-          console.log('[OTA] Update downloaded — reloading app');
-          await Updates.reloadAsync();
-        } else {
-          console.log('[OTA] App is up to date.');
-        }
-      } catch (error: any) {
-        // Log so we can see in Metro / logcat if OTA fails
-        console.warn('[OTA] Update check failed:', error?.message ?? error);
-      }
-    }
-    onFetchUpdateAsync();
+    // Manual startup OTA checks disabled to ensure app stability
   }, []);
 
   // Initialize push notifications on startup

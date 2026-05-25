@@ -7,7 +7,7 @@ describe('BadgeService', () => {
       _id: 'user123',
       postCount: 1,
       badges: [],
-      karma: 0,
+      potato: 0,
       streak: 0,
       save: vi.fn()
     };
@@ -23,7 +23,7 @@ describe('BadgeService', () => {
       _id: 'user123',
       postCount: 10,
       badges: [{ name: 'Trailblazer', icon: '🚀' }],
-      karma: 105,
+      potato: 105,
       streak: 0,
       save: vi.fn()
     };
@@ -39,7 +39,7 @@ describe('BadgeService', () => {
       _id: 'user123',
       postCount: 5,
       badges: [{ name: 'Trailblazer', icon: '🚀' }],
-      karma: 10,
+      potato: 10,
       streak: 0,
       save: vi.fn()
     };
@@ -55,7 +55,7 @@ describe('BadgeService', () => {
       _id: 'user123',
       postCount: 10,
       badges: [],
-      karma: 50,
+      potato: 50,
       streak: 7,
       save: vi.fn()
     };

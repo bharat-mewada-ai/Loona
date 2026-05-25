@@ -207,7 +207,11 @@ export default function ProfileScreen() {
         </View>
 
         {/* Potato Card */}
-        <TouchableOpacity style={[s.karmaCard, { backgroundColor: themeColors.card }]} activeOpacity={0.9}>
+        <TouchableOpacity 
+          style={[s.karmaCard, { backgroundColor: themeColors.card }]} 
+          activeOpacity={0.8}
+          onPress={() => setPotatoGuideVisible(true)}
+        >
           <View style={s.karmaLeft}>
             <View style={s.flameCircle}>
               <Text style={{ fontSize: 28 }}>🥔</Text>
@@ -249,6 +253,19 @@ export default function ProfileScreen() {
                 <Ionicons name="notifications" size={20} color="#34C759" />
               </View>
               <Text style={[s.settingLabel, { color: themeColors.txt }]}>Notifications</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={themeColors.txt3} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[s.settingRow, { borderBottomColor: themeColors.bdr }]} 
+            onPress={() => setPotatoGuideVisible(true)}
+          >
+            <View style={s.rowLeft}>
+              <View style={[s.iconBox, { backgroundColor: '#FF950020' }]}>
+                <Ionicons name="help-circle" size={20} color="#FF9500" />
+              </View>
+              <Text style={[s.settingLabel, { color: themeColors.txt }]}>Potato Guide (How to earn)</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={themeColors.txt3} />
           </TouchableOpacity>
@@ -567,9 +584,9 @@ export default function ProfileScreen() {
 
               <Text style={{ color: '#FFD700', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 12 }}>MILESTONES & BATTLE 🏆</Text>
               <View style={{ backgroundColor: themeColors.card, borderRadius: 16, padding: 16, gap: 12 }}>
-                <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>✅ Get Verified (100 Potatoes)</Text>
+                <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>✅ Verification & Badges</Text>
                 <Text style={{ color: themeColors.txt3, fontSize: 12, lineHeight: 16, marginBottom: 6 }}>
-                  Reach 100 Potatoes to get the verified blue tick and unlock the Legend badge (👑).
+                  Verification badges and legend tags are granted manually by the Admin team based on community standing and active contributions.
                 </Text>
                 <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>⚔️ Campus War Leaderboard</Text>
                 <Text style={{ color: themeColors.txt3, fontSize: 12, lineHeight: 16 }}>
