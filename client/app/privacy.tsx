@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useUIStore } from '../src/store/uiStore';
@@ -47,6 +47,13 @@ export default function PrivacyPolicyScreen() {
         </Section>
 
         <TouchableOpacity 
+          style={[s.linkButton, { borderColor: themeColors.bdr }]}
+          onPress={() => Linking.openURL('https://loonaclient.netlify.app/privacy-policy.html')}
+        >
+          <Text style={[s.linkButtonTxt, { color: themeColors.lnct }]}>Read Full Privacy Policy Online</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
           style={[s.button, { backgroundColor: themeColors.ogi }]}
           onPress={() => router.back()}
         >
@@ -73,5 +80,19 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontFamily: 'PlusJakartaSans_700Bold', marginBottom: 8 },
   sectionText: { fontSize: 14, color: '#A1A1AA', lineHeight: 22, fontFamily: 'PlusJakartaSans_400Regular' },
   button: { height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
-  buttonTxt: { color: '#FFF', fontSize: 16, fontWeight: '700' }
+  buttonTxt: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  linkButton: {
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  linkButtonTxt: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+  }
 });
