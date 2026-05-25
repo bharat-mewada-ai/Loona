@@ -17,9 +17,34 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 import { broadcastNotification } from "../utils/marketingNotifications.js";
+import { sendPushNotification } from "../utils/pushNotifications.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = express.Router();
+
+/**
+ * BROADCAST PUSH NOTIFICATION (Super Admin Only)
+ */
+/**
+ * GET BROADCAST RECIPIENTS (Admin Only)
+ */
+router.get("/broadcast/recipients", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const users = await User.find({ expoPushToken: { $exists: true, $ne: "" } })
+    .select("name email avatar")
+    .lean();
+  res.json(users);
+}));
+
+/**
+ * GET BROADCAST HISTORY (Admin Only)
+ */
+router.get("/broadcast/history", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const history = await AuditLog.find({ action: "BROADCAST" })
+    .populate("performedBy", "name")
+    .sort({ createdAt: -1 })
+    .lean();
+  res.json(history);
+}));
 
 /**
  * BROADCAST PUSH NOTIFICATION (Super Admin Only)
@@ -34,17 +59,92 @@ router.post("/broadcast", requireAuth, requireAdmin, asyncHandler(async (req, re
   if (targetId) target = { userId: targetId };
   else if (targetEmail) target = { email: targetEmail };
 
-  const count = await broadcastNotification(title, body, { type: "admin_broadcast" }, target);
+  // 1. Find target recipients with push tokens to save their names/emails in history
+  const query = { expoPushToken: { $exists: true, $ne: "" } };
+  if (target) {
+    if (typeof target === 'string' && ['ogi', 'lnct', 'oriental'].includes(target)) {
+       query.campus = target;
+    } else if (target.userId) {
+       query._id = target.userId;
+    } else if (target.email) {
+       query.email = target.email;
+    } else if (target === 'all') {
+       // all campuses - query stays the same
+    }
+  }
+
+  const users = await User.find(query).select("name email avatar expoPushToken").lean();
+  const count = users.length;
+
+  // 2. Perform Broadcast
+  if (count > 0) {
+    const tokens = users.map(u => u.expoPushToken);
+    // Send in chunks of 100 with throttling
+    for (let i = 0; i < tokens.length; i += 100) {
+      const chunk = tokens.slice(i, i + 100);
+      await Promise.all(chunk.map(token => 
+        sendPushNotification(token, title, body, { type: "admin_broadcast" }).catch(e => console.error(`[Push] Error: ${e.message}`))
+      ));
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
   
+  // 3. Create AuditLog with recipient list in metadata
   await AuditLog.create({
     action: "BROADCAST",
     performedBy: req.user._id,
     targetType: "System",
     details: `Broadcast: ${title}${targetId ? ' to user ' + targetId : ''}`,
-    metadata: { target, count }
+    metadata: { 
+      target, 
+      count,
+      title,
+      body,
+      recipients: users.map(u => ({ _id: u._id, name: u.name, email: u.email, avatar: u.avatar }))
+    }
   });
 
   res.json({ message: `Successfully broadcasted to ${count || 0} users`, count });
+}));
+
+/**
+ * ADJUST USER POTATOES (Admin Only)
+ */
+router.post("/users/:userId/adjust-potatoes", requireAuth, requireStaff, asyncHandler(async (req, res) => {
+  const { amount } = req.body;
+  if (amount === undefined || isNaN(amount)) {
+    return res.status(400).json({ error: "Amount must be a valid number" });
+  }
+
+  const user = await User.findById(req.params.userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const numericAmount = Number(amount);
+  user.potato = Math.max(0, (user.potato || 0) + numericAmount);
+  await user.save();
+
+  // Create Audit Log
+  await AuditLog.create({
+    action: "POTATO_ADJUST",
+    performedBy: req.user._id,
+    targetId: user._id,
+    targetType: "User",
+    details: `Adjusted potatoes by ${numericAmount}. New balance: ${user.potato}`
+  });
+
+  // Create notification
+  const { createNotification } = await import("../utils/notificationService.js");
+  await createNotification({
+    recipient: user._id,
+    sender: req.user._id,
+    type: "system",
+    title: numericAmount > 0 ? "Potatoes Received! 🥔" : "Potatoes Deducted! 🥔",
+    body: numericAmount > 0 
+      ? `The admin has awarded you ${numericAmount} 🥔 Potatoes! Enjoy.` 
+      : `The admin has deducted ${Math.abs(numericAmount)} 🥔 Potatoes from your account.`,
+  });
+
+  res.json({ message: "Potatoes adjusted successfully", potato: user.potato });
 }));
 
 /**
@@ -127,8 +227,15 @@ router.post("/users/:userId/unban", requireAuth, requireAdmin, asyncHandler(asyn
  * VERIFY (Staff Access)
  */
 router.post("/users/:userId/verify", requireAuth, requireStaff, asyncHandler(async (req, res) => {
-  const user = await User.findByIdAndUpdate(req.params.userId, { isVerified: true }, { new: true });
+  const user = await User.findById(req.params.userId);
   if (!user) return res.status(404).json({ error: "User not found" });
+
+  user.isVerified = true;
+  
+  // Award badge immediately so it updates user profile
+  const { checkAndAwardBadges } = await import("../utils/badgeService.js");
+  await checkAndAwardBadges(user);
+  await user.save();
 
   await AuditLog.create({
     action: "USER_VERIFY",
@@ -238,34 +345,50 @@ router.get("/errors", requireAuth, requireAdmin, asyncHandler(async (req, res) =
 }));
 
 router.get("/criminals", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
-  const criminals = await Post.aggregate([
-    { $match: { "reports.0": { $exists: true } } },
-    { $group: { 
-        _id: "$author", 
-        totalReports: { $sum: "$reportCount" },
-        reportedPosts: { $sum: 1 }
-    } },
-    { $sort: { totalReports: -1 } },
-    { $limit: 20 },
-    { $lookup: {
-        from: "users",
-        localField: "_id",
-        foreignField: "_id",
-        as: "user"
-    } },
-    { $unwind: "$user" },
-    { $project: {
-        _id: 1,
-        totalReports: 1,
-        reportedPosts: 1,
-        name: "$user.name",
-        email: "$user.email",
-        avatar: "$user.avatar",
-        isBanned: "$user.isBanned"
-    } }
-  ]);
+  // Lazy one-time migration for old reports if totalReportsCount is not populated
+  const needsMigration = await User.exists({ totalReportsCount: { $exists: false } });
+  if (needsMigration) {
+    const reportedData = await Post.aggregate([
+      { $match: { "reports.0": { $exists: true } } },
+      { $group: { 
+          _id: "$author", 
+          totalReports: { $sum: "$reportCount" },
+          reportedPosts: { $sum: 1 }
+      } }
+    ]);
+    for (const data of reportedData) {
+      if (data._id) {
+        await User.findByIdAndUpdate(data._id, {
+          $set: {
+            totalReportsCount: data.totalReports,
+            reportedPostsCount: data.reportedPosts
+          }
+        });
+      }
+    }
+    await User.updateMany(
+      { totalReportsCount: { $exists: false } },
+      { $set: { totalReportsCount: 0, reportedPostsCount: 0 } }
+    );
+  }
 
-  res.json(criminals);
+  const criminals = await User.find({ totalReportsCount: { $gt: 0 } })
+    .sort({ totalReportsCount: -1 })
+    .limit(20)
+    .select("_id name email avatar isBanned totalReportsCount reportedPostsCount")
+    .lean();
+
+  const formatted = criminals.map(c => ({
+    _id: c._id,
+    totalReports: c.totalReportsCount || 0,
+    reportedPosts: c.reportedPostsCount || 0,
+    name: c.name,
+    email: c.email,
+    avatar: c.avatar,
+    isBanned: c.isBanned
+  }));
+
+  res.json(formatted);
 }));
 
 export default router;

@@ -33,7 +33,7 @@
         "backgroundColor": "#FF6B35"
       },
       "package": "com.loona.app",
-      "versionCode": 24,
+      "versionCode": 30,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -79,18 +79,18 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "205832d2-b843-4d50-8c80-5d2d9b1b130a"
+        "projectId": "45dd7a2a-df99-4eb9-98ca-4ab0b68b3c1c"
       }
     },
     "updates": {
       "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/205832d2-b843-4d50-8c80-5d2d9b1b130a",
+      "url": "https://u.expo.dev/45dd7a2a-df99-4eb9-98ca-4ab0b68b3c1c",
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "requestHeaders": {
         "expo-channel-name": "production"
       }
     },
-    "owner": "loona309s-organization"
+    "owner": "loonaofficial"
   }
 }

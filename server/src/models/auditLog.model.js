@@ -5,7 +5,7 @@ const auditLogSchema = new mongoose.Schema(
     action: {
       type: String,
       required: true,
-      enum: ["POST_DELETE", "POST_DISMISS", "USER_BAN", "USER_UNBAN", "USER_VERIFY", "USER_UNVERIFY", "BROADCAST"],
+      enum: ["POST_DELETE", "POST_DISMISS", "USER_BAN", "USER_UNBAN", "USER_VERIFY", "USER_UNVERIFY", "BROADCAST", "POTATO_ADJUST"],
     },
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,

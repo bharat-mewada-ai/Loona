@@ -274,20 +274,25 @@ export default function NearbyScreen() {
                   <TouchableOpacity
                     style={[
                       s.waveBtn, 
-                      { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }, 
-                      isVeryClose && s.chatBtn
+                      { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }
                     ]}
                     onPress={() => isVeryClose ? handleChat(item._id) : handleWave(item._id, item.name)}
                   >
-                    <Text style={[s.waveBtnTxt, { color: isVeryClose ? '#0a0a0f' : themeColors.txt }]}>
+                    <Text style={[
+                      s.waveBtnTxt, 
+                      { color: isVeryClose ? (isDark ? LIME : '#3f6212') : themeColors.txt }
+                    ]}>
                       {isVeryClose ? '💬 Chat' : '👋 Wave'}
                     </Text>
                     {/* Cost badge */}
-                    {!isVeryClose && (
-                      <View style={[s.costBadge, { backgroundColor: isDark ? 'rgba(200,245,58,0.15)' : 'rgba(63,98,18,0.1)' }]}>
-                        <Text style={[s.costTxt, { color: isDark ? LIME : '#3f6212' }]}>🥔5</Text>
-                      </View>
-                    )}
+                    <View style={[
+                      s.costBadge, 
+                      { backgroundColor: isDark ? 'rgba(200,245,58,0.15)' : 'rgba(63,98,18,0.1)' }
+                    ]}>
+                      <Text style={[s.costTxt, { color: isDark ? LIME : '#3f6212' }]}>
+                        🥔{isVeryClose ? 10 : 5}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>

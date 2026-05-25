@@ -61,7 +61,7 @@ export default function OnboardingScreen() {
 
   const renderSlide = ({ item }: { item: typeof SLIDES[0] }) => (
     <View style={s.slide}>
-      <LinearGradient colors={item.colors} style={s.iconCircle}>
+      <LinearGradient colors={item.colors as any} style={s.iconCircle}>
         <Ionicons name={item.icon as any} size={80} color="#000" />
       </LinearGradient>
       <Text style={[s.title, { color: themeColors.txt }]}>{item.title}</Text>

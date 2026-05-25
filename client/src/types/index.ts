@@ -126,7 +126,7 @@ export interface Chat {
   isRevealed?: boolean;
   identities?: {
     me: { name: string; avatar: string; id?: string };
-    other: { name: string; avatar: string; id?: string | null };
+    other: { name: string; avatar: string; id?: string | null; lastActive?: string | null };
   };
   updatedAt?: string;
   // Flattened fields from backend getChats

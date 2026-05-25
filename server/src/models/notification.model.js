@@ -12,8 +12,8 @@ const notificationSchema = new mongoose.Schema(
     title: { type: String, required: true },
     body: { type: String, required: true },
     data: {
-      postId: { type: mongoose.Schema.Types.ObjectId, ref: "Post" },
-      chatId: { type: String },
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
     read: { type: Boolean, default: false },
   },

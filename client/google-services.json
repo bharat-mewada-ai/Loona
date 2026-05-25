@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "329290971821-c9h2nbdv04732v47d5e31829jkq0gbsl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.loona.app",
+            "certificate_hash": "f5994aef8a575c56dadf6abe0ec7a4a21da95a36"
+          }
+        },
+        {
           "client_id": "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -22,7 +30,15 @@
           }
         },
         {
-          "client_id": "612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com",
+          "client_id": "329290971821-tlu0okmsgpkqggg8ootn9m7368i77273.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.loona.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -35,7 +51,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "612057986452-msvfloi7pqa12a9sfkth79kb1v18s01q.apps.googleusercontent.com",
+              "client_id": "329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

@@ -7,6 +7,27 @@ const UserManagement = () => {
   const [results, setResults] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [potatoAdjustment, setPotatoAdjustment] = useState('');
+
+  useEffect(() => {
+    if (!searchTerm) {
+      setResults([]);
+      return;
+    }
+    const delayDebounce = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await api.get(`/admin/users/search?q=${searchTerm}`);
+        setResults(res.data);
+      } catch (err) {
+        console.error('Search failed', err);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [searchTerm]);
 
   const handleSearch = async () => {
     if (!searchTerm) return;
@@ -19,6 +40,29 @@ const UserManagement = () => {
       alert('Search failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAdjustPotatoes = async () => {
+    if (!potatoAdjustment || isNaN(potatoAdjustment)) {
+      alert('Please enter a valid number');
+      return;
+    }
+    try {
+      const res = await api.post(`/admin/users/${selectedUser.user._id}/adjust-potatoes`, {
+        amount: Number(potatoAdjustment)
+      });
+      alert(res.data.message);
+      setPotatoAdjustment('');
+      setSelectedUser({
+        ...selectedUser,
+        user: {
+          ...selectedUser.user,
+          potato: res.data.potato
+        }
+      });
+    } catch (err) {
+      alert('Failed to adjust potatoes');
     }
   };
 
@@ -167,6 +211,56 @@ const UserManagement = () => {
                    {selectedUser.user.isVerified ? 'Verified' : 'Verify User'}
                 </button>
              </div>
+          </div>
+
+          <div style={{
+            marginTop: '32px',
+            background: '#0A0A0A',
+            padding: '24px',
+            borderRadius: '16px',
+            border: '1px solid rgba(255,255,255,0.06)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            maxWidth: '450px'
+          }}>
+             <h4 style={{ color: '#FFF', fontSize: '14px', fontWeight: 'bold', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Adjust User Potato Balance</h4>
+             <div style={{ display: 'flex', gap: '12px' }}>
+                <input 
+                  type="number" 
+                  placeholder="Amount (e.g. 50 or -25)" 
+                  value={potatoAdjustment}
+                  onChange={(e) => setPotatoAdjustment(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    background: '#141414',
+                    border: '1px solid #222',
+                    borderRadius: '10px',
+                    color: '#FFF',
+                    outline: 'none',
+                    fontSize: '14px'
+                  }}
+                />
+                <button 
+                  onClick={handleAdjustPotatoes}
+                  style={{
+                    background: '#FFD700',
+                    color: '#000',
+                    padding: '0 20px',
+                    borderRadius: '10px',
+                    fontWeight: 'bold',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Apply
+                </button>
+             </div>
+             <p style={{ color: '#71717A', fontSize: '11px', margin: 0 }}>
+               Enter a positive number to add potatoes, or negative to deduct.
+             </p>
           </div>
 
           <div style={{ marginTop: '40px' }}>

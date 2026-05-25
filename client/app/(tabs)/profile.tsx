@@ -43,6 +43,7 @@ export default function ProfileScreen() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editBioVisible, setEditBioVisible] = useState(false);
   const [campusPickerVisible, setCampusPickerVisible] = useState(false);
+  const [potatoGuideVisible, setPotatoGuideVisible] = useState(false);
   const [activeView, setActiveView] = useState<'main' | 'posts' | 'saved'>('main');
 
   const [newName, setNewName] = useState(user?.name || '');
@@ -344,6 +345,7 @@ export default function ProfileScreen() {
                 <SettingRow icon="share-social-outline" label="Invite Friends" onPress={() => {
                   Share.share({ message: "Join me on Loona, the best campus app! Download: https://loona.app" });
                 }} />
+                <SettingRow icon="help-circle-outline" label="Potato Guide" onPress={() => { setSettingsVisible(false); setPotatoGuideVisible(true); }} />
                 <SettingRow icon="document-outline" label="Privacy Policy" onPress={openPrivacySheet} />
                 <SettingRow icon="chatbubble-outline" label="Give Feedback" onPress={openFeedbackSheet} />
                 <SettingRow icon="log-out-outline" label="Log Out" onPress={handleLogout} />
@@ -477,6 +479,105 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Potato Guide Modal */}
+      <Modal visible={potatoGuideVisible} animationType="slide" transparent onRequestClose={() => setPotatoGuideVisible(false)}>
+        <View style={s.modalOverlay}>
+          <View style={[s.modalBox, { backgroundColor: themeColors.bg, height: '80%' }]}>
+            <View style={s.modalHeader}>
+              <Text style={[s.modalTitle, { color: themeColors.txt }]}>🥔 Potato Guide</Text>
+              <TouchableOpacity onPress={() => setPotatoGuideVisible(false)}>
+                <Ionicons name="close" size={24} color={themeColors.txt} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 24 }}>
+              
+              <Text style={{ color: themeColors.txt, fontSize: 16, fontWeight: '800', marginBottom: 8 }}>What are Potatoes?</Text>
+              <Text style={{ color: themeColors.txt2, fontSize: 13, lineHeight: 18, marginBottom: 20 }}>
+                Potatoes (🥔) are virtual in-app points earned through active contributions to your campus community. 
+                Use them to start chats, wave at nearby peers, and climb the leaderboard!
+              </Text>
+
+              <Text style={{ color: themeColors.ogi, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 12 }}>HOW TO EARN 📈</Text>
+              <View style={{ backgroundColor: themeColors.card, borderRadius: 16, padding: 16, gap: 14, marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>🎁</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>New Account Bonus</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Get +25 Potatoes instantly on creating a new account.</Text>
+                  </View>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+25 🥔</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>📝</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Create a Post</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Post confessions, discussions, or events.</Text>
+                  </View>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+5 🥔</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>💬</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Leave a Comment</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Share your thoughts in comment threads.</Text>
+                  </View>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+2 🥔</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>👍</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Receive an Upvote</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>When other students upvote your posts.</Text>
+                  </View>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+1 🥔</Text>
+                </View>
+              </View>
+
+              <Text style={{ color: '#FF3B30', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 12 }}>HOW THEY DEDUCT 📉</Text>
+              <View style={{ backgroundColor: themeColors.card, borderRadius: 16, padding: 16, gap: 14, marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>👋</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Wave at Someone</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Send a wave request to nearby students.</Text>
+                  </View>
+                  <Text style={{ color: '#FF3B30', fontWeight: '800', fontSize: 13 }}>-5 🥔</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>⚡</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Start a Chat</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Initiate a chat directly from the Nearby tab.</Text>
+                  </View>
+                  <Text style={{ color: '#FF3B30', fontWeight: '800', fontSize: 13 }}>-10 🥔</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>🚫</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Reported Post Removal</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>If admin deletes your post due to community reports.</Text>
+                  </View>
+                  <Text style={{ color: '#FF3B30', fontWeight: '800', fontSize: 13 }}>-20 🥔</Text>
+                </View>
+              </View>
+
+              <Text style={{ color: '#FFD700', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 12 }}>MILESTONES & BATTLE 🏆</Text>
+              <View style={{ backgroundColor: themeColors.card, borderRadius: 16, padding: 16, gap: 12 }}>
+                <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>✅ Get Verified (100 Potatoes)</Text>
+                <Text style={{ color: themeColors.txt3, fontSize: 12, lineHeight: 16, marginBottom: 6 }}>
+                  Reach 100 Potatoes to get the verified blue tick and unlock the Legend badge (👑).
+                </Text>
+                <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>⚔️ Campus War Leaderboard</Text>
+                <Text style={{ color: themeColors.txt3, fontSize: 12, lineHeight: 16 }}>
+                  Your potatoes add up to your college's score. Keep posting and upvoting to defeat other campuses!
+                </Text>
+              </View>
+
+            </ScrollView>
           </View>
         </View>
       </Modal>

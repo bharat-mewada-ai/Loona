@@ -33,6 +33,14 @@ const userSchema = new mongoose.Schema(
     },
     potato: {
       type: Number,
+      default: 25,
+    },
+    totalReportsCount: {
+      type: Number,
+      default: 0,
+    },
+    reportedPostsCount: {
+      type: Number,
       default: 0,
     },
     streak: {

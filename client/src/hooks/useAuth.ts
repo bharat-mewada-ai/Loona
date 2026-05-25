@@ -162,7 +162,18 @@ export const useNearby = () => {
 };
 
 export const useWaveUser = () => {
+  const queryClient = useQueryClient();
+  const setUser = useAuthStore((s) => s.setUser);
   return useMutation({
     mutationFn: (userId: string) => authApi.waveUser(userId),
+    onSuccess: async () => {
+      try {
+        const updatedUser = await authApi.me();
+        setUser(updatedUser);
+        queryClient.invalidateQueries({ queryKey: ['me'] });
+      } catch (err) {
+        console.error('Failed to sync user profile after wave:', err);
+      }
+    },
   });
 };

@@ -92,7 +92,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
       isVerified: post.author?.isVerified,
       isPremium: post.author?.isPremium,
       badges: post.author?.badges,
-      isConfession: post.type === 'confess'
+      isConfession: false
     });
   };
 

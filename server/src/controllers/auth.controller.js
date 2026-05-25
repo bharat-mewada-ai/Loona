@@ -31,15 +31,17 @@ export const googleLogin = async (req, res) => {
       const decoded = jwt.decode(token);
       logger.info(`[GoogleLogin] DEBUG - Token Audience (aud): ${decoded?.aud}`);
 
-      // On Android, the audience can sometimes be the Android Client ID instead of the Web Client ID
+      // Support client IDs across both the iOS/Server project (612057986452) and the Android project (329290971821)
       const androidClientId = "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com";
+      const androidWebClientId = "329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com";
       const webClientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
+      const allowedAudiences = [webClientId, androidClientId, androidWebClientId].filter(Boolean);
 
-      logger.info(`[GoogleLogin] Comparing token aud [${decoded?.aud}] with required audiences [${webClientId}] and [${androidClientId}]`);
+      logger.info(`[GoogleLogin] Comparing token aud [${decoded?.aud}] with allowed audiences: ${JSON.stringify(allowedAudiences)}`);
 
       const ticket = await client.verifyIdToken({
         idToken: token,
-        audience: [webClientId, androidClientId], 
+        audience: allowedAudiences, 
       });
       payload = ticket.getPayload();
       logger.info(`[GoogleLogin] ID Token Verified. Email: ${payload.email}, Audience: ${payload.aud}`);
@@ -48,8 +50,9 @@ export const googleLogin = async (req, res) => {
       // Fallback: Try verifying as Access Token (common on Web)
       try {
         const { data } = await axios.get(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`);
-        if (data.aud !== process.env.GOOGLE_CLIENT_ID && data.azp !== process.env.GOOGLE_CLIENT_ID) {
-          logger.error(`[GoogleLogin] Access Token aud mismatch: ${data.aud} vs ${process.env.GOOGLE_CLIENT_ID}`);
+        const allowedIds = [process.env.GOOGLE_CLIENT_ID, "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com", "329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com"].filter(Boolean);
+        if (!allowedIds.includes(data.aud) && !allowedIds.includes(data.azp)) {
+          logger.error(`[GoogleLogin] Access Token aud mismatch: ${data.aud} / ${data.azp} vs ${JSON.stringify(allowedIds)}`);
           throw new Error("Token audience mismatch");
         }
         payload = {
@@ -215,20 +218,22 @@ export const getMe = async (req, res) => {
   const userObj = req.user.toObject();
   if (!userObj.tags) userObj.tags = [];
 
-  // Calculate globalRank with 5 min Redis Cache
+  // Calculate campusRank with 1 min Redis Cache for near-real-time updates
   const { default: redis } = await import("../utils/redis.js");
-  const rankKey = `globalRank:${req.user._id}`;
+  const rankKey = `campusRank:${req.user._id}`;
   let rank = await redis.get(rankKey);
   if (!rank) {
-    // Optimization: Only count if potato is non-zero, otherwise rank is just "Low" or ignored
     if (req.user.potato > 0) {
       rank = await User.countDocuments({
+        campus: req.user.campus,
         potato: { $gt: req.user.potato }
       }) + 1;
-      await redis.set(rankKey, rank, 'EX', 600); // 10 min cache
     } else {
-      rank = "N/A";
+      // If potato is 0, rank is the bottom/total number of users in their campus
+      const totalCampusUsers = await User.countDocuments({ campus: req.user.campus });
+      rank = totalCampusUsers || 1;
     }
+    await redis.set(rankKey, rank, 'EX', 60); // 1 min cache
   } else {
     rank = parseInt(rank, 10);
   }

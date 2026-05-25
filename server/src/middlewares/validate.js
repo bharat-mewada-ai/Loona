@@ -205,8 +205,12 @@ export const startChatRules = [
     .isMongoId().withMessage("targetUserId must be a valid user ID"),
   body("postId")
     .optional({ checkFalsy: true })
-    .trim()
-    .isMongoId().withMessage("postId must be a valid post ID"),
+    .custom((value) => {
+      if (value === undefined || value === null || value === "") return true;
+      const str = String(value).trim();
+      return str === "nearby" || /^[0-9a-fA-F]{24}$/.test(str);
+    })
+    .withMessage("postId must be 'nearby' or a valid post ID"),
 ];
 
 /** POST /api/chats/:chatId/messages */

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import client from '../api/client';
@@ -96,8 +97,9 @@ async function registerForPushNotificationsAsync() {
   if (finalStatus !== 'granted') return;
 
   try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId || '45dd7a2a-df99-4eb9-98ca-4ab0b68b3c1c';
     token = (await Notifications.getExpoPushTokenAsync({
-      projectId: '205832d2-b843-4d50-8c80-5d2d9b1b130a' 
+      projectId
     })).data;
   } catch (e) {
     console.error('Failed to get push token', e);

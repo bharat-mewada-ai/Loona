@@ -77,17 +77,20 @@ export const startChat = async (req, res) => {
 
     if (!chat) {
       // Check if user has enough potato currency to initiate a new chat (e.g. 10 potatoes)
-      const CHAT_COST = 10;
-      const initiator = await User.findById(req.user._id);
-      if (initiator.potato < CHAT_COST) {
-        return res.status(400).json({
-          error: `You need at least ${CHAT_COST} 🥔 Potatoes to start a chat! You currently have ${initiator.potato} 🥔.`
-        });
-      }
+      // Only deduct potatoes if the chat is started from Nearby tab
+      if (postId === 'nearby') {
+        const CHAT_COST = 10;
+        const initiator = await User.findById(req.user._id);
+        if (initiator.potato < CHAT_COST) {
+          return res.status(400).json({
+            error: `You need at least ${CHAT_COST} 🥔 Potatoes to start a chat! You currently have ${initiator.potato} 🥔.`
+          });
+        }
 
-      // Deduct potato
-      initiator.potato -= CHAT_COST;
-      await initiator.save();
+        // Deduct potato
+        initiator.potato -= CHAT_COST;
+        await initiator.save();
+      }
       // Get real names and avatars for both participants
       const [u1, u2] = await Promise.all([
         User.findById(req.user._id).select('name avatar'),

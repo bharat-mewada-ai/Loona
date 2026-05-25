@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../../types';
 import { getColors } from '../../theme/colors';
 import { useUIStore } from '../../store/uiStore';
+import { useAuthStore } from '../../store/authStore';
 import { triggerHaptic } from '../../utils/haptics';
 
 interface Props {

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatApi } from '../api/chat.api';
+import { authApi } from '../api/auth.api';
 import { useAuthStore } from '../store/authStore';
 import { getSocket } from '../utils/socket';
 
@@ -15,11 +16,22 @@ export const useChats = () => {
 
 export const useStartChat = () => {
   const qc = useQueryClient();
+  const setUser = useAuthStore((s) => s.setUser);
   return useMutation({
     mutationFn: ({ targetUserId, postId }: { targetUserId: string; postId?: string }) =>
       chatApi.startChat(targetUserId, postId),
-    onSuccess: () => {
+    onSuccess: async (_, variables) => {
       qc.invalidateQueries({ queryKey: ['chats'] });
+      // Sync potato balance in real-time only if the chat cost potatoes (started from Nearby)
+      if (variables.postId === 'nearby') {
+        try {
+          const updatedUser = await authApi.me();
+          setUser(updatedUser);
+          qc.invalidateQueries({ queryKey: ['me'] });
+        } catch (err) {
+          console.error('Failed to sync user profile after starting chat:', err);
+        }
+      }
     },
   });
 };

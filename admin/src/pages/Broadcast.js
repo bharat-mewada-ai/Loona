@@ -11,6 +11,8 @@ const Broadcast = () => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [recipients, setRecipients] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [selectedBroadcast, setSelectedBroadcast] = useState(null);
 
   const fetchRecipients = async () => {
     try {
@@ -21,8 +23,21 @@ const Broadcast = () => {
     }
   };
 
+  const fetchHistory = async () => {
+    try {
+      const { data } = await api.get('/admin/broadcast/history');
+      setHistory(data);
+      if (data.length > 0 && !selectedBroadcast) {
+        setSelectedBroadcast(data[0]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch broadcast history');
+    }
+  };
+
   React.useEffect(() => {
     fetchRecipients();
+    fetchHistory();
   }, []);
 
   const handleBroadcast = async (e) => {
@@ -45,6 +60,7 @@ const Broadcast = () => {
       setTitle('');
       setBody('');
       setTargetValue('');
+      await fetchHistory(); // Live update of history
     } catch (err) {
       setStatus({ type: 'error', message: err.response?.data?.error || 'Failed to send broadcast' });
     } finally {
@@ -175,32 +191,90 @@ const Broadcast = () => {
           </form>
         </div>
 
-        {/* Reachable Users Sidebar */}
-        <div style={{
-          background: '#141414',
-          padding: '24px',
-          borderRadius: '24px',
-          border: '1px solid rgba(255,255,255,0.08)'
-        }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-             <Megaphone size={18} color="#FFD60A" /> TARGET AUDIENCE
-          </h3>
-          <p style={{ fontSize: '12px', color: '#71717A', marginBottom: '20px' }}>
-             Users currently reachable via Push Notifications ({recipients.length})
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-             {recipients.map(u => (
-               <div key={u._id} 
-                    onClick={() => { setTargetType('individual'); setTargetValue(u._id); }}
-                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: targetValue === u._id ? '1px solid #FF453A' : '1px solid transparent' }}>
-                  <span style={{ fontSize: '20px' }}>{u.avatar || '👤'}</span>
-                  <div>
-                     <div style={{ color: '#FFF', fontSize: '13px', fontWeight: 'bold' }}>{u.name}</div>
-                     <div style={{ color: '#71717A', fontSize: '10px' }}>ID: {u._id}</div>
-                  </div>
-               </div>
-             ))}
+        {/* Broadcast History & Audience Tracking */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* 1. History List */}
+          <div style={{
+            background: '#141414',
+            padding: '24px',
+            borderRadius: '24px',
+            border: '1px solid rgba(255,255,255,0.08)',
+            maxHeight: '350px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#FFF' }}>
+               <Megaphone size={18} color="#FFD60A" /> BROADCAST HISTORY
+            </h3>
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+               {history.length === 0 ? (
+                 <p style={{ color: '#71717A', fontSize: '13px', margin: '20px 0', textAlign: 'center' }}>No broadcast history yet.</p>
+               ) : (
+                 history.map(b => {
+                   const isSelected = selectedBroadcast && selectedBroadcast._id === b._id;
+                   return (
+                     <div key={b._id} 
+                          onClick={() => setSelectedBroadcast(b)}
+                          style={{ 
+                            cursor: 'pointer', 
+                            padding: '12px', 
+                            background: isSelected ? 'rgba(255, 69, 58, 0.1)' : 'rgba(255,255,255,0.02)', 
+                            borderRadius: '12px', 
+                            border: isSelected ? '1px solid #FF453A' : '1px solid rgba(255,255,255,0.05)',
+                            transition: 'all 0.2s'
+                          }}>
+                        <div style={{ color: '#FFF', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.metadata?.title || b.details}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#71717A', fontSize: '10px', marginTop: '6px' }}>
+                           <span>Reached: {b.metadata?.count || 0} users</span>
+                           <span>{new Date(b.createdAt).toLocaleDateString()}</span>
+                        </div>
+                     </div>
+                   );
+                 })
+               )}
+            </div>
           </div>
+
+          {/* 2. Target Audience for selected Broadcast */}
+          <div style={{
+            background: '#141414',
+            padding: '24px',
+            borderRadius: '24px',
+            border: '1px solid rgba(255,255,255,0.08)',
+            maxHeight: '400px',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '8px', color: '#FFF' }}>
+               AUDIENCE REACHED
+            </h3>
+            {selectedBroadcast ? (
+              <>
+                <p style={{ fontSize: '12px', color: '#71717A', marginBottom: '16px' }}>
+                   Broadcasted: "{selectedBroadcast.metadata?.title || 'Notification'}" to ({selectedBroadcast.metadata?.recipients?.length || 0}) users
+                </p>
+                <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px' }}>
+                   {(!selectedBroadcast.metadata?.recipients || selectedBroadcast.metadata.recipients.length === 0) ? (
+                     <p style={{ color: '#71717A', fontSize: '12px', textAlign: 'center', marginTop: '20px' }}>No users received this broadcast.</p>
+                   ) : (
+                     selectedBroadcast.metadata.recipients.map(u => (
+                       <div key={u._id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'rgba(255,255,255,0.01)', borderRadius: '10px' }}>
+                          <span style={{ fontSize: '18px' }}>{u.avatar || '👤'}</span>
+                          <div style={{ overflow: 'hidden' }}>
+                             <div style={{ color: '#FFF', fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
+                             <div style={{ color: '#71717A', fontSize: '9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
+                          </div>
+                       </div>
+                     ))
+                   )}
+                </div>
+              </>
+            ) : (
+              <p style={{ color: '#71717A', fontSize: '13px', margin: '40px 0', textAlign: 'center' }}>Select a broadcast to see who received it.</p>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

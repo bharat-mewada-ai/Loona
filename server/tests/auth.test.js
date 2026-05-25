@@ -26,7 +26,7 @@ describe('Auth Controller', () => {
   describe('POST /api/auth/google', () => {
     it('should create a new user and return tokens on first login', async () => {
       const res = await request(app)
-        .post('/api/auth/google')
+        .post('/api/v1/auth/google')
         .send({
           token: 'fake-valid-token',
           campus: 'ogi',
@@ -53,7 +53,7 @@ describe('Auth Controller', () => {
       });
 
       const res = await request(app)
-        .post('/api/auth/google')
+        .post('/api/v1/auth/google')
         .send({
           token: 'fake-valid-token',
         });
@@ -64,7 +64,7 @@ describe('Auth Controller', () => {
 
     it('should fail if token is missing', async () => {
       const res = await request(app)
-        .post('/api/auth/google')
+        .post('/api/v1/auth/google')
         .send({ campus: 'ogi' });
 
       expect(res.status).toBe(422);

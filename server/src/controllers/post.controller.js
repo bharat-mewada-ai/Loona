@@ -94,11 +94,6 @@ export const createPost = async (req, res) => {
 
   const post = await Post.create(postData);
 
-  // ─── Update user stats + streak ─────────────────────────────────────────────────────
-  req.user.postCount += 1;
-  req.user.potato += 5;
-
-  // Streak logic — compare calendar dates in UTC to avoid timezone drift
   res.status(201).json(post);
 
   // ─── Background Tasks ──────────────────────────────────────────────────────
@@ -108,6 +103,10 @@ export const createPost = async (req, res) => {
       // ── Streak & Badge Logic (Background) ──
       const user = await User.findById(req.user._id);
       if (user) {
+        // Update user stats
+        user.postCount = (user.postCount || 0) + 1;
+        user.potato = (user.potato || 0) + 5;
+
         const today = new Date();
         today.setUTCHours(0, 0, 0, 0);
         if (!user.lastPostDate) {
@@ -327,16 +326,7 @@ export const votePost = async (req, res) => {
     { new: true }
   );
 
-  if (postAuthor && postAuthor.potato >= 100 && !postAuthor.isVerified) {
-    postAuthor.isVerified = true;
-    createNotification({
-      recipient: postAuthor._id,
-      sender: null,
-      type: "system",
-      title: "You are Verified! 🌟",
-      body: "Congratulations! You reached 100 Potatoes and earned the Verified checkmark."
-    });
-  }
+
 
   if (postAuthor) {
     await checkAndAwardBadges(postAuthor);
@@ -620,16 +610,7 @@ export const addComment = async (req, res) => {
   req.user.commentsCount = (req.user.commentsCount || 0) + 1;
   req.user.potato += 2;
   
-  if (req.user.potato >= 100 && !req.user.isVerified) {
-    req.user.isVerified = true;
-    createNotification({
-      recipient: req.user._id,
-      sender: null,
-      type: "system",
-      title: "You are Verified! 🌟",
-      body: "Congratulations! You reached 100 Potatoes and earned the Verified checkmark."
-    });
-  }
+
   
   await checkAndAwardBadges(req.user);
   await req.user.save();
@@ -763,6 +744,17 @@ export const reportPost = async (req, res) => {
     post.reports.push({ reason, reporter: userId });
     await post.save();
 
+    // Increment criminal count for the author
+    if (post.author) {
+      const isFirstReport = post.reportCount === 1;
+      await User.findByIdAndUpdate(post.author, {
+        $inc: {
+          totalReportsCount: 1,
+          reportedPostsCount: isFirstReport ? 1 : 0
+        }
+      });
+    }
+
     res.json({ message: "Reported successfully. Moderators will review it." });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -801,14 +793,20 @@ export const deletePost = async (req, res) => {
       }
     }
 
-    // ─── Notify Author if deleted by Staff ──────────────────────────────────
+    // ─── Notify Author if deleted by Staff & Deduct Potatoes if reported ───
     if (isStaff && authorId.toString() !== req.user._id.toString()) {
+      let penaltyApplied = false;
+      if (post.reportCount > 0) {
+        await User.findByIdAndUpdate(authorId, { $inc: { potato: -20 } });
+        penaltyApplied = true;
+      }
+
       createNotification({
         recipient: authorId,
         sender: req.user._id,
         type: "system",
         title: "Post Removed 🚫",
-        body: `Your post "${postTitle.substring(0, 30)}..." was removed for violating community guidelines.`,
+        body: `Your post "${postTitle.substring(0, 30)}..." was removed for violating community guidelines.${penaltyApplied ? ' 20 Potatoes have been deducted as a penalty.' : ''}`,
         data: { action: 'delete' }
       });
     }
