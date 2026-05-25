@@ -322,7 +322,7 @@ export const votePost = async (req, res) => {
   // Karma logic for author
   const postAuthor = await User.findByIdAndUpdate(
     post.author,
-    { $inc: { potato: existingVote ? -1 : 1, upvotesReceived: existingVote ? -1 : 1 } },
+    { $inc: { potato: existingVote ? -3 : 3, upvotesReceived: existingVote ? -1 : 1 } },
     { new: true }
   );
 

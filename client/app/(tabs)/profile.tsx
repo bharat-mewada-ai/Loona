@@ -533,7 +533,7 @@ export default function ProfileScreen() {
                     <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Receive an Upvote</Text>
                     <Text style={{ color: themeColors.txt3, fontSize: 11 }}>When other students upvote your posts.</Text>
                   </View>
-                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+1 🥔</Text>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+3 🥔</Text>
                 </View>
               </View>
 
