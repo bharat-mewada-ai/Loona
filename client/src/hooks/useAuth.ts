@@ -167,6 +167,20 @@ export const useWaveUser = () => {
   const setUser = useAuthStore((s) => s.setUser);
   return useMutation({
     mutationFn: (userId: string) => authApi.waveUser(userId),
+    onMutate: async () => {
+      // Optimistic update: Deduct 5 potatoes instantly on UI
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        setUser({
+          ...currentUser,
+          potato: Math.max(0, (currentUser.potato || 0) - 5)
+        });
+      }
+    },
+    onError: async () => {
+      // Rollback/sync if it fails
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
     onSuccess: async () => {
       try {
         const updatedUser = await authApi.me();

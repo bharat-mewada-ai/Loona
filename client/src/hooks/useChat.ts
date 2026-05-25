@@ -20,6 +20,24 @@ export const useStartChat = () => {
   return useMutation({
     mutationFn: ({ targetUserId, postId }: { targetUserId: string; postId?: string }) =>
       chatApi.startChat(targetUserId, postId),
+    onMutate: async (variables) => {
+      // Optimistic update: Deduct 10 potatoes instantly on UI if starting chat from Nearby
+      if (variables.postId === 'nearby') {
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          setUser({
+            ...currentUser,
+            potato: Math.max(0, (currentUser.potato || 0) - 10)
+          });
+        }
+      }
+    },
+    onError: async (_err, variables) => {
+      // Rollback/sync if it fails
+      if (variables.postId === 'nearby') {
+        qc.invalidateQueries({ queryKey: ['me'] });
+      }
+    },
     onSuccess: async (_, variables) => {
       qc.invalidateQueries({ queryKey: ['chats'] });
       // Sync potato balance in real-time only if the chat cost potatoes (started from Nearby)

@@ -608,8 +608,8 @@ export const waveUser = async (req, res) => {
       recipient: userId,
       sender: req.user._id,
       type: "wave",
-      title: "👋 Someone waved!",
-      body: "A user nearby just waved at you. Say hi back!",
+      title: `👋 ${req.user.name} waved!`,
+      body: `${req.user.name} is nearby and just waved at you. Tap to check their profile!`,
       data: { senderId: req.user._id.toString() }
     });
 

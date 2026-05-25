@@ -49,6 +49,8 @@ export const getChats = async (req, res) => {
   }
 };
 
+const activeStartChats = new Map();
+
 // Start a chat from a post
 export const startChat = async (req, res) => {
   try {
@@ -68,68 +70,99 @@ export const startChat = async (req, res) => {
       }
     }
 
-    // Check if chat already exists
-    let chat = await Chat.findOne({
-      participants: { $all: [req.user._id, targetUserId] },
-      isAnonymous: isAnon,
-      isRevealed: false
-    });
+    const lockKey = [req.user._id.toString(), targetUserId.toString()].sort().join(":") + `:${isAnon}`;
 
-    if (!chat) {
-      // Check if user has enough potato currency to initiate a new chat (e.g. 10 potatoes)
-      // Only deduct potatoes if the chat is started from Nearby tab
-      if (postId === 'nearby') {
-        const CHAT_COST = 10;
-        const initiator = await User.findById(req.user._id);
-        if (initiator.potato < CHAT_COST) {
-          return res.status(400).json({
-            error: `You need at least ${CHAT_COST} 🥔 Potatoes to start a chat! You currently have ${initiator.potato} 🥔.`
-          });
+    if (activeStartChats.has(lockKey)) {
+      const existingPromise = activeStartChats.get(lockKey);
+      const resultChat = await existingPromise;
+      return res.json(resultChat);
+    }
+
+    const startPromise = (async () => {
+      // Check if chat already exists
+      let chat = await Chat.findOne({
+        participants: { $all: [req.user._id, targetUserId] },
+        isAnonymous: isAnon,
+        isRevealed: false
+      });
+
+      if (!chat) {
+        // Check if user has enough potato currency to initiate a new chat (e.g. 10 potatoes)
+        // Only deduct potatoes if the chat is started from Nearby tab
+        if (postId === 'nearby') {
+          const CHAT_COST = 10;
+          const initiator = await User.findById(req.user._id);
+          if (initiator.potato < CHAT_COST) {
+            throw new Error(`POTATO_LIMIT:You need at least ${CHAT_COST} 🥔 Potatoes to start a chat! You currently have ${initiator.potato} 🥔.`);
+          }
+
+          // Deduct potato
+          initiator.potato -= CHAT_COST;
+          await initiator.save();
+
+          // Emit a socket event to update the initiator's potato count on their UI immediately
+          const io = req.app.get("io");
+          if (io) {
+            io.to(`user:${req.user._id}`).emit("potato_update", { potato: initiator.potato });
+          }
+        }
+        // Get real names and avatars for both participants
+        const [u1, u2] = await Promise.all([
+          User.findById(req.user._id).select('name avatar'),
+          User.findById(targetUserId).select('name avatar')
+        ]);
+
+        if (!u1 || !u2) {
+          throw new Error("NOT_FOUND:One or both users not found.");
         }
 
-        // Deduct potato
-        initiator.potato -= CHAT_COST;
-        await initiator.save();
+        chat = await Chat.create({
+          participants: [req.user._id, targetUserId],
+          isAnonymous: isAnon,
+          anonAuthorId: anonAuthor,
+          isRevealed: false,
+          anonIdentities: {
+            [req.user._id.toString()]: { name: u1.name, avatar: u1.avatar },
+            [targetUserId.toString()]: { name: u2.name, avatar: u2.avatar },
+          },
+          unreadCounts: {
+            [req.user._id.toString()]: 0,
+            [targetUserId.toString()]: 0,
+          },
+        });
       }
-      // Get real names and avatars for both participants
-      const [u1, u2] = await Promise.all([
-        User.findById(req.user._id).select('name avatar'),
-        User.findById(targetUserId).select('name avatar')
-      ]);
 
-      if (!u1 || !u2) {
-        return res.status(404).json({ error: "One or both users not found." });
+      // If started/opened from nearby, send a wave/chat request notification to target user
+      if (postId === 'nearby') {
+        await createNotification({
+          recipient: targetUserId,
+          sender: req.user._id,
+          type: "wave",
+          title: "👋 Someone wants to chat!",
+          body: `${req.user.name} found you nearby and wants to chat. Say hi!`,
+          data: { senderId: req.user._id.toString() }
+        });
       }
 
-      chat = await Chat.create({
-        participants: [req.user._id, targetUserId],
-        isAnonymous: isAnon,
-        anonAuthorId: anonAuthor,
-        isRevealed: false,
-        anonIdentities: {
-          [req.user._id.toString()]: { name: u1.name, avatar: u1.avatar },
-          [targetUserId.toString()]: { name: u2.name, avatar: u2.avatar },
-        },
-        unreadCounts: {
-          [req.user._id.toString()]: 0,
-          [targetUserId.toString()]: 0,
-        },
-      });
-    }
+      return chat;
+    })();
 
-    // If started/opened from nearby, send a wave/chat request notification to target user
-    if (postId === 'nearby') {
-      await createNotification({
-        recipient: targetUserId,
-        sender: req.user._id,
-        type: "wave",
-        title: "👋 Someone wants to chat!",
-        body: `${req.user.name} found you nearby and wants to chat. Say hi!`,
-        data: { senderId: req.user._id.toString() }
-      });
-    }
+    activeStartChats.set(lockKey, startPromise);
 
-    res.status(201).json(chat);
+    try {
+      const resultChat = await startPromise;
+      res.json(resultChat);
+    } catch (err) {
+      if (err.message.startsWith("POTATO_LIMIT:")) {
+        return res.status(400).json({ error: err.message.substring(13) });
+      }
+      if (err.message.startsWith("NOT_FOUND:")) {
+        return res.status(404).json({ error: err.message.substring(10) });
+      }
+      throw err;
+    } finally {
+      activeStartChats.delete(lockKey);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

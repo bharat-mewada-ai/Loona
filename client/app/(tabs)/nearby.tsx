@@ -46,7 +46,7 @@ export default function NearbyScreen() {
   const { mutate: updateLocation } = useUpdateLocation();
   const { mutate: updateProfile } = useUpdateProfile();
   const { mutate: startChat, isPending: isStartingChat } = useStartChat();
-  const { mutate: waveUser } = useWaveUser();
+  const { mutate: waveUser, isPending: isWaving } = useWaveUser();
 
   const [isVisible, setIsVisible] = useState(!user?.isPrivate);
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -274,8 +274,10 @@ export default function NearbyScreen() {
                   <TouchableOpacity
                     style={[
                       s.waveBtn, 
-                      { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }
+                      { backgroundColor: themeColors.card2, borderColor: themeColors.bdr },
+                      (isStartingChat || isWaving) && { opacity: 0.6 }
                     ]}
+                    disabled={isStartingChat || isWaving}
                     onPress={() => isVeryClose ? handleChat(item._id) : handleWave(item._id, item.name)}
                   >
                     <Text style={[
