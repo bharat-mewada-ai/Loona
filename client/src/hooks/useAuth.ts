@@ -55,10 +55,16 @@ export const useLeaderboard = () => {
 
 export const useMe = () => {
   const setUser = useAuthStore((s) => s.setUser);
+  const token = useAuthStore((s) => s.token);
   const query = useQuery({
     queryKey: ['me'],
     queryFn: authApi.me,
     staleTime: 60_000,
+    // Only run when we actually have a token — prevents a race-condition
+    // where the query fires before loadStoredAuth() finishes and causes a
+    // spurious 401 → token-refresh-fail → logout() loop.
+    enabled: !!token,
+    retry: false, // Don't retry on 401 — the interceptor handles refresh
   });
 
   useEffect(() => {
@@ -90,9 +96,23 @@ export const useDeleteAccount = () => {
   const logout = useAuthStore((s) => s.logout);
   return useMutation({
     mutationFn: authApi.deleteAccount,
-    onSuccess: () => {
+    onSuccess: (_data) => {
+      // Soft delete: server revokes tokens and schedules deletion.
+      // Log user out on client side.
       logout();
       router.replace('/(auth)/login');
+    },
+  });
+};
+
+export const useCancelDeletion = () => {
+  const setUser = useAuthStore((s) => s.setUser);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: authApi.cancelDeletion,
+    onSuccess: async () => {
+      // Refresh user data to clear scheduledForDeletion flag
+      queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
 };

@@ -25,4 +25,10 @@ export const chatApi = {
     const res = await client.post<Message>(`/chats/${chatId}/messages`, { content, image });
     return res.data;
   },
+
+  // Reveal anonymous identity in a chat
+  revealIdentity: async (chatId: string): Promise<any> => {
+    const res = await client.post(`/chats/${chatId}/reveal`);
+    return res.data;
+  },
 };

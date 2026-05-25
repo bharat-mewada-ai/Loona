@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { Colors, getColors } from '../../src/theme/colors';
 import { useAuthStore } from '../../src/store/authStore';
 import { useUIStore } from '../../src/store/uiStore';
-import { useLogout, useUpdateProfile, useMe, useDeleteAccount } from '../../src/hooks/useAuth';
+import { useLogout, useUpdateProfile, useMe, useDeleteAccount, useCancelDeletion } from '../../src/hooks/useAuth';
 import { useMyPosts, useSavedPosts } from '../../src/hooks/usePosts';
 import { useAnalytics } from '../../src/hooks/useAnalytics';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,7 +35,8 @@ export default function ProfileScreen() {
   const themeColors = getColors(isDark);
   const logout = useLogout();
   const { mutate: updateProfile, isPending: updating } = useUpdateProfile();
-  const { mutate: deleteAccount } = useDeleteAccount();
+  const { mutate: deleteAccount, isPending: isDeleting } = useDeleteAccount();
+  const { mutate: cancelDeletion, isPending: isCancelling } = useCancelDeletion();
   const insets = useSafeAreaInsets();
 
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -44,8 +45,17 @@ export default function ProfileScreen() {
   const [campusPickerVisible, setCampusPickerVisible] = useState(false);
   const [activeView, setActiveView] = useState<'main' | 'posts' | 'saved'>('main');
 
+  const [newName, setNewName] = useState(user?.name || '');
   const [newBio, setNewBio] = useState(user?.bio || '');
   const [newTags, setNewTags] = useState(user?.tags?.join(', ') || '');
+
+  useEffect(() => {
+    if (editBioVisible && user) {
+      setNewName(user.name || '');
+      setNewBio(user.bio || '');
+      setNewTags(user.tags?.join(', ') || '');
+    }
+  }, [editBioVisible, user]);
 
   const { data: myPostsData } = useMyPosts();
   const { data: savedPosts } = useSavedPosts();
@@ -176,7 +186,7 @@ export default function ProfileScreen() {
           )}
 
           <TouchableOpacity onPress={() => setEditBioVisible(true)} style={[s.editProfileBtn, { borderColor: themeColors.bdr }]}>
-            <Text style={{ color: themeColors.txt2, fontSize: 12, fontWeight: '600' }}>Edit Bio & Tags</Text>
+            <Text style={{ color: themeColors.txt2, fontSize: 12, fontWeight: '600' }}>Edit Profile</Text>
           </TouchableOpacity>
 
           <View style={s.statsBar}>
@@ -256,6 +266,40 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Pending Deletion Banner */}
+        {user?.scheduledForDeletion && user?.deletionScheduledAt && (() => {
+          const deletedAt = new Date(user.deletionScheduledAt);
+          const expiresAt = new Date(deletedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+          const daysLeft = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+          return (
+            <View style={[s.deletionBanner, { backgroundColor: '#FF3B3010', borderColor: '#FF3B30' }]}>
+              <Ionicons name="warning-outline" size={20} color="#FF3B30" />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={{ color: '#FF3B30', fontWeight: '800', fontSize: 14 }}>Account Deletion Pending</Text>
+                <Text style={{ color: '#FF3B30', fontSize: 12, marginTop: 2, opacity: 0.8 }}>
+                  Your account will be permanently deleted in {daysLeft} day{daysLeft !== 1 ? 's' : ''}. Log in within this period to cancel.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[s.cancelDeletionBtn, { backgroundColor: '#FF3B30' }]}
+                onPress={() => {
+                  Alert.alert(
+                    'Cancel Deletion?',
+                    'Your account will be fully restored and deletion will be cancelled.',
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { text: 'Yes, Keep Account', onPress: () => cancelDeletion() }
+                    ]
+                  );
+                }}
+                disabled={isCancelling}
+              >
+                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 12 }}>{isCancelling ? '...' : 'Cancel'}</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })()}
+
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -304,10 +348,18 @@ export default function ProfileScreen() {
                 <SettingRow icon="chatbubble-outline" label="Give Feedback" onPress={openFeedbackSheet} />
                 <SettingRow icon="log-out-outline" label="Log Out" onPress={handleLogout} />
                 <SettingRow icon="trash-outline" label="Delete Account" destructive onPress={() => {
-                  Alert.alert('Delete Account?', 'This cannot be undone', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => deleteAccount() }
-                  ]);
+                  Alert.alert(
+                    '🗑️ Delete Account?',
+                    'Your account will be scheduled for deletion. You have 30 days to log back in and cancel.\n\nAfter 30 days, all your posts, messages, and data will be permanently erased.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Schedule Deletion', 
+                        style: 'destructive', 
+                        onPress: () => deleteAccount() 
+                      }
+                    ]
+                  );
                 }} />
               </View>
               <View style={{ height: 40 }} />
@@ -339,12 +391,22 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* Edit Bio & Tags Modal */}
+      {/* Edit Profile Modal */}
       <Modal visible={editBioVisible} animationType="slide" transparent onRequestClose={() => setEditBioVisible(false)}>
         <View style={s.modalOverlay}>
           <View style={[s.editModal, { backgroundColor: themeColors.bg, height: 'auto' }]}>
             <Text style={[s.modalTitle, { color: themeColors.txt, marginBottom: 20 }]}>Edit Profile</Text>
             
+            <Text style={s.inputLabel}>USERNAME</Text>
+            <TextInput
+              style={[s.textInput, { backgroundColor: themeColors.card2, color: themeColors.txt, marginBottom: 15 }]}
+              placeholder="Enter username..."
+              placeholderTextColor={themeColors.txt3}
+              value={newName}
+              onChangeText={setNewName}
+              maxLength={30}
+            />
+
             <Text style={s.inputLabel}>BIO</Text>
             <TextInput
               style={[s.textInput, { backgroundColor: themeColors.card2, color: themeColors.txt }]}
@@ -369,8 +431,13 @@ export default function ProfileScreen() {
             <TouchableOpacity 
               style={[s.saveBtn, { backgroundColor: themeColors.ogi }]}
               onPress={() => {
+                const trimmedName = newName.trim();
+                if (!trimmedName || trimmedName.length < 2) {
+                  Alert.alert("Invalid Username", "Username must be at least 2 characters.");
+                  return;
+                }
                 const tagList = newTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
-                updateProfile({ bio: newBio, tags: tagList });
+                updateProfile({ name: trimmedName, bio: newBio, tags: tagList });
                 setEditBioVisible(false);
               }}
             >
@@ -475,4 +542,19 @@ const s = StyleSheet.create({
   flameCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#c8f53a20', alignItems: 'center', justifyContent: 'center' },
   karmaNum: { fontSize: 28, fontWeight: '900', fontFamily: 'Syne_700Bold' },
   karmaLabel: { fontSize: 12, fontWeight: '600' },
+  deletionBanner: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cancelDeletionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
 });

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { getColors } from '../theme/colors';
 import { useUIStore } from '../store/uiStore';
 import EventCard from './cards/EventCard';
@@ -23,10 +23,17 @@ const EVENT_FILTERS = [
   { id: 'fest', label: 'College Fest', icon: '🎓' },
 ];
 
-export default function EventsView({ posts, isLoading, onDelete, userLocation }: Props) {
+export default function EventsView({ posts, isLoading, onRefresh, onDelete, userLocation }: Props) {
   const isDark = useUIStore(s => s.isDark);
   const themeColors = getColors(isDark);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await onRefresh();
+    setRefreshing(false);
+  };
 
   const filteredPosts = useMemo(() => {
     let base = posts.filter(p => p.type === 'events' || p.type === 'bhandara');
@@ -86,7 +93,18 @@ export default function EventsView({ posts, isLoading, onDelete, userLocation }:
   };
 
   return (
-    <View style={s.container}>
+    <ScrollView
+      style={s.container}
+      contentContainerStyle={s.contentContainer}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={themeColors.ogi}
+        />
+      }
+    >
       {/* Horizontal Filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterScroll}>
         {EVENT_FILTERS.map((f) => {
@@ -134,14 +152,15 @@ export default function EventsView({ posts, isLoading, onDelete, userLocation }:
       )}
 
       <ExclusiveOffers posts={posts} />
-      
+
       <View style={{ height: 100 }} />
-    </View>
+    </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
   container: { flex: 1 },
+  contentContainer: { paddingBottom: 20 },
   filterScroll: { paddingHorizontal: 16, paddingBottom: 20, gap: 10 },
   filterPill: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1 },
   filterTxt: { fontSize: 13, fontWeight: '800' },

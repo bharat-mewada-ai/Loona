@@ -23,6 +23,9 @@ export interface User {
   role: 'user' | 'admin';
   savedPosts: string[];
   premiumExpiresAt?: string;
+  // Soft-delete grace period
+  scheduledForDeletion?: boolean;
+  deletionScheduledAt?: string;
 }
 
 export interface Post {
@@ -95,7 +98,7 @@ export interface Notification {
   _id: string;
   recipient: string;
   sender?: string;
-  type: "upvote" | "reaction" | "comment" | "mention" | "system";
+  type: "upvote" | "reaction" | "comment" | "mention" | "wave" | "message" | "system";
   title: string;
   body: string;
   data: {
@@ -118,9 +121,12 @@ export interface Chat {
   participants?: string[];
   lastMessage?: any;
   unreadCount?: number;
+  isAnonymous?: boolean;
+  anonAuthorId?: string;
+  isRevealed?: boolean;
   identities?: {
-    me: { name: string; avatar: string };
-    other: { name: string; avatar: string };
+    me: { name: string; avatar: string; id?: string };
+    other: { name: string; avatar: string; id?: string | null };
   };
   updatedAt?: string;
   // Flattened fields from backend getChats

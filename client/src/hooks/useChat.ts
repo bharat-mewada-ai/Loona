@@ -63,9 +63,19 @@ export const useMessages = (chatId: string) => {
 
     s.on('newMessage', handleNewMessage);
 
+    const handleIdentityRevealed = (payload: any) => {
+      if (payload.chatId === chatId) {
+        qc.invalidateQueries({ queryKey: ['messages', chatId] });
+        qc.invalidateQueries({ queryKey: ['chats'] });
+      }
+    };
+
+    s.on('identityRevealed', handleIdentityRevealed);
+
     return () => {
       s.emit('leaveChat', chatId);
       s.off('newMessage', handleNewMessage);
+      s.off('identityRevealed', handleIdentityRevealed);
     };
   }, [chatId, token, qc, user?._id]);
 
@@ -92,6 +102,17 @@ export const useSendMessage = () => {
           messages: [...old.messages, newMsg]
         };
       });
+      qc.invalidateQueries({ queryKey: ['chats'] });
+    },
+  });
+};
+
+export const useRevealIdentity = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (chatId: string) => chatApi.revealIdentity(chatId),
+    onSuccess: (_, chatId) => {
+      qc.invalidateQueries({ queryKey: ['messages', chatId] });
       qc.invalidateQueries({ queryKey: ['chats'] });
     },
   });

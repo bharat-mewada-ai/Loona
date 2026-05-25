@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete Account — Loona Campus App</title>
+  <meta name="description" content="Request deletion of your Loona account and all associated data. This page works without the app installed." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f;
+      --card: #111118;
+      --bdr: rgba(255,255,255,0.08);
+      --txt: #f5f5f0;
+      --txt2: rgba(245,245,240,0.7);
+      --txt3: rgba(245,245,240,0.4);
+      --accent: #c8f53a;
+      --danger: #ff3b30;
+    }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #111118 0%, #0a0a0f 100%);
+      border-bottom: 1px solid var(--bdr);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    a.nav-link {
+      margin-left: auto;
+      color: var(--txt2);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    a.nav-link:hover { color: var(--accent); }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 50px 24px 80px;
+    }
+    .icon-wrap {
+      width: 72px;
+      height: 72px;
+      background: rgba(255,59,48,0.1);
+      border: 1px solid rgba(255,59,48,0.25);
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: clamp(26px, 5vw, 36px);
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      margin-bottom: 12px;
+    }
+    h1 em { font-style: normal; color: var(--danger); }
+    .lead {
+      font-size: 15px;
+      color: var(--txt2);
+      margin-bottom: 40px;
+      max-width: 480px;
+    }
+    .info-box {
+      background: var(--card);
+      border: 1px solid var(--bdr);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .info-box h2 { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--txt); }
+    .info-box p, .info-box li { font-size: 14px; color: var(--txt2); margin-bottom: 6px; }
+    .info-box ul { padding-left: 18px; }
+    .grace-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(200,245,58,0.1);
+      border: 1px solid rgba(200,245,58,0.2);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 24px;
+    }
+
+    /* In-app path */
+    .steps {
+      background: var(--card);
+      border: 1px solid var(--bdr);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .steps h2 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .step:last-child { margin-bottom: 0; }
+    .step-num {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      background: rgba(200,245,58,0.1);
+      border: 1px solid rgba(200,245,58,0.2);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .step p { font-size: 14px; color: var(--txt2); margin: 0; }
+    .step strong { color: var(--txt); }
+
+    /* Email request */
+    .email-card {
+      background: rgba(255,59,48,0.06);
+      border: 1px solid rgba(255,59,48,0.2);
+      border-radius: 20px;
+      padding: 28px;
+      text-align: center;
+    }
+    .email-card h2 { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+    .email-card p { font-size: 14px; color: var(--txt2); margin-bottom: 4px; }
+    .email-btn {
+      display: inline-block;
+      margin-top: 18px;
+      padding: 14px 32px;
+      background: var(--danger);
+      color: #fff;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 14px;
+      transition: opacity 0.2s;
+    }
+    .email-btn:hover { opacity: 0.85; }
+    .small { font-size: 13px; color: var(--txt3); margin-top: 14px; display: block; }
+    footer {
+      border-top: 1px solid var(--bdr);
+      padding: 24px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--txt3);
+      margin-top: 40px;
+    }
+    footer a { color: var(--txt3); text-decoration: none; margin: 0 8px; }
+    footer a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">loon<span>a</span></div>
+  <div style="margin-left:auto; display:flex; gap:16px;">
+    <a class="nav-link" href="privacy-policy.html">Privacy Policy</a>
+    <a class="nav-link" href="index.html">Home</a>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="icon-wrap">🗑️</div>
+  <h1>Delete Your <em>Account</em></h1>
+  <p class="lead">
+    You can permanently delete your Loona account and all associated data. 
+    This includes your posts, confessions, messages, and profile information.
+  </p>
+
+  <div class="grace-pill">
+    ⏱️ 30-Day Grace Period — You can cancel anytime within 30 days
+  </div>
+
+  <div class="info-box">
+    <h2>📦 What gets deleted</h2>
+    <ul>
+      <li>Your profile, name, avatar, and bio</li>
+      <li>All posts, confessions, and comments you've made</li>
+      <li>All chat messages and conversations</li>
+      <li>Your potato (karma) points and badges</li>
+      <li>All saved posts and notification history</li>
+    </ul>
+  </div>
+
+  <div class="info-box" style="border-color: rgba(200,245,58,0.2);">
+    <h2>✅ 30-Day Grace Period</h2>
+    <p>Your account is not deleted immediately. It enters a <strong>30-day grace period</strong>.</p>
+    <p>During this time, you can log back into the app to <strong>cancel the deletion</strong> and restore your account fully.</p>
+    <p>After 30 days, all data is <strong>permanently and irrevocably deleted</strong>. This cannot be undone.</p>
+  </div>
+
+  <div class="steps">
+    <h2>🎯 How to delete from the app (easiest)</h2>
+    <div class="step">
+      <div class="step-num">1</div>
+      <p>Open the <strong>Loona app</strong> on your phone</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <p>Tap the <strong>Profile</strong> tab (bottom right)</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <p>Tap the ⚙️ <strong>Settings</strong> icon in the top right</p>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <p>Scroll down to <strong>Support → Delete Account</strong></p>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <p>Tap <strong>Schedule Deletion</strong> and confirm. You'll be logged out and your 30-day grace period begins.</p>
+    </div>
+  </div>
+
+  <div class="email-card">
+    <h2>📧 Can't access the app?</h2>
+    <p>Send us an email with your registered email address and we'll process the deletion request within <strong>72 hours</strong>.</p>
+    <p style="margin-top:6px; font-size:13px; color: rgba(245,245,240,0.5);">Please send from your registered Google account email.</p>
+    <a class="email-btn" href="mailto:loona43210@gmail.com?subject=Account%20Deletion%20Request&body=Hi%20Loona%20Team%2C%0A%0AI%20would%20like%20to%20permanently%20delete%20my%20Loona%20account.%0A%0ARegistered%20Email%3A%20%5Byour%20email%20here%5D%0A%0APlease%20confirm%20once%20deleted.%0A%0AThank%20you.">
+      Email Deletion Request →
+    </a>
+    <span class="small">loona43210@gmail.com · We respond within 72 hours</span>
+  </div>
+
+</div>
+
+<footer>
+  <p>© 2026 Loona — Campus Social Platform</p>
+  <p style="margin-top:8px;">
+    <a href="index.html">Home</a>
+    <a href="privacy-policy.html">Privacy Policy</a>
+    <a href="terms.html">Terms of Service</a>
+  </p>
+</footer>
+
+</body>
+</html>

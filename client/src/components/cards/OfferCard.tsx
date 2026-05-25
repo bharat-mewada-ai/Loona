@@ -12,7 +12,8 @@ interface Props {
 }
 
 export default function OfferCard({ post, onDelete }: Props) {
-  const isDark = useUIStore(s => s.isDark);
+  const { isDark, openReportSheet } = useUIStore();
+  const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
   const handleOpenLink = () => {
@@ -51,11 +52,18 @@ export default function OfferCard({ post, onDelete }: Props) {
           <Text style={s.claimTxt}>Claim Deal →</Text>
         </TouchableOpacity>
         
-        {onDelete && (
-          <TouchableOpacity onPress={onDelete} style={s.delBtn}>
-            <Ionicons name="trash-outline" size={16} color={themeColors.txt3} />
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          {post.author?._id !== user?._id && (
+            <TouchableOpacity onPress={() => openReportSheet(post._id)} style={s.delBtn}>
+              <Ionicons name="flag-outline" size={16} color={themeColors.txt3} />
+            </TouchableOpacity>
+          )}
+          {onDelete && (post.author?._id === user?._id || user?.role === 'admin') && (
+            <TouchableOpacity onPress={onDelete} style={s.delBtn}>
+              <Ionicons name="trash-outline" size={16} color={themeColors.txt3} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );

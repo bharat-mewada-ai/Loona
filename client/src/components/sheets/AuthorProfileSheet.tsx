@@ -130,19 +130,21 @@ export default function AuthorProfileSheet() {
             </View>
           )}
 
-          <TouchableOpacity 
-            style={[s.profileBtn, { borderColor: themeColors.bdr }]} 
-            onPress={() => {
-              if (!authorProfile.userId) {
-                Alert.alert("Error", "User profile not available.");
-                return;
-              }
-              closeAuthorProfile();
-              router.push(`/user/${authorProfile.userId}`);
-            }}
-          >
-            <Text style={[s.profileBtnTxt, { color: themeColors.txt }]}>👤 View Profile</Text>
-          </TouchableOpacity>
+          {!authorProfile.isConfession && (
+            <TouchableOpacity 
+              style={[s.profileBtn, { borderColor: themeColors.bdr }]} 
+              onPress={() => {
+                if (!authorProfile.userId) {
+                  Alert.alert("Error", "User profile not available.");
+                  return;
+                }
+                closeAuthorProfile();
+                router.push(`/user/${authorProfile.userId}`);
+              }}
+            >
+              <Text style={[s.profileBtnTxt, { color: themeColors.txt }]}>👤 View Profile</Text>
+            </TouchableOpacity>
+          )}
 
         </Pressable>
       </Pressable>

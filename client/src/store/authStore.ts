@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null;
   token: string | null;
   refreshToken: string | null;
+  isInitialized: boolean;
   setAuth: (user: User, token: string, refreshToken: string) => void;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
@@ -19,6 +20,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
   refreshToken: null,
+  isInitialized: false,
 
   setAuth: (user, token, refreshToken) => {
     set({ user, token, refreshToken });
@@ -64,6 +66,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch (e) {
       console.log('Auth load error', e);
+    } finally {
+      set({ isInitialized: true });
     }
   },
 }));

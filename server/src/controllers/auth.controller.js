@@ -114,6 +114,22 @@ export const googleLogin = async (req, res) => {
       }
     }
 
+    // ─── Reactivate if account was scheduled for deletion ─────────────────────
+    let reactivated = false;
+    if (user && user.scheduledForDeletion) {
+      const daysSinceDeletion = (Date.now() - new Date(user.deletionScheduledAt).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceDeletion <= 30) {
+        // Still within grace period — reactivate!
+        user.scheduledForDeletion = false;
+        user.deletionScheduledAt = null;
+        reactivated = true;
+        logger.info(`[GoogleLogin] Reactivated account for user ${user._id}`);
+      } else {
+        // Past 30 days — account should have been cleaned up by cron, but handle edge case
+        return res.status(403).json({ error: "This account has been permanently deleted. Please create a new account." });
+      }
+    }
+
     const accessToken = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "1h" });
     const refreshToken = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_REFRESH_SECRET, { expiresIn: "30d" });
 
@@ -130,7 +146,7 @@ export const googleLogin = async (req, res) => {
     delete userObj.password;
     delete userObj.refreshTokens;
     
-    res.json({ token: accessToken, refreshToken, user: userObj });
+    res.json({ token: accessToken, refreshToken, user: userObj, reactivated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -245,8 +261,8 @@ export const getLeaderboard = async (req, res) => {
   try {
     const [campusWarData, topUsersData] = await Promise.all([
       User.aggregate([
-        { $group: { _id: "$campus", karma: { $sum: "$potato" } } },
-        { $sort: { karma: -1 } },
+        { $group: { _id: "$campus", potato: { $sum: "$potato" } } },
+        { $sort: { potato: -1 } },
       ]),
       User.find().sort({ potato: -1 }).limit(10).select("name avatar potato campus").lean(),
     ]);
@@ -294,7 +310,8 @@ export const updateProfile = async (req, res) => {
           if (avatar) cascadeUpdate.anonAvatar = avatar;
 
           await Promise.all([
-            Post.updateMany({ author: userId }, { $set: cascadeUpdate }),
+            // Exclude confession posts — they always show as "Confession" / 🕳️
+            Post.updateMany({ author: userId, type: { $ne: 'confess' } }, { $set: cascadeUpdate }),
             Comment.updateMany({ author: userId }, { $set: cascadeUpdate })
           ]);
           logger.info(`[UpdateProfile] Cascade identity update successful for ${userId}`);
@@ -319,12 +336,62 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// --- DELETE ACCOUNT ---------------------------------------------------------
+// --- DELETE ACCOUNT (30-day soft delete) ------------------------------------
 export const deleteAccount = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Import models needed for cascade delete
+    // Soft delete: schedule for deletion after 30 days
+    req.user.scheduledForDeletion = true;
+    req.user.deletionScheduledAt = new Date();
+    // Revoke ALL refresh tokens — force logout on all devices
+    req.user.refreshTokens = [];
+    await req.user.save();
+
+    logger.info('Account scheduled for deletion (30-day grace)', { userId });
+    res.json({ 
+      message: "Your account has been scheduled for deletion. All your data will be permanently deleted in 30 days. You can cancel by logging back in within 30 days.",
+      scheduledForDeletion: true,
+      deletionScheduledAt: req.user.deletionScheduledAt,
+    });
+  } catch (err) {
+    logger.error('Delete Account Error:', { message: err.message });
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// --- CANCEL DELETION --------------------------------------------------------
+export const cancelDeletion = async (req, res) => {
+  try {
+    if (!req.user.scheduledForDeletion) {
+      return res.status(400).json({ error: "Your account is not scheduled for deletion." });
+    }
+    req.user.scheduledForDeletion = false;
+    req.user.deletionScheduledAt = null;
+    await req.user.save();
+    logger.info('Account deletion cancelled', { userId: req.user._id });
+    res.json({ message: "Account deletion has been cancelled. Your account is fully restored." });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// --- HARD DELETE (called by cron job only) ----------------------------------
+export const hardDeleteExpiredAccounts = async () => {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const expiredUsers = await User.find({
+      scheduledForDeletion: true,
+      deletionScheduledAt: { $lte: thirtyDaysAgo },
+    }).select('_id').lean();
+
+    if (expiredUsers.length === 0) {
+      logger.info('[Cron] No expired accounts to delete.');
+      return;
+    }
+
+    const userIds = expiredUsers.map(u => u._id);
+
     const [
       { default: Post },
       { default: Comment },
@@ -341,22 +408,19 @@ export const deleteAccount = async (req, res) => {
       import('../models/notification.model.js'),
     ]);
 
-    // Cascade delete all user-generated content
     await Promise.all([
-      Post.deleteMany({ author: userId }),
-      Comment.deleteMany({ author: userId }),
-      Chat.deleteMany({ participants: userId }),
-      Vote.deleteMany({ userId }),
-      BhandaraVote.deleteMany({ userId }),
-      Notification.deleteMany({ recipient: userId }),
-      User.findByIdAndDelete(userId),
+      Post.deleteMany({ author: { $in: userIds } }),
+      Comment.deleteMany({ author: { $in: userIds } }),
+      Chat.deleteMany({ participants: { $in: userIds } }),
+      Vote.deleteMany({ userId: { $in: userIds } }),
+      BhandaraVote.deleteMany({ userId: { $in: userIds } }),
+      Notification.deleteMany({ recipient: { $in: userIds } }),
+      User.deleteMany({ _id: { $in: userIds } }),
     ]);
 
-    logger.info('Account deleted with full cascade', { userId });
-    res.json({ message: "Account and all associated data deleted successfully." });
+    logger.info(`[Cron] Hard-deleted ${userIds.length} expired accounts.`, { userIds });
   } catch (err) {
-    logger.error('Delete Account Error:', { message: err.message });
-    res.status(500).json({ error: err.message });
+    logger.error('[Cron] Hard delete cron error:', err.message);
   }
 };
 
@@ -513,7 +577,6 @@ export const getNearbyUsers = async (req, res) => {
   }
 };
 
-
 // --- WAVE AT USER -----------------------------------------------------------
 export const waveUser = async (req, res) => {
   try {
@@ -522,32 +585,31 @@ export const waveUser = async (req, res) => {
       return res.status(400).json({ error: "You cannot wave at yourself." });
     }
 
-    const { default: Notification } = await import("../models/notification.model.js");
-    const { sendPushNotification } = await import("../utils/pushNotifications.js");
+    const WAVE_COST = 5;
+    if (req.user.potato < WAVE_COST) {
+      return res.status(400).json({
+        error: `You need at least ${WAVE_COST} 🥔 Potatoes to wave! You currently have ${req.user.potato} 🥔.`
+      });
+    }
 
-    // Create notification
-    await Notification.create({
+    // Deduct potato
+    req.user.potato -= WAVE_COST;
+    await req.user.save();
+
+    const { createNotification } = await import("../utils/notificationService.js");
+
+    // createNotification handles both in-app storage AND push (with notificationsEnabled guard)
+    await createNotification({
       recipient: userId,
       sender: req.user._id,
       type: "wave",
       title: "👋 Someone waved!",
       body: "A user nearby just waved at you. Say hi back!",
+      data: { senderId: req.user._id.toString() }
     });
 
-    // Send push
-    const { default: User } = await import("../models/user.model.js");
-    const targetUser = await User.findById(userId).select("expoPushToken").lean();
-    if (targetUser?.expoPushToken) {
-      sendPushNotification(
-        targetUser.expoPushToken,
-        "👋 Someone waved!",
-        "A user nearby just waved at you.",
-        { type: "wave", senderId: req.user._id.toString() }
-      );
-    }
-
- res.json({ ok: true });
- } catch (err) {
- res.status(500).json({ error: err.message });
- }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };

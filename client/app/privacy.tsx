@@ -20,7 +20,7 @@ export default function PrivacyPolicyScreen() {
         headerShadowVisible: false,
       }} />
       
-      <ScrollView contentContainerStyle={s.content}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content}>
         <Text style={[s.title, { color: themeColors.txt }]}>Loona Privacy Policy</Text>
         <Text style={[s.date, { color: themeColors.txt3 }]}>Last updated: May 2026</Text>
 

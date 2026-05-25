@@ -68,11 +68,11 @@ export const createPost = async (req, res) => {
   let anonName = req.user.name;
   let anonAvatar = req.user.avatar;
 
-  // ─── Anonymity Fix: For confessions, generate a random identity ──────────────────
+  // ─── Anonymity: For confessions, use a fixed "Confession" identity ──────────────
+  // No random IDs — confessions are always shown as "Confession" with 🕳️ avatar
   if (type === "confess") {
-    const identity = generateAnonIdentity(req.user._id.toString(), Date.now().toString());
-    anonName = identity.name;
-    anonAvatar = identity.avatar;
+    anonName = "Confession";
+    anonAvatar = "🕳️";
   }
 
   const postData = {

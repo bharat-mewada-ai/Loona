@@ -62,7 +62,6 @@ export const POST_TYPES: PostType[] = [
   { value: 'all', label: 'Feed', icon: '✦' },
   { value: 'discussion', label: 'Discussions', icon: '🗣️' },
   { value: 'confess', label: 'Confessions', icon: '🕳️' },
-  { value: 'stories', label: 'Stories', icon: '📖' },
   { value: 'events',  label: 'Events',      icon: '📅' },
   { value: 'bhandara',label: 'Bhandara',    icon: '🍛' },
 ];

@@ -46,8 +46,14 @@ export const authApi = {
     await client.patch('/auth/push-token', { token });
   },
   
-  deleteAccount: async (): Promise<void> => {
-    await client.delete('/auth/delete-account');
+  deleteAccount: async (): Promise<{ scheduledForDeletion: boolean; deletionScheduledAt: string; message: string }> => {
+    const { data } = await client.delete('/auth/delete-account');
+    return data;
+  },
+
+  cancelDeletion: async (): Promise<{ message: string }> => {
+    const { data } = await client.post('/auth/cancel-deletion');
+    return data;
   },
 
   // ── Blocking ────────────────────────────────────────────────────────────

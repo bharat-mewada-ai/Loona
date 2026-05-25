@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 const chatSchema = new mongoose.Schema(
   {
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    isAnonymous: { type: Boolean, default: false },
+    anonAuthorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    isRevealed: { type: Boolean, default: false },
     // Map user _id to their anonymous identity for this chat
     anonIdentities: {
       type: Map,

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Loona Campus App</title>
+  <meta name="description" content="Loona Privacy Policy — How we collect, use and protect your data in compliance with DPDPA 2023." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f;
+      --card: #111118;
+      --bdr: rgba(255,255,255,0.08);
+      --txt: #f5f5f0;
+      --txt2: rgba(245,245,240,0.7);
+      --txt3: rgba(245,245,240,0.4);
+      --accent: #c8f53a;
+      --orange: #ff6b35;
+      --danger: #ff3b30;
+    }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #111118 0%, #0a0a0f 100%);
+      border-bottom: 1px solid var(--bdr);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(20px);
+      z-index: 100;
+    }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(200,245,58,0.12);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(200,245,58,0.25);
+      letter-spacing: 0.5px;
+    }
+    nav-links { margin-left: auto; display: flex; gap: 16px; }
+    a.nav-link {
+      color: var(--txt2);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    a.nav-link:hover { color: var(--accent); }
+
+    .hero {
+      padding: 60px 24px 40px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .hero h1 {
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero .meta {
+      font-size: 14px;
+      color: var(--txt3);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .dot { width: 4px; height: 4px; background: var(--bdr); border-radius: 50%; }
+
+    .content {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .section {
+      margin-bottom: 40px;
+      padding: 28px;
+      background: var(--card);
+      border: 1px solid var(--bdr);
+      border-radius: 20px;
+    }
+    .section-num {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      background: rgba(200,245,58,0.1);
+      border: 1px solid rgba(200,245,58,0.2);
+      border-radius: 8px;
+      text-align: center;
+      line-height: 28px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--accent);
+      margin-right: 12px;
+      vertical-align: middle;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+    }
+    p, li { font-size: 15px; color: var(--txt2); margin-bottom: 10px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    strong { color: var(--txt); }
+    .highlight {
+      background: rgba(200,245,58,0.07);
+      border: 1px solid rgba(200,245,58,0.15);
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-top: 16px;
+    }
+    .highlight p { color: var(--txt); margin: 0; font-weight: 500; }
+    .contact-box {
+      background: linear-gradient(135deg, rgba(200,245,58,0.06) 0%, rgba(255,107,53,0.04) 100%);
+      border: 1px solid rgba(200,245,58,0.15);
+      border-radius: 20px;
+      padding: 28px;
+      text-align: center;
+      margin-top: 40px;
+    }
+    .contact-box h2 { justify-content: center; margin-bottom: 8px; }
+    .contact-box p { font-size: 14px; }
+    .contact-box a { color: var(--accent); text-decoration: none; font-weight: 700; }
+    .delete-link {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 12px 28px;
+      background: var(--danger);
+      color: #fff;
+      border-radius: 50px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+      transition: opacity 0.2s;
+    }
+    .delete-link:hover { opacity: 0.85; }
+    footer {
+      border-top: 1px solid var(--bdr);
+      padding: 24px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--txt3);
+    }
+    footer a { color: var(--txt3); text-decoration: none; margin: 0 8px; }
+    footer a:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">loon<span>a</span></div>
+  <div class="badge">LEGAL</div>
+  <div style="margin-left:auto; display:flex; gap:16px;">
+    <a class="nav-link" href="delete-account.html">Delete Account</a>
+    <a class="nav-link" href="terms.html">Terms</a>
+    <a class="nav-link" href="index.html">Home</a>
+  </div>
+</header>
+
+<div class="hero">
+  <h1>Privacy <em>Policy</em></h1>
+  <div class="meta">
+    <span>Last Updated: May 2026</span>
+    <span class="dot"></span>
+    <span>Compliant with DPDPA 2023</span>
+    <span class="dot"></span>
+    <span>Version 2.0</span>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="section">
+    <h2><span class="section-num">1</span> Introduction</h2>
+    <p>Loona ("we", "us", "our") is a campus social platform for college students in India. We are committed to protecting your privacy and handling your personal data responsibly, in compliance with the <strong>Digital Personal Data Protection Act (DPDPA), 2023</strong>.</p>
+    <p>This policy explains what data we collect, why we collect it, how long we keep it, and how you can exercise your rights.</p>
+    <div class="highlight">
+      <p>🔒 Loona is built for college communities. We take anonymity and privacy seriously — especially for confession posts, which are never linked to your real identity.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">2</span> Data We Collect</h2>
+    <ul>
+      <li><strong>Google Account Info:</strong> Your name, email address, and Google ID — collected during sign-in via Google OAuth.</li>
+      <li><strong>Campus:</strong> The college you select during onboarding.</li>
+      <li><strong>Anonymous Identity:</strong> A randomly generated display name and emoji avatar used for your posts.</li>
+      <li><strong>Location:</strong> Approximate GPS coordinates (only when you grant permission) — used for the "Nearby" radar feature.</li>
+      <li><strong>Device Token:</strong> Your Expo push notification token (only if you allow notifications).</li>
+      <li><strong>Content:</strong> Posts, comments, confessions, reactions, and messages you create within the app.</li>
+      <li><strong>Usage Data:</strong> Screen views and feature usage for analytics (no personally identifiable information is attached).</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">3</span> How We Use Your Data</h2>
+    <ul>
+      <li>To provide the core campus social feed and community features.</li>
+      <li>To power the "Nearby" feature and show people near your campus.</li>
+      <li>To send push notifications for waves, messages, and comments (only if enabled).</li>
+      <li>To moderate content and enforce community guidelines.</li>
+      <li>To improve the app experience through anonymous usage analytics.</li>
+    </ul>
+    <p>We do <strong>not</strong> sell your personal data. We do <strong>not</strong> use your data for advertising profiling.</p>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">4</span> Anonymous Confessions</h2>
+    <p>When you post a "Confession", your real name and profile are <strong>never associated with that post</strong>. The confession is stored as an anonymous post with no traceable identity.</p>
+    <p>Even administrators cannot trace a confession back to a specific user in normal operations. Confessions are only investigated in response to legal orders from Indian law enforcement.</p>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">5</span> Data Sharing</h2>
+    <ul>
+      <li><strong>Cloudinary:</strong> Images you upload are stored on Cloudinary's CDN servers.</li>
+      <li><strong>Google Firebase (FCM):</strong> Push notification delivery.</li>
+      <li><strong>Sentry:</strong> Crash and error reporting (no personal data is included).</li>
+      <li><strong>No other third parties.</strong> Your data is not sold or shared for advertising.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">6</span> Data Retention</h2>
+    <ul>
+      <li>Your account and posts are retained until you delete them or delete your account.</li>
+      <li>"Burn" posts are automatically deleted after 24 hours.</li>
+      <li>Notifications are automatically purged after 30 days.</li>
+      <li>Location coordinates are updated in real-time and not stored historically.</li>
+      <li>After account deletion is requested, all data is permanently wiped within <strong>30 days</strong>.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">7</span> Your Rights (DPDPA 2023)</h2>
+    <ul>
+      <li><strong>Right to Access:</strong> You can view all your posts and activity within the app.</li>
+      <li><strong>Right to Correct:</strong> You can update your name, avatar, bio, and campus at any time from Profile → Settings.</li>
+      <li><strong>Right to Erase:</strong> You can delete your account from Profile → Settings → Delete Account. All data is permanently deleted within 30 days.</li>
+      <li><strong>Right to Withdraw Consent:</strong> You can disable notifications or location access at any time from your device settings.</li>
+      <li><strong>Right to Grievance Redressal:</strong> Contact us at the email below for any data-related concerns.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">8</span> Account Deletion</h2>
+    <p>You can delete your account directly from within the app:</p>
+    <ol style="padding-left:20px; margin-top:10px;">
+      <li>Open the app → Go to <strong>Profile</strong> tab</li>
+      <li>Tap the <strong>Settings</strong> (gear) icon</li>
+      <li>Scroll to <strong>Delete Account</strong></li>
+      <li>Confirm deletion</li>
+    </ol>
+    <p style="margin-top:12px;">Your account enters a <strong>30-day grace period</strong> — you can log back in at any time to cancel. After 30 days, all data is permanently and irrevocably deleted.</p>
+    <p>If you cannot access the app, you can also request deletion via our web form:</p>
+    <a class="delete-link" href="delete-account.html">Request Account Deletion Online →</a>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">9</span> Security</h2>
+    <p>We use industry-standard security practices including:</p>
+    <ul>
+      <li>JWT authentication with short-lived access tokens (1 hour) and refresh tokens (30 days)</li>
+      <li>All API communication over HTTPS/TLS</li>
+      <li>Rate limiting on all authentication endpoints</li>
+      <li>NoSQL injection protection</li>
+      <li>Content moderation for harmful content</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">10</span> Children's Privacy</h2>
+    <p>Loona is designed for college students and is intended for users <strong>18 years and older</strong>. We do not knowingly collect data from anyone under 18. If you believe a child has created an account, please contact us immediately.</p>
+  </div>
+
+  <div class="section">
+    <h2><span class="section-num">11</span> Changes to This Policy</h2>
+    <p>We may update this policy from time to time. When we do, we will update the "Last Updated" date at the top. Significant changes will be notified in-app.</p>
+  </div>
+
+  <div class="contact-box">
+    <h2>📬 Contact Us</h2>
+    <p>For data requests, grievances, or privacy questions:</p>
+    <p style="margin-top:12px;"><a href="mailto:loona43210@gmail.com">loona43210@gmail.com</a></p>
+    <p style="margin-top:6px; font-size:13px; color: rgba(245,245,240,0.4);">We respond to all data-related requests within 72 hours.</p>
+    <a class="delete-link" href="delete-account.html">Request Account Deletion →</a>
+  </div>
+
+</div>
+
+<footer>
+  <p>© 2026 Loona — Campus Social Platform</p>
+  <p style="margin-top:8px;">
+    <a href="index.html">Home</a>
+    <a href="terms.html">Terms of Service</a>
+    <a href="delete-account.html">Delete Account</a>
+  </p>
+</footer>
+
+</body>
+</html>

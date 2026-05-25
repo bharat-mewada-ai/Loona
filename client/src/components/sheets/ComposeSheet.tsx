@@ -425,6 +425,7 @@ export default function ComposeSheet() {
               <TextInput
                 style={[s.ta, { color: themeColors.txt, fontWeight: composeType === 'stories' ? '800' : '400' }]}
                 placeholder={
+                  composeType === 'confess' ? "Something on your mind? Confess anonymously... 🕳️" :
                   composeType === 'stories' ? "Story Title (e.g., Late night library secret...)" :
                   composeType === 'discussion' ? "What's the topic? (e.g., Is coding dying?)" :
                   isPoll ? "Ask a question for your poll..." : "Write your post here..."
@@ -432,13 +433,14 @@ export default function ComposeSheet() {
                 placeholderTextColor={themeColors.txt3}
                 value={title}
                 onChangeText={setTitle}
-                maxLength={120}
+                maxLength={composeType === 'confess' ? 500 : 120}
                 multiline
                 autoFocus
                 accessibilityLabel="Post title input"
               />
 
-              {(composeType === 'stories' || composeType === 'discussion' || !!body) && (
+              {/* Body/Details input — hidden for confessions (keep it single clean text) */}
+              {composeType !== 'confess' && (composeType === 'stories' || composeType === 'discussion' || !!body) && (
                 <>
                   <TextInput
                     style={[s.bodyTa, { color: themeColors.txt2 }]}

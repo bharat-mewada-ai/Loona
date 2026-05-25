@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loona — Campus Social Platform</title>
+  <meta name="description" content="Loona is the anonymous campus social app for college students. Legal pages, privacy policy, and account management." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --card: #111118; --bdr: rgba(255,255,255,0.08);
+      --txt: #f5f5f0; --txt2: rgba(245,245,240,0.7); --txt3: rgba(245,245,240,0.4);
+      --accent: #c8f53a; --orange: #ff6b35; --danger: #ff3b30;
+    }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--txt); min-height: 100vh; }
+    header {
+      padding: 24px; display: flex; align-items: center;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .logo { font-size: 26px; font-weight: 800; }
+    .logo span { color: var(--accent); }
+    .tagline { margin-left: 12px; font-size: 13px; color: var(--txt3); font-weight: 500; }
+
+    .hero {
+      max-width: 640px; margin: 0 auto;
+      padding: 80px 24px 60px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(200,245,58,0.1);
+      border: 1px solid rgba(200,245,58,0.2);
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 1px;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: clamp(36px, 8vw, 60px);
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1.05;
+      margin-bottom: 20px;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero p { font-size: 17px; color: var(--txt2); line-height: 1.6; max-width: 440px; margin: 0 auto 40px; }
+    .links {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+    .link-card {
+      background: var(--card);
+      border: 1px solid var(--bdr);
+      border-radius: 20px;
+      padding: 24px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.2s;
+      display: block;
+    }
+    .link-card:hover { border-color: rgba(200,245,58,0.4); transform: translateY(-2px); }
+    .link-card.danger:hover { border-color: rgba(255,59,48,0.4); }
+    .link-icon { font-size: 32px; margin-bottom: 14px; }
+    .link-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .link-desc { font-size: 13px; color: var(--txt3); line-height: 1.5; }
+    footer { border-top: 1px solid var(--bdr); padding: 24px; text-align: center; font-size: 13px; color: var(--txt3); }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo">loon<span>a</span></div>
+  <div class="tagline">Campus Social Platform</div>
+</header>
+
+<div class="hero">
+  <div class="hero-badge">🌙 LOONA APP</div>
+  <h1>Campus life, <em>reimagined</em></h1>
+  <p>The anonymous social platform for college students. Post, confess, discover events, and connect with people nearby — all within your campus.</p>
+</div>
+
+<div class="links">
+  <a class="link-card" href="privacy-policy.html">
+    <div class="link-icon">🔒</div>
+    <div class="link-title">Privacy Policy</div>
+    <div class="link-desc">How we collect, use, and protect your personal data. DPDPA 2023 compliant.</div>
+  </a>
+  <a class="link-card" href="terms.html">
+    <div class="link-icon">📜</div>
+    <div class="link-title">Terms of Service</div>
+    <div class="link-desc">Community rules, user responsibilities, and platform guidelines.</div>
+  </a>
+  <a class="link-card danger" href="delete-account.html">
+    <div class="link-icon">🗑️</div>
+    <div class="link-title">Delete Account</div>
+    <div class="link-desc">Request permanent deletion of your account and all associated data.</div>
+  </a>
+</div>
+
+<footer>
+  <p>© 2026 Loona — Campus Social Platform · India</p>
+  <p style="margin-top:8px; font-size:12px;">Contact: <a href="mailto:loona43210@gmail.com" style="color:var(--accent);text-decoration:none;">loona43210@gmail.com</a></p>
+</footer>
+</body>
+</html>

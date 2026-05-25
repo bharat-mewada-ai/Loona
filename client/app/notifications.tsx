@@ -40,13 +40,15 @@ export default function NotificationsScreen() {
       case 'comment': return '💬';
       case 'mention': return '🏷️';
       case 'wave': return '👋';
+      case 'message': return '💌';
       default: return '🔔';
     }
   };
 
   const handlePress = (notif: any) => {
-    if (notif.type === 'wave' && notif.sender) {
-      // If we have a sender from a wave, we can just open chat with them or their profile
+    if (notif.type === 'message' && notif.data?.chatId) {
+      router.push(`/chat/${notif.data.chatId}`);
+    } else if (notif.type === 'wave' && notif.sender) {
       router.push(`/user/${notif.sender._id || notif.sender}`);
     } else if (notif.data?.postId) {
       router.push(`/post/${notif.data.postId}`);

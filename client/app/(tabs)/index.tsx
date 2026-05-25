@@ -82,8 +82,8 @@ export default function Feed() {
   };
 
   const renderHeader = () => {
-    // Show Story Rail in 'All' or 'Stories' tab
-    if (activeTab === 'all' || activeTab === 'stories') {
+    // Show Story Rail in 'All' tab only
+    if (activeTab === 'all') {
       return <StoryRail />;
     }
 
@@ -242,7 +242,7 @@ export default function Feed() {
           data={posts}
           keyExtractor={(item) => item._id}
           ListHeaderComponent={renderHeader}
-          renderItem={({ item }) => <PostCard post={item} isAllTab={activeTab === 'all'} userLocation={userLocation} />}
+          renderItem={({ item }) => <PostCard post={item} isAllTab={activeTab === 'all'} isConfessionTab={activeTab === 'confess'} userLocation={userLocation} />}
           scrollEventThrottle={16}
           contentContainerStyle={[s.listContent, { paddingBottom: 110 }]}
           showsVerticalScrollIndicator={false}
@@ -267,7 +267,6 @@ export default function Feed() {
                   (activeTab as string) === 'all' ? 'feed' :
                   (activeTab as string) === 'discussion' ? 'discussions' :
                   (activeTab as string) === 'confess' ? 'confessions' :
-                  (activeTab as string) === 'stories' ? 'stories' :
                   (activeTab as string) === 'events' ? 'events' :
                   (activeTab as string) === 'bhandara' ? 'bhandara' :
                   (activeTab as string) === 'offers' ? 'offers' :

@@ -1,5 +1,5 @@
 import express from "express";
-import { googleLogin, login, getMe, logout, getLeaderboard, updateProfile, registerPushToken, getCampuses, getPublicProfile, refresh, deleteAccount, blockUser, unblockUser, getBlockedUsers, updateLocation, getNearbyUsers, waveUser } from "../controllers/auth.controller.js";
+import { googleLogin, login, getMe, logout, getLeaderboard, updateProfile, registerPushToken, getCampuses, getPublicProfile, refresh, deleteAccount, cancelDeletion, blockUser, unblockUser, getBlockedUsers, updateLocation, getNearbyUsers, waveUser } from "../controllers/auth.controller.js";
 import { requireAuth } from "../middlewares/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { validate, googleLoginRules, updateProfileRules, loginRules } from "../middlewares/validate.js";
@@ -22,6 +22,7 @@ router.patch("/update-profile", requireAuth, updateProfileRules, validate, async
 router.patch("/push-token",  requireAuth,                       asyncHandler(registerPushToken));
 router.post("/logout",       requireAuth,                       asyncHandler(logout));
 router.delete("/delete-account", requireAuth,                    asyncHandler(deleteAccount));
+router.post("/cancel-deletion",  requireAuth,                    asyncHandler(cancelDeletion));
 
 // Nearby & Location
 router.patch("/location",    requireAuth,                       asyncHandler(updateLocation));

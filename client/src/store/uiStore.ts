@@ -35,6 +35,7 @@ interface UIState {
     bio?: string; 
     isVerified?: boolean;
     isPremium?: boolean;
+    isConfession?: boolean;
     badges?: { name: string; icon: string }[];
   } | null;
 
@@ -51,6 +52,7 @@ interface UIState {
     bio?: string; 
     isVerified?: boolean;
     isPremium?: boolean;
+    isConfession?: boolean;
     badges?: { name: string; icon: string }[];
   }) => void;
   closeAuthorProfile: () => void;

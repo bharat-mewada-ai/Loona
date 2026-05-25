@@ -21,6 +21,7 @@ import { useStartChat } from '../../src/hooks/useChat';
 import { requestLocation } from '../../src/hooks/useLocation';
 import { useRouter } from 'expo-router';
 import { triggerHaptic } from "../../src/utils/haptics";
+import { useAnalytics } from '../../src/hooks/useAnalytics';
 
 const { width } = Dimensions.get('window');
 const LIME = '#c8f53a'; // Loona lime accent — brand color, intentionally fixed
@@ -38,6 +39,8 @@ export default function NearbyScreen() {
   const themeColors = getColors(isDark);
   const router = useRouter();
   const { user } = useAuth();
+  
+  useAnalytics('nearby');
 
   const { data: nearbyUsers, isLoading, refetch } = useNearby();
   const { mutate: updateLocation } = useUpdateLocation();
@@ -104,6 +107,7 @@ export default function NearbyScreen() {
     triggerHaptic('selection');
     startChat({ targetUserId, postId: 'nearby' }, {
       onSuccess: (chat) => router.push(`/chat/${chat._id}`),
+      onError: (err: any) => Alert.alert('Error', err.response?.data?.error || 'Could not start chat'),
     });
   };
 
@@ -125,7 +129,7 @@ export default function NearbyScreen() {
 
     return (
       <View key={user._id} style={[s.radarPerson, { transform: [{ translateX: x }, { translateY: y }] }]}>
-        <View style={s.personAvatar}>
+        <View style={[s.personAvatar, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
           <Text style={{ fontSize: 16 }}>{user.avatar || '👤'}</Text>
         </View>
       </View>
@@ -134,12 +138,17 @@ export default function NearbyScreen() {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: isDark ? '#0a0a0f' : themeColors.bg }]}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* NAV */}
       <View style={s.nav}>
         <Text style={[s.navTitle, { color: themeColors.txt }]}>loon<Text style={{ color: LIME }}>a</Text></Text>
         <View style={s.navActions}>
+          {/* Potato balance pill */}
+          <View style={[s.potatoPill, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}>
+            <Text style={{ fontSize: 14 }}>🥔</Text>
+            <Text style={[s.potatoCount, { color: isDark ? LIME : '#3f6212' }]}>{user?.potato || 0}</Text>
+          </View>
           <TouchableOpacity
             style={[s.ghostPill, !isVisible && s.ghosted, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
             onPress={() => {
@@ -161,12 +170,17 @@ export default function NearbyScreen() {
 
       {/* RADAR */}
       <View style={s.radarSection}>
-        <View style={s.radarBg} />
+        <View style={[s.radarBg, { backgroundColor: isDark ? 'rgba(200, 245, 58, 0.02)' : 'rgba(0, 0, 0, 0.015)' }]} />
         
         {/* Rings */}
-        <View style={[s.ring, s.ring3]} />
-        <View style={[s.ring, s.ring2]} />
-        <View style={[s.ring, s.ring1]} />
+        <View style={[s.ring, s.ring3, { borderColor: isDark ? 'rgba(200, 245, 58, 0.05)' : 'rgba(0, 0, 0, 0.08)' }]} />
+        <Text style={[s.ringLabel, { top: 32, color: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.35)' }]}>500m</Text>
+
+        <View style={[s.ring, s.ring2, { borderColor: isDark ? 'rgba(200, 245, 58, 0.08)' : 'rgba(0, 0, 0, 0.12)' }]} />
+        <Text style={[s.ringLabel, { top: 67, color: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.35)' }]}>300m</Text>
+
+        <View style={[s.ring, s.ring1, { borderColor: isDark ? 'rgba(200, 245, 58, 0.15)' : 'rgba(0, 0, 0, 0.2)' }]} />
+        <Text style={[s.ringLabel, { top: 102, color: isDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.35)' }]}>100m</Text>
 
         {/* Dynamic Ping Waves */}
         <Animated.View style={[s.ping, { transform: [{ scale: pingScale }], opacity: pingOpacity }]} />
@@ -191,7 +205,13 @@ export default function NearbyScreen() {
         {nearbyUsers?.map(u => renderRadarPerson(u))}
 
         {/* Count Pill */}
-        <View style={s.countPill}>
+        <View style={[
+          s.countPill, 
+          { 
+            backgroundColor: isDark ? 'rgba(200, 245, 58, 0.1)' : '#1e293b',
+            borderColor: isDark ? 'rgba(200, 245, 58, 0.2)' : '#0f172a'
+          }
+        ]}>
           <Text style={s.countTxt}>🌙 {nearbyUsers?.length || 0} people around you</Text>
         </View>
       </View>
@@ -199,7 +219,7 @@ export default function NearbyScreen() {
       {/* LIST */}
       <View style={s.sectionHeader}>
         <Text style={[s.sectionTitle, { color: themeColors.txt3 }]}>Nearby</Text>
-        <Text style={[s.sortBtn, { color: LIME }]}>closest first</Text>
+        <Text style={[s.sortBtn, { color: isDark ? LIME : '#3f6212' }]}>closest first</Text>
       </View>
 
       {isLoading ? (
@@ -212,15 +232,39 @@ export default function NearbyScreen() {
           renderItem={({ item }) => {
             const isVeryClose = item.distance < 250;
             return (
-              <View style={[s.personCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }, isVeryClose && s.veryCloseCard]}>
+              <View style={[
+                s.personCard, 
+                { 
+                  backgroundColor: themeColors.card, 
+                  borderColor: themeColors.bdr,
+                  ...(!isDark && {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.03,
+                    shadowRadius: 8,
+                    elevation: 1,
+                  })
+                }, 
+                isVeryClose && (
+                  isDark 
+                    ? s.veryCloseCard 
+                    : { borderColor: 'rgba(56, 142, 60, 0.18)', backgroundColor: 'rgba(56, 142, 60, 0.03)' }
+                )
+              ]}>
                 <View style={[s.cardEmoji, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}>
                   <Text style={{ fontSize: 20 }}>{item.avatar || '👤'}</Text>
                 </View>
                 <View style={s.cardInfo}>
                   <Text style={[s.cardName, { color: themeColors.txt }]}>{item.name}</Text>
                   <View style={s.cardMeta}>
-                    <View style={[s.zoneBadge, isVeryClose ? s.zoneClose : s.zoneNear]}>
-                      <Text style={[s.zoneTxt, { color: isVeryClose ? LIME : ORANGE }]}>
+                    <View style={[
+                      s.zoneBadge, 
+                      isVeryClose ? s.zoneClose : s.zoneNear,
+                      isVeryClose 
+                        ? { backgroundColor: isDark ? 'rgba(200, 245, 58, 0.1)' : 'rgba(22, 163, 74, 0.08)' }
+                        : { backgroundColor: isDark ? 'rgba(255, 107, 53, 0.08)' : 'rgba(234, 88, 12, 0.08)' }
+                    ]}>
+                      <Text style={[s.zoneTxt, { color: isVeryClose ? (isDark ? LIME : '#15803d') : (isDark ? ORANGE : '#c2410c') }]}>
                         {isVeryClose ? 'very close' : 'nearby'}
                       </Text>
                     </View>
@@ -228,12 +272,22 @@ export default function NearbyScreen() {
                 </View>
                 <View style={s.cardAction}>
                   <TouchableOpacity
-                    style={[s.waveBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }, isVeryClose && s.chatBtn]}
+                    style={[
+                      s.waveBtn, 
+                      { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }, 
+                      isVeryClose && s.chatBtn
+                    ]}
                     onPress={() => isVeryClose ? handleChat(item._id) : handleWave(item._id, item.name)}
                   >
                     <Text style={[s.waveBtnTxt, { color: isVeryClose ? '#0a0a0f' : themeColors.txt }]}>
                       {isVeryClose ? '💬 Chat' : '👋 Wave'}
                     </Text>
+                    {/* Cost badge */}
+                    {!isVeryClose && (
+                      <View style={[s.costBadge, { backgroundColor: isDark ? 'rgba(200,245,58,0.15)' : 'rgba(63,98,18,0.1)' }]}>
+                        <Text style={[s.costTxt, { color: isDark ? LIME : '#3f6212' }]}>🥔5</Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -263,11 +317,17 @@ const s = StyleSheet.create({
   ghostLabel: { fontSize: 12, fontWeight: '600' },
 
   radarSection: { height: 280, justifyContent: 'center', alignItems: 'center', marginHorizontal: 20, marginVertical: 8 },
-  radarBg: { ...StyleSheet.absoluteFillObject, borderRadius: 24, backgroundColor: 'rgba(200, 245, 58, 0.02)' },
-  ring: { position: 'absolute', borderRadius: 1000, borderWidth: 1, borderColor: THEME.border },
-  ring1: { width: 80, height: 80, borderColor: 'rgba(200, 245, 58, 0.15)' },
-  ring2: { width: 150, height: 150, borderColor: 'rgba(200, 245, 58, 0.08)' },
-  ring3: { width: 220, height: 220, borderColor: 'rgba(200, 245, 58, 0.05)' },
+  radarBg: { ...StyleSheet.absoluteFillObject, borderRadius: 24 },
+  ring: { position: 'absolute', borderRadius: 1000, borderWidth: 1 },
+  ring1: { width: 80, height: 80 },
+  ring2: { width: 150, height: 150 },
+  ring3: { width: 220, height: 220 },
+  ringLabel: {
+    position: 'absolute',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
 
   ping: { position: 'absolute', width: 220, height: 220, borderRadius: 110, borderWidth: 2, borderColor: THEME.accent },
 
@@ -290,9 +350,9 @@ const s = StyleSheet.create({
   youPulse: { position: 'absolute', width: 28, height: 28, borderRadius: 14, backgroundColor: THEME.accent, opacity: 0.2 },
 
   radarPerson: { position: 'absolute', zIndex: 5 },
-  personAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: THEME.surface2, borderWidth: 2, borderColor: THEME.border, alignItems: 'center', justifyContent: 'center' },
+  personAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: THEME.surface2, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
 
-  countPill: { position: 'absolute', bottom: 16, backgroundColor: 'rgba(200, 245, 58, 0.1)', borderWidth: 1, borderColor: 'rgba(200, 245, 58, 0.2)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
+  countPill: { position: 'absolute', bottom: 16, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5 },
   countTxt: { color: LIME, fontWeight: '700', fontSize: 11 },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: 10, marginBottom: 12 },
@@ -306,12 +366,24 @@ const s = StyleSheet.create({
   cardName: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
   cardMeta: { flexDirection: 'row', alignItems: 'center' },
   zoneBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
-  zoneClose: { backgroundColor: 'rgba(200, 245, 58, 0.1)' },
-  zoneNear: { backgroundColor: 'rgba(255, 107, 53, 0.08)' },
+  zoneClose: { },
+  zoneNear: { },
   zoneTxt: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
   
   cardAction: { },
-  waveBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  waveBtn: { 
+    paddingHorizontal: 14, 
+    paddingVertical: 8, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 6 
+  },
   chatBtn: { backgroundColor: LIME, borderColor: LIME },
-  waveBtnTxt: { fontSize: 13, fontWeight: '700' }
+  waveBtnTxt: { fontSize: 13, fontWeight: '700' },
+  costBadge: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 6 },
+  costTxt: { fontSize: 10, fontWeight: '800' },
+  potatoPill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 },
+  potatoCount: { fontSize: 12, fontWeight: '800' },
 });

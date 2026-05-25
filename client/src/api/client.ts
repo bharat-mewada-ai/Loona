@@ -50,6 +50,13 @@ client.interceptors.response.use(
 
     // If 401 and not already retrying
     if (err.response?.status === 401 && !originalRequest._retry) {
+      // If we never had a token to begin with, don't trigger the logout flow.
+      // This handles app-startup race where a query fires before loadStoredAuth() finishes.
+      const currentToken = useAuthStore.getState().token;
+      if (!currentToken) {
+        return Promise.reject(err);
+      }
+
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

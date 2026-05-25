@@ -14,10 +14,11 @@ import OfferCard from './cards/OfferCard';
 interface Props {
   post: Post;
   isAllTab?: boolean;
+  isConfessionTab?: boolean;
   userLocation?: { latitude: number; longitude: number } | null;
 }
 
-export default function PostCard({ post, isAllTab, userLocation }: Props) {
+export default function PostCard({ post, isAllTab, isConfessionTab, userLocation }: Props) {
   const { mutate: deletePost } = useDeletePost();
   const { openReportSheet } = useUIStore();
 
@@ -43,6 +44,21 @@ export default function PostCard({ post, isAllTab, userLocation }: Props) {
     
     case 'offers':
       return <OfferCard post={post} onDelete={handleDelete} />;
+
+    case 'confess':
+      if (isConfessionTab) {
+        return <ConfessionCard post={post} onDelete={handleDelete} onReport={handleReport} />;
+      }
+      // If on main feed, fall through to StandardCard to keep design unified
+      return (
+        <StandardCard 
+          post={post} 
+          isAllTab={isAllTab} 
+          userLocation={userLocation} 
+          onDelete={handleDelete}
+          onReport={handleReport}
+        />
+      );
     
     default:
       return (

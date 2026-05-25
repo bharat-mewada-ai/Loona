@@ -57,6 +57,8 @@ export const useNotifications = () => {
           router.push(`/post/${data.postId}`); 
         } else if (data?.chatId) {
           router.push(`/chat/${data.chatId}`);
+        } else if (data?.type === 'wave' && data?.senderId) {
+          router.push(`/user/${data.senderId}`);
         }
       });
     }
@@ -73,6 +75,16 @@ async function registerForPushNotificationsAsync() {
   if (Platform.OS === 'web') return;
   
   let token;
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF6B35',
+    });
+  }
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
   

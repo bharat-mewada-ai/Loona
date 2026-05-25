@@ -70,6 +70,9 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   };
 
   const handleAuthorPress = () => {
+    // Disable profile press for confessions to preserve anonymity
+    if (post.type === 'confess') return;
+
     // Robustly extract userId: post.author might be an object, a string (ID), or missing
     const authorId = post.author?._id || (typeof post.author === 'string' ? post.author : null);
     
@@ -88,7 +91,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
       bio: post.author?.bio,
       isVerified: post.author?.isVerified,
       isPremium: post.author?.isPremium,
-      badges: post.author?.badges
+      badges: post.author?.badges,
+      isConfession: post.type === 'confess'
     });
   };
 
@@ -117,16 +121,21 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
         <TouchableOpacity 
           style={s.authorRow} 
           onPress={handleAuthorPress} 
-          activeOpacity={0.7}
+          disabled={post.type === 'confess'}
+          activeOpacity={post.type === 'confess' ? 1 : 0.7}
           accessibilityRole="button"
-          accessibilityLabel={`View ${post.anonName}'s profile`}
+          accessibilityLabel={post.type === 'confess' ? "Anonymous Confession" : `View ${post.anonName}'s profile`}
         >
           <View style={[s.avatarWrap, { backgroundColor: themeColors.card2 }]}>
-            <Text style={s.avatarEmoji}>{post.author?.avatar || post.anonAvatar || '👤'}</Text>
+            <Text style={s.avatarEmoji}>
+              {post.type === 'confess' ? '🕳️' : (post.author?.avatar || post.anonAvatar || '👤')}
+            </Text>
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={[s.authorName, { color: themeColors.txt }]}>{post.anonName}</Text>
+              <Text style={[s.authorName, { color: themeColors.txt }]}>
+                {post.type === 'confess' ? 'Confession' : post.anonName}
+              </Text>
               {post.author?.isTopContributor && (
                 <View style={{ backgroundColor: '#FFD70020', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 }}>
                   <Text style={{ fontSize: 10, color: '#FFD700', fontWeight: '800' }}>🌟 Top</Text>

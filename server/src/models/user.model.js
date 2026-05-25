@@ -82,6 +82,10 @@ const userSchema = new mongoose.Schema(
     isPremium: { type: Boolean, default: false },
     premiumExpiresAt: { type: Date },
     razorpayOrderId: { type: String },
+
+    // ─── Soft Delete (30-day grace period) ────────────────────────────────────
+    scheduledForDeletion: { type: Boolean, default: false },
+    deletionScheduledAt:  { type: Date, default: null },
   },
   { timestamps: true, minimize: false }
 );

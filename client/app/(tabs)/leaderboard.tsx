@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
 import { useLeaderboard } from '../../src/hooks/useAuth';
+import { useAnalytics } from '../../src/hooks/useAnalytics';
 
 const getCampusColor = (campus: string, themeColors: any) => {
   if (campus === 'ogi') return '#C94030';
@@ -37,6 +38,8 @@ export default function LeaderboardScreen() {
   const themeColors = getColors(isDark);
   const { data, isLoading } = useLeaderboard();
 
+  useAnalytics('leaderboard');
+
   if (isLoading) {
     return (
       <SafeAreaView style={[s.safe, { backgroundColor: themeColors.bg, justifyContent: 'center', alignItems: 'center' }]}>
@@ -46,16 +49,19 @@ export default function LeaderboardScreen() {
     );
   }
 
-  const campusWarData = data?.campusWar || [];
+  const campusWarData = (data?.campusWar || []).map((c: any) => ({
+    ...c,
+    potato: c.potato ?? c.karma ?? 0,
+  }));
   const topUsers = data?.topUsers || [];
-  const totalPotato = campusWarData.reduce((sum: number, c: any) => sum + c.potato, 0);
+  const totalPotato = campusWarData.reduce((sum: number, c: any) => sum + (c.potato || 0), 0);
 
   // Sorting for Versus logic
-  const sortedCampuses = [...campusWarData].sort((a, b) => b.potato - a.potato);
+  const sortedCampuses = [...campusWarData].sort((a, b) => (b.potato || 0) - (a.potato || 0));
   const leadCampus = sortedCampuses[0];
   const secondCampus = sortedCampuses[1];
   
-  const leadGap = leadCampus && secondCampus ? leadCampus.potato - secondCampus.potato : 0;
+  const leadGap = leadCampus && secondCampus ? (leadCampus.potato || 0) - (secondCampus.potato || 0) : 0;
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: themeColors.bg }]}>
@@ -154,7 +160,7 @@ export default function LeaderboardScreen() {
                 <Text style={[s.legendCampus, { color: getCampusColor(u.campus, themeColors) }]}>{getCampusName(u.campus)}</Text>
               </View>
               <View style={s.legendScore}>
-                <Text style={[s.legendScoreVal, { color: themeColors.ogi }]}>{u.potato.toLocaleString()} 🥔</Text>
+                <Text style={[s.legendScoreVal, { color: themeColors.ogi }]}>{(u.potato || 0).toLocaleString()} 🥔</Text>
               </View>
             </View>
           ))}

@@ -8,6 +8,7 @@ import { useChats } from '../../src/hooks/useChat';
 import { formatMessageTime } from '../../src/utils/time';
 import EmptyState from '../../src/components/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
+import { useAnalytics } from '../../src/hooks/useAnalytics';
 
 export default function ChatsScreen() {
   const { isDark } = useUIStore();
@@ -15,6 +16,8 @@ export default function ChatsScreen() {
   const router = useRouter();
   const { data: chats, isLoading } = useChats();
   const [searchQuery, setSearchQuery] = React.useState('');
+  
+  useAnalytics('chats');
   
   const filteredChats = React.useMemo(() => {
     if (!chats) return [];

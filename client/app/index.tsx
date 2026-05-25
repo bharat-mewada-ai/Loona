@@ -6,7 +6,7 @@ import client from '../src/api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Index() {
-  const { token, user } = useAuthStore();
+  const { token, isInitialized } = useAuthStore();
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 
@@ -17,7 +17,7 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || !isInitialized) return;
 
     // Direct imperative navigation is more stable on Web than <Redirect />
     if (token) {
@@ -25,7 +25,7 @@ export default function Index() {
     } else {
       router.replace('/(auth)/login');
     }
-  }, [isReady, token]);
+  }, [isReady, isInitialized, token]);
 
   // Render a matching background while navigating to avoid "White Flash"
   return (

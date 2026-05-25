@@ -21,6 +21,7 @@ import paymentRoutes from "./routes/payment.routes.js";
 import errorRoutes from "./routes/error.routes.js";
 import redis from "./utils/redis.js";
 import { optionalAuth } from "./middlewares/auth.js";
+import { startDeleteExpiredAccountsJob } from "./jobs/deleteExpiredAccounts.js";
 
 // ─── CORS allowlist ───────────────────────────────────────────────────────────
 // In production set ALLOWED_ORIGINS to a comma-separated list, e.g.:
@@ -145,6 +146,9 @@ app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/config", configRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/v1/errors", errorRoutes);
+
+// ─── Start Cron Jobs ──────────────────────────────────────────────────────────
+startDeleteExpiredAccountsJob();
 
 import Analytics from "./models/analytics.model.js";
 app.post("/api/v1/analytics/log", optionalAuth, async (req, res) => {

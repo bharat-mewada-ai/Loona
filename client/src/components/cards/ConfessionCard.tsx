@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../../types';
 import { getColors } from '../../theme/colors';
@@ -12,6 +12,7 @@ import { triggerHaptic } from '../../utils/haptics';
 interface Props {
   post: Post;
   onDelete: () => void;
+  onReport?: () => void;
 }
 
 const REACTION_LIST = [
@@ -20,7 +21,7 @@ const REACTION_LIST = [
   { key: 'wholesome', icon: '🥺' }, { key: 'hmm', icon: '🤔' },
 ];
 
-const ConfessionCard = React.memo(({ post, onDelete }: Props) => {
+const ConfessionCard = React.memo(({ post, onDelete, onReport }: Props) => {
   const { mutate: react } = useReact();
   const { isDark, openCommentSheet } = useUIStore();
   const { user } = useAuthStore();
@@ -49,16 +50,28 @@ const ConfessionCard = React.memo(({ post, onDelete }: Props) => {
             Confession · {formatDistanceToNow(post.createdAt)}
           </Text>
         </View>
-        {(post.author?._id === user?._id || user?.role === 'admin') && (
-          <TouchableOpacity 
-            onPress={onDelete} 
-            style={s.deletePos}
-            accessibilityRole="button"
-            accessibilityLabel="Delete this confession"
-          >
-            <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
-          </TouchableOpacity>
-        )}
+        <View style={s.headerActions}>
+          {post.author?._id !== user?._id && (
+            <TouchableOpacity 
+              onPress={onReport} 
+              style={s.actionBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Report this confession"
+            >
+              <Ionicons name="flag-outline" size={16} color={themeColors.txt3} />
+            </TouchableOpacity>
+          )}
+          {(post.author?._id === user?._id || user?.role === 'admin') && (
+            <TouchableOpacity 
+              onPress={onDelete} 
+              style={s.actionBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Delete this confession"
+            >
+              <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <Text style={[s.text, { color: themeColors.txt }]}>{post.title}</Text>
@@ -77,9 +90,11 @@ const ConfessionCard = React.memo(({ post, onDelete }: Props) => {
             </TouchableOpacity>
           ))}
         </View>
-        <View style={s.commentBadge}>
-          <Ionicons name="chatbubble-outline" size={16} color={themeColors.txt3} />
-          <Text style={[s.commentCount, { color: themeColors.txt3 }]}>{post.commentCount || 0}</Text>
+        <View style={s.commentSection}>
+          <View style={s.commentBadge}>
+            <Ionicons name="chatbubble-outline" size={16} color={themeColors.txt3} />
+            <Text style={[s.commentCount, { color: themeColors.txt3 }]}>{post.commentCount || 0}</Text>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -94,12 +109,14 @@ const s = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' },
   emoji: { fontSize: 18 },
   metaTxt: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  deletePos: { position: 'absolute', right: -10, top: -5, padding: 10 },
+  headerActions: { position: 'absolute', right: -10, top: -5, flexDirection: 'row', gap: 4, alignItems: 'center' },
+  actionBtn: { padding: 10 },
   text: { fontSize: 18, lineHeight: 28, fontFamily: 'PlusJakartaSans_600SemiBold', textAlign: 'center', marginVertical: 12 },
   footer: { alignItems: 'center', marginTop: 24, gap: 16 },
   rxns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
   rxnBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
   rxnTxt: { fontSize: 13, fontWeight: '800' },
+  commentSection: { flexDirection: 'row', alignItems: 'center' },
   commentBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
   commentCount: { fontSize: 14, fontWeight: '800' },
 });
