@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const reportSchema = new mongoose.Schema({
   targetType: { 
     type: String, 
-    enum: ["post", "comment", "user"], 
+    enum: ["post", "comment", "user", "chat"], 
     required: true 
   },
   targetId: { 

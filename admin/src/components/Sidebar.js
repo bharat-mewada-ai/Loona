@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, AlertCircle, Users, LogOut, Megaphone, Terminal, Gavel } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, Users, LogOut, Megaphone, Terminal, Gavel, MessageSquare } from 'lucide-react';
 import { isSuperAdmin, isStaff } from '../utils/auth';
 
 const Sidebar = ({ onLogout }) => {
@@ -30,6 +30,7 @@ const Sidebar = ({ onLogout }) => {
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {isStaff() && <SidebarItem to="/" icon={<LayoutDashboard size={20} />} label="Dashboard" />}
         <SidebarItem to="/reports" icon={<AlertCircle size={20} />} label="Reports" />
+        <SidebarItem to="/reported-chats" icon={<MessageSquare size={20} />} label="Reported Chats" />
         {isSuperAdmin() && <SidebarItem to="/users" icon={<Users size={20} />} label="Users" />}
         {isSuperAdmin() && <SidebarItem to="/criminals" icon={<Gavel size={20} />} label="Criminals" />}
         {isSuperAdmin() && <SidebarItem to="/broadcast" icon={<Megaphone size={20} />} label="Broadcast" />}

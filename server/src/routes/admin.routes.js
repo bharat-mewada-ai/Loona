@@ -5,6 +5,8 @@ import Post from "../models/post.model.js";
 import Chat from "../models/chat.model.js";
 import AuditLog from "../models/auditLog.model.js";
 import Analytics from "../models/analytics.model.js";
+import Report from "../models/report.model.js";
+import Message from "../models/message.model.js";
 import os from "os";
 import mongoose from "mongoose";
 import redis from "../utils/redis.js";
@@ -420,6 +422,105 @@ router.get("/criminals", requireAuth, requireAdmin, asyncHandler(async (req, res
   }));
 
   res.json(formatted);
+}));
+
+/**
+ * GET REPORTED CHATS (Staff Access)
+ */
+router.get("/reported-chats", requireAuth, requireStaff, asyncHandler(async (req, res) => {
+  const reports = await Report.find({ targetType: "chat", status: "pending" })
+    .populate("reporter", "name email")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // For each report, attach participant info from Chat
+  const enriched = await Promise.all(reports.map(async (rep) => {
+    const chat = await Chat.findById(rep.targetId).populate("participants", "name email avatar").lean();
+    return {
+      ...rep,
+      chat
+    };
+  }));
+
+  res.json(enriched);
+}));
+
+/**
+ * GET REPORTED CHAT MESSAGES (Staff Access, Audited)
+ */
+router.get("/reported-chats/:reportId/messages", requireAuth, requireStaff, asyncHandler(async (req, res) => {
+  const report = await Report.findById(req.params.reportId);
+  if (!report || report.targetType !== "chat") {
+    return res.status(404).json({ error: "Chat report not found" });
+  }
+
+  // Verify the chat exists
+  const chat = await Chat.findById(report.targetId).populate("participants", "name email avatar").lean();
+  if (!chat) return res.status(404).json({ error: "Reported chat no longer exists" });
+
+  // Fetch the last 30 messages from this chat as context
+  const messages = await Message.find({ chatId: report.targetId })
+    .sort({ createdAt: -1 })
+    .limit(30)
+    .populate("senderId", "name email")
+    .lean();
+
+  // Log this access in AuditLog
+  await AuditLog.create({
+    action: "VIEW_REPORTED_CHAT_MESSAGES",
+    performedBy: req.user._id,
+    targetId: report.targetId,
+    targetType: "Chat",
+    details: `Viewed conversation history for chat report: ${report._id}`
+  });
+
+  res.json({
+    report,
+    chat,
+    messages: messages.reverse() // reverse to show in chronological order
+  });
+}));
+
+/**
+ * RESOLVE REPORTED CHAT (Staff Access)
+ */
+router.post("/reported-chats/:reportId/resolve", requireAuth, requireStaff, asyncHandler(async (req, res) => {
+  const report = await Report.findById(req.params.reportId);
+  if (!report) return res.status(404).json({ error: "Report not found" });
+
+  report.status = "resolved";
+  await report.save();
+
+  await AuditLog.create({
+    action: "RESOLVE_REPORT",
+    performedBy: req.user._id,
+    targetId: report._id,
+    targetType: "Report",
+    details: `Resolved report: ${report._id}`
+  });
+
+  res.json({ message: "Report marked as resolved", report });
+}));
+
+/**
+ * DISMISS REPORTED CHAT (Staff Access)
+ */
+router.post("/reported-chats/:reportId/dismiss", requireAuth, requireStaff, asyncHandler(async (req, res) => {
+  const report = await Report.findById(req.params.reportId);
+  if (!report) return res.status(404).json({ error: "Report not found" });
+
+  report.status = "dismissed";
+  await report.save();
+
+  await AuditLog.create({
+    action: "DISMISS_REPORT",
+    performedBy: req.user._id,
+    targetId: report._id,
+    targetType: "Report",
+    details: `Dismissed report: ${report._id}`
+  });
+
+  res.json({ message: "Report dismissed", report });
 }));
 
 export default router;

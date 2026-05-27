@@ -2,6 +2,7 @@ import Chat from "../models/chat.model.js";
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
 import Post from "../models/post.model.js";
+import Report from "../models/report.model.js";
 import { generateAnonIdentity } from "../utils/anonIdentity.js";
 import { checkContent } from "../utils/moderation.js";
 import { createNotification } from "../utils/notificationService.js";
@@ -437,6 +438,34 @@ export const deleteChat = async (req, res) => {
     }
 
     res.json({ success: true, message: "Chat deleted successfully!" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Report a chat
+export const reportChat = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ error: "Reason is required" });
+    }
+
+    const chat = await Chat.findOne({ _id: chatId, participants: req.user._id });
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found or access denied" });
+    }
+
+    const report = await Report.create({
+      targetType: "chat",
+      targetId: chatId,
+      reporter: req.user._id,
+      reason
+    });
+
+    res.json({ success: true, message: "Chat reported successfully!", report });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
