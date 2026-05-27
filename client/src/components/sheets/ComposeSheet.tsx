@@ -189,8 +189,9 @@ export default function ComposeSheet() {
   const guard = checkContent(combined);
 
   const handleSubmit = useCallback(() => {
-    if (!title.trim()) {
-      Alert.alert('Wait!', 'Please enter a title.');
+    const isPhotoStory = composeType === 'stories' && !!cdnUrl;
+    if (!title.trim() && !isPhotoStory) {
+      Alert.alert('Wait!', 'Please enter a title or upload a photo.');
       return;
     }
     if (guard.level === 'bad') {

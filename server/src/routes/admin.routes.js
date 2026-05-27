@@ -254,6 +254,31 @@ router.post("/users/:userId/verify", requireAuth, requireStaff, asyncHandler(asy
 }));
 
 /**
+ * UNVERIFY (Staff Access)
+ */
+router.post("/users/:userId/unverify", requireAuth, requireStaff, asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  user.isVerified = false;
+  
+  // Remove verified badge if present
+  if (user.badges && Array.isArray(user.badges)) {
+    user.badges = user.badges.filter(b => b.name !== "Verified");
+  }
+  await user.save();
+
+  await AuditLog.create({
+    action: "USER_UNVERIFY",
+    performedBy: req.user._id,
+    targetId: user._id,
+    targetType: "User"
+  });
+
+  res.json({ message: "User verification removed successfully", user });
+}));
+
+/**
  * DEVELOPER CONSOLE: SERVER HEALTH & ANALYTICS
  */
 router.get("/health", requireAuth, requireAdmin, asyncHandler(async (req, res) => {

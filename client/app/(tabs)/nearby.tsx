@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
 import { StatusBar } from 'expo-status-bar';
-import * as Location from 'expo-location';
 import { useWaveUser, useAuth, useNearby, useUpdateLocation, useUpdateProfile } from '../../src/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStartChat } from '../../src/hooks/useChat';
 import { requestLocation } from '../../src/hooks/useLocation';
 import { useRouter } from 'expo-router';
@@ -42,16 +42,38 @@ export default function NearbyScreen() {
   
   useAnalytics('nearby');
 
+  const queryClient = useQueryClient();
   const { data: nearbyUsers, isLoading, refetch } = useNearby();
-  const { mutate: updateLocation } = useUpdateLocation();
+  const { mutateAsync: updateLocationAsync } = useUpdateLocation();
   const { mutate: updateProfile } = useUpdateProfile();
   const { mutate: startChat, isPending: isStartingChat } = useStartChat();
   const { mutate: waveUser, isPending: isWaving } = useWaveUser();
 
   const [isVisible, setIsVisible] = useState(!user?.isPrivate);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pingAnim = useRef(new Animated.Value(0)).current;
+
+  const handleRefresh = async () => {
+    triggerHaptic('impact');
+    setIsRefreshing(true);
+    try {
+      // forceFresh=true: bypass GPS cache, get actual current position
+      const loc = await requestLocation(true);
+      if (loc) {
+        // Wait for server to confirm location is saved before querying nearby
+        await updateLocationAsync(loc);
+      }
+      // Invalidate cached nearby data so the next fetch always hits the network
+      await queryClient.invalidateQueries({ queryKey: ['nearby'] });
+      await refetch();
+    } catch (err) {
+      console.error('Nearby refresh error:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     // Sweep Animation
@@ -83,11 +105,17 @@ export default function NearbyScreen() {
       })
     ).start();
 
-    // Location Logic
+    // Location Logic — on mount, update location then fetch nearby
     (async () => {
-      const loc = await requestLocation();
+      const loc = await requestLocation(false); // OK to use cached GPS on mount
       if (loc) {
-        updateLocation(loc);
+        try {
+          await updateLocationAsync(loc);
+        } catch (err) {
+          console.error('Initial location update failed:', err);
+        }
+        // Invalidate then refetch to ensure fresh server data
+        await queryClient.invalidateQueries({ queryKey: ['nearby'] });
         refetch();
       }
     })();
@@ -120,6 +148,8 @@ export default function NearbyScreen() {
   };
 
   const renderRadarPerson = (user: any) => {
+    if (user.distance > 500) return null; // Exclude users further than 500m from radar view
+
     const radarSize = width * 0.6;
     const maxRadius = radarSize * 0.5;
     const radius = Math.max(radarSize * 0.1, Math.min((user.distance / 500) * maxRadius, maxRadius));
@@ -162,8 +192,16 @@ export default function NearbyScreen() {
               {isVisible ? 'visible' : 'ghosted'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[s.iconBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]} onPress={() => refetch()}>
-            <Text style={{ fontSize: 14 }}>🔄</Text>
+          <TouchableOpacity 
+            style={[s.iconBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]} 
+            onPress={handleRefresh}
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <ActivityIndicator color={themeColors.ogi} size="small" />
+            ) : (
+              <Text style={{ fontSize: 14 }}>🔄</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>

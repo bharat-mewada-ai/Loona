@@ -3,16 +3,16 @@ import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
 import Post from "../models/post.model.js";
 import { generateAnonIdentity } from "../utils/anonIdentity.js";
-import { sendPushNotification } from "../utils/pushNotifications.js";
 import { checkContent } from "../utils/moderation.js";
 import { createNotification } from "../utils/notificationService.js";
 import mongoose from "mongoose";
+import redis from "../utils/redis.js";
 
 // Get all chats for the current user
 export const getChats = async (req, res) => {
   try {
     const chats = await Chat.find({ participants: req.user._id })
-      .populate("participants", "name avatar")
+      .populate("participants", "name avatar lastActive")
       .populate("lastMessage")
       .sort({ lastMessageAt: -1 })
       .lean();
@@ -23,6 +23,7 @@ export const getChats = async (req, res) => {
       
       let name = otherUser?.name || "Anonymous";
       let avatar = otherUser?.avatar || "👤";
+      let lastActive = otherUser?.lastActive;
 
       // If the chat is anonymous and not yet revealed:
       if (chat.isAnonymous && !chat.isRevealed) {
@@ -30,6 +31,7 @@ export const getChats = async (req, res) => {
         if (otherUser && chat.anonAuthorId && otherUser._id.toString() === chat.anonAuthorId.toString()) {
           name = "Anonymous Confessor";
           avatar = "🕳️";
+          lastActive = null;
         }
       }
 
@@ -37,6 +39,7 @@ export const getChats = async (req, res) => {
         _id: chat._id,
         avatar,
         name,
+        lastActive,
         preview: chat.lastMessage ? chat.lastMessage.content : "No messages yet",
         time: chat.lastMessageAt,
         unread: chat.unreadCounts ? (chat.unreadCounts[req.user._id.toString()] || 0) : 0,
@@ -99,6 +102,12 @@ export const startChat = async (req, res) => {
           // Deduct potato
           initiator.potato -= CHAT_COST;
           await initiator.save();
+
+          try {
+            await redis.del(`campusRank:${req.user._id}`);
+          } catch (err) {
+            console.error("Rank invalidation failed in startChat:", err.message);
+          }
 
           // Emit a socket event to update the initiator's potato count on their UI immediately
           const io = req.app.get("io");
@@ -331,7 +340,8 @@ export const sendMessage = async (req, res) => {
       title = `${senderIdentity.avatar} ${senderIdentity.name}`;
     }
 
-    // Create in-app notification for the other user
+    // Create in-app notification + push for the other user
+    // NOTE: createNotification internally calls sendPushNotification — do NOT call it separately
     createNotification({
       recipient: otherId,
       sender: req.user._id,
@@ -340,16 +350,6 @@ export const sendMessage = async (req, res) => {
       body: image && !content ? "Sent a photo 📷" : `${content.slice(0, 60)}${content.length > 60 ? '...' : ''}`,
       data: { chatId: chatId.toString() }
     });
-
-    // Send Push Notification (non-blocking)
-    const targetUser = await User.findById(otherId).select("expoPushToken").lean();
-    
-    sendPushNotification(
-      targetUser?.expoPushToken,
-      title,
-      image && !content ? "Sent a photo 📷" : `${content.slice(0, 60)}${content.length > 60 ? '...' : ''}`,
-      { type: "message", chatId: chatId.toString() }
-    );
 
     let responseName = user.name;
     let responseAvatar = user.avatar;

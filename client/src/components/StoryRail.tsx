@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { useStories } from '../hooks/useStories';
 import { useUIStore } from '../store/uiStore';
 import { getColors } from '../theme/colors';
@@ -54,6 +55,12 @@ export default function StoryRail() {
               onPress={() => openStoryViewer(story._id, stories.map(s => s._id))}
               activeOpacity={0.9}
             >
+              {story.image && (
+                <>
+                  <Image source={{ uri: story.image }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                  <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]} />
+                </>
+              )}
               <Text style={s.storyEmoji}>{story.anonAvatar || '📖'}</Text>
               <Text style={s.storyTitle} numberOfLines={3}>{story.title}</Text>
             </TouchableOpacity>
@@ -70,11 +77,11 @@ const s = StyleSheet.create({
   title: { fontSize: 12, fontWeight: '900', letterSpacing: 1.2 },
   viewAll: { fontSize: 12, fontWeight: '800' },
   scroll: { paddingHorizontal: 16, gap: 12 },
-  storyCard: { width: 130, height: 180, borderRadius: 24, padding: 16, justifyContent: 'space-between' },
-  storyEmoji: { fontSize: 32 },
-  storyTitle: { color: '#FFF', fontSize: 13, fontWeight: '800', lineHeight: 18 },
-  addCard: { width: 130, height: 180, borderRadius: 24, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  storyCard: { width: 120, height: 160, borderRadius: 20, padding: 12, justifyContent: 'space-between', overflow: 'hidden' },
+  storyEmoji: { fontSize: 34 },
+  storyTitle: { color: '#FFF', fontSize: 12, fontWeight: '800', lineHeight: 16 },
+  addCard: { width: 120, height: 160, borderRadius: 20, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 10, overflow: 'hidden' },
   addIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  addLabel: { fontSize: 12, fontWeight: '800' },
-  loader: { height: 180, justifyContent: 'center', alignItems: 'center' },
+  addLabel: { fontSize: 11.5, fontWeight: '800' },
+  loader: { height: 160, justifyContent: 'center', alignItems: 'center' },
 });

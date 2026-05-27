@@ -10,7 +10,7 @@ export const useChats = () => {
   return useQuery({
     queryKey: ['chats'],
     queryFn: chatApi.getChats,
-    refetchInterval: 5000,
+    refetchInterval: 30_000,
   });
 };
 

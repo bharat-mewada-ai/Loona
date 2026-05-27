@@ -46,11 +46,32 @@ const isVersionLower = (current: string, minimum: string) => {
 };
 
 import { useNotifications } from '../src/hooks/useNotifications';
-import { useMe } from '../src/hooks/useAuth';
+import { useMe, useUpdateLocation } from '../src/hooks/useAuth';
+import { requestLocation } from '../src/hooks/useLocation';
 
 function AuthLoader({ children }: { children: React.ReactNode }) {
   useMe(); // This hook updates useAuthStore automatically
   useNotifications(); // Initialize push notifications here inside the QueryClientProvider context
+  
+  const { user } = useAuthStore();
+  const { mutate: updateLocation } = useUpdateLocation();
+
+  useEffect(() => {
+    if (user) {
+      (async () => {
+        try {
+          const loc = await requestLocation(false); // Fast/cached lock on start
+          if (loc) {
+            updateLocation(loc);
+            console.log('[AuthLoader] Auto location update completed:', loc);
+          }
+        } catch (err) {
+          console.error('[AuthLoader] Auto location update failed:', err);
+        }
+      })();
+    }
+  }, [user?._id]);
+
   return <>{children}</>;
 }
 
@@ -73,7 +94,7 @@ const queryClient = new QueryClient({
 });
 
 function RootLayout() {
-  const { loadStoredAuth, user } = useAuthStore();
+  const { loadStoredAuth, user, isInitialized } = useAuthStore();
   const { 
     isDark, setCampus, loadStoredTheme,
     showComposeSheet, showReportSheet, showCommentSheet, 
@@ -139,19 +160,19 @@ function RootLayout() {
     };
     checkUpdate();
 
-    // Safety: Always hide splash after 5s regardless of fonts
+    // Safety: Always hide splash after 2s regardless of fonts
     const safetyTimer = setTimeout(() => {
       console.log('[RootLayout] Safety Timer triggered - hiding splash');
       setSplashVisible(false);
-    }, 5000);
+    }, 2000);
 
-    if (fontsLoaded) {
+    if (fontsLoaded && isInitialized) {
       setSplashVisible(false);
       clearTimeout(safetyTimer);
     }
 
     return () => clearTimeout(safetyTimer);
-  }, [fontsLoaded]);
+  }, [fontsLoaded, isInitialized]);
 
   let content;
   if (updateConfig) {

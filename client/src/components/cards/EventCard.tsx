@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { Post } from '../../types';
@@ -9,6 +10,7 @@ import { useUIStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { formatDistanceToNow } from '../../utils/time';
 import { triggerHaptic } from '../../utils/haptics';
+import { getOptimizedCloudinaryUrl } from '../../utils/cloudinary';
 
 interface Props {
   post: Post;
@@ -23,13 +25,10 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
-  const isAuthor = !!(user?._id && (
-    typeof post.author === 'string' 
-      ? post.author === user._id 
-      : post.author?._id === user._id
-  ));
-  const isAdmin = user?.role === 'admin';
-  const canDelete = isAuthor || isAdmin;
+  const authorId = typeof post.author === 'string' ? post.author : post.author?._id?.toString();
+  const isAuthor = !!(user?._id && authorId && authorId === user._id.toString());
+  const isStaff = ['admin', 'moderator', 'super-admin'].includes(user?.role || '');
+  const canDelete = isAuthor || isStaff;
   const canReport = !isAuthor;
 
   const [votedLocal, setVotedLocal] = useState(post.hasVoted);
@@ -90,7 +89,7 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
       {/* Visual Header / Image */}
       {post.image ? (
         <View style={s.imageContainer}>
-          <Image source={{ uri: post.image }} style={s.headerImg} resizeMode="cover" />
+          <Image source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }} style={s.headerImg} contentFit="cover" />
           <View style={s.imgOverlay}>
             <View style={[s.tag, { backgroundColor: 'rgba(200,245,58,0.9)', flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
               <Text style={{ color: '#000', fontSize: 10, fontWeight: '900' }}>
@@ -211,7 +210,7 @@ const s = StyleSheet.create({
   
   main: { padding: 20 },
   title: { fontSize: 22, fontWeight: '900', marginBottom: 8 },
-  body: { fontSize: 14, lineHeight: 20, marginBottom: 16, opacity: 0.8 },
+  body: { fontSize: 14.5, lineHeight: 21.5, marginBottom: 16, opacity: 0.8 },
   
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },

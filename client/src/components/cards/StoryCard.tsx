@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../../types';
 import { getColors } from '../../theme/colors';
@@ -18,13 +19,10 @@ export default function StoryCard({ post, onDelete }: Props) {
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
-  const isAuthor = !!(user?._id && (
-    typeof post.author === 'string' 
-      ? post.author === user._id 
-      : post.author?._id === user._id
-  ));
-  const isAdmin = user?.role === 'admin';
-  const canDelete = isAuthor || isAdmin;
+  const authorId = typeof post.author === 'string' ? post.author : post.author?._id?.toString();
+  const isAuthor = !!(user?._id && authorId && authorId === user._id.toString());
+  const isStaff = ['admin', 'moderator', 'super-admin'].includes(user?.role || '');
+  const canDelete = isAuthor || isStaff;
 
   const [votedLocal, setVotedLocal] = useState(post.hasVoted);
 
@@ -44,7 +42,7 @@ export default function StoryCard({ post, onDelete }: Props) {
     >
       {post.image && (
         <View style={s.imageOverlay}>
-          <Image source={{ uri: post.image }} style={s.bgImage} blurRadius={2} />
+          <Image source={{ uri: post.image }} style={s.bgImage} blurRadius={2} contentFit="cover" />
           <View style={s.darken} />
         </View>
       )}

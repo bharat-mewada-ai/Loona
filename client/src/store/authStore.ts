@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { storage } from '../utils/storage';
 import { disconnectSocket } from '../utils/socket';
 import { User } from '../types';
-import { authApi } from '../api/auth.api';
 
 interface AuthState {
   user: User | null;
@@ -40,10 +39,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    const { refreshToken } = useAuthStore.getState();
-    if (refreshToken) {
-      authApi.logout(refreshToken).catch((err) => console.log('Server logout failed:', err));
-    }
     disconnectSocket();           // tear down the authenticated socket immediately
     set({ user: null, token: null, refreshToken: null });
     storage.deleteItem('loona_token');

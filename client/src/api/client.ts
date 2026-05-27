@@ -2,6 +2,7 @@ import axios from 'axios';
 import { router } from 'expo-router';
 import { API_URL } from '../constants';
 import { useAuthStore } from '../store/authStore';
+import { reconnectSocket } from '../utils/socket';
 
 const client = axios.create({
   baseURL: API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL,
@@ -81,21 +82,32 @@ client.interceptors.response.use(
       }
 
       try {
-        // Use raw axios to avoid interceptor loop
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+        // Use raw axios to avoid interceptor loop. Ensure v1 prefix is present.
+        const refreshUrl = API_URL.endsWith('v1') || API_URL.endsWith('v1/')
+          ? `${API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL}/auth/refresh`
+          : `${API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL}/v1/auth/refresh`;
+        
+        const { data } = await axios.post(refreshUrl, { refreshToken });
         const newToken = data.token;
         
         setToken(newToken);
+        reconnectSocket(newToken);
         processQueue(null, newToken);
         isRefreshing = false;
 
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return client(originalRequest);
-      } catch (refreshErr) {
+      } catch (refreshErr: any) {
         processQueue(refreshErr, null);
         isRefreshing = false;
-        logout();
-        router.replace('/(auth)/login');
+        
+        // Only log out if the server explicitly rejects the refresh token
+        // e.g., 400 (bad/expired token), 401 (unauthorized), or 403 (forbidden)
+        const isAuthError = refreshErr.response && [400, 401, 403].includes(refreshErr.response.status);
+        if (isAuthError) {
+          logout();
+          router.replace('/(auth)/login');
+        }
         return Promise.reject(refreshErr);
       }
     }

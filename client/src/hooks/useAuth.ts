@@ -48,8 +48,8 @@ export const useLeaderboard = () => {
   return useQuery({
     queryKey: ['leaderboard'],
     queryFn: authApi.getLeaderboard,
-    refetchInterval: 10_000, // live potato updates every 10s
-    staleTime: 10_000,
+    refetchInterval: 120_000, // live potato updates every 2m
+    staleTime: 120_000,
   });
 };
 
@@ -59,7 +59,7 @@ export const useMe = () => {
   const query = useQuery({
     queryKey: ['me'],
     queryFn: authApi.me,
-    staleTime: 5000,
+    staleTime: 30_000, // 30s — background refetchInterval keeps it fresh
     refetchInterval: 10_000, // Auto-sync user details and potato count in background every 10s
     // Only run when we actually have a token — prevents a race-condition
     // where the query fires before loadStoredAuth() finishes and causes a
@@ -158,7 +158,10 @@ export const useNearby = () => {
   return useQuery({
     queryKey: ['nearby'],
     queryFn: authApi.getNearby,
-    refetchInterval: 30_000, // Refresh nearby list every 30s
+    staleTime: 0,          // Always treat cached data as stale → every refetch() hits the network
+    gcTime: 0,             // Don't keep stale nearby data in memory at all
+    refetchInterval: 30_000, // Auto-refresh every 30s
+    refetchOnWindowFocus: false, // Prevent spurious refetches on app-foreground
   });
 };
 

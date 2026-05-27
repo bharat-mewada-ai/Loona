@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const postSchema = new mongoose.Schema({
-  title: { type: String, required: true, maxlength: 120 },
+  title: { type: String, required: function() { return this.type !== 'stories'; }, maxlength: 120 },
   body: { type: String, maxlength: 5000 },
   campus: { type: String, required: true },
   type: { type: String, required: true },
@@ -87,5 +87,7 @@ postSchema.index({ campus: 1, hidden: 1, createdAt: -1 });
 postSchema.index({ type: 1, hidden: 1, score: -1 });
 postSchema.index({ author: 1, createdAt: -1 });
 postSchema.index({ title: "text", body: "text" });
+postSchema.index({ campus: 1, hidden: 1, _id: -1 });
+postSchema.index({ hidden: 1, _id: -1 });
 
 export default mongoose.model("Post", postSchema);

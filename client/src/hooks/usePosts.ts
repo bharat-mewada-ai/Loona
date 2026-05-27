@@ -30,6 +30,7 @@ export const usePosts = () => {
       }),
     getNextPageParam: (last: any) => (last.hasMore ? last.nextCursor : undefined),
     initialPageParam: null,
+    staleTime: 30_000,
   });
 };
 

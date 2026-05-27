@@ -27,13 +27,10 @@ const ConfessionCard = React.memo(({ post, onDelete, onReport }: Props) => {
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
-  const isAuthor = !!(user?._id && (
-    typeof post.author === 'string' 
-      ? post.author === user._id 
-      : post.author?._id === user._id
-  ));
-  const isAdmin = user?.role === 'admin';
-  const canDelete = isAuthor || isAdmin;
+  const authorId = typeof post.author === 'string' ? post.author : post.author?._id?.toString();
+  const isAuthor = !!(user?._id && authorId && authorId === user._id.toString());
+  const isStaff = ['admin', 'moderator', 'super-admin'].includes(user?.role || '');
+  const canDelete = isAuthor || isStaff;
   const canReport = !isAuthor;
 
   const handleReact = (r: string) => {
@@ -120,7 +117,7 @@ const s = StyleSheet.create({
   metaTxt: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   headerActions: { position: 'absolute', right: -10, top: -5, flexDirection: 'row', gap: 4, alignItems: 'center' },
   actionBtn: { padding: 10 },
-  text: { fontSize: 18, lineHeight: 28, fontFamily: 'PlusJakartaSans_600SemiBold', textAlign: 'center', marginVertical: 12 },
+  text: { fontSize: 16, lineHeight: 24, fontFamily: 'PlusJakartaSans_600SemiBold', textAlign: 'center', marginVertical: 12 },
   footer: { alignItems: 'center', marginTop: 24, gap: 16 },
   rxns: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
   rxnBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },

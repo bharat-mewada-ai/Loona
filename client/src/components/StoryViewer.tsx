@@ -3,6 +3,7 @@ import {
   View, Text, Modal, StyleSheet, TouchableOpacity, SafeAreaView, 
   ScrollView, Dimensions, ActivityIndicator, Pressable, Animated 
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Post } from '../types';
 import { getColors } from '../theme/colors';
 import { useUIStore } from '../store/uiStore';
@@ -23,6 +24,7 @@ export default function StoryViewer() {
   const currentIndex = storyList.indexOf(activeStoryId || '');
   const hasNext = currentIndex < storyList.length - 1;
   const hasPrev = currentIndex > 0;
+  const hasPhoto = !!(story && story.image);
 
   useEffect(() => {
     if (showStoryViewer && story && !isLoading) {
@@ -84,6 +86,12 @@ export default function StoryViewer() {
   return (
     <Modal visible={showStoryViewer} animationType="fade" transparent={false} onRequestClose={closeStoryViewer}>
       <Pressable style={[s.container, { backgroundColor: bgColor }]} onPress={handleTap}>
+        {story && story.image && (
+          <>
+            <Image source={{ uri: story.image }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+          </>
+        )}
         <SafeAreaView style={s.safe}>
           {/* Progress Bars */}
           <View style={s.progressRow}>
@@ -128,12 +136,27 @@ export default function StoryViewer() {
             {isLoading ? (
                <View style={s.center}><ActivityIndicator color="#FFF" size="large" /></View>
             ) : story ? (
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
-                <Text style={s.title}>{story.title}</Text>
-                {!!story.body && (
-                  <View style={s.bodyWrap}>
-                    <Text style={s.bodyText}>{story.body}</Text>
+              <ScrollView 
+                showsVerticalScrollIndicator={false} 
+                contentContainerStyle={[
+                  s.scrollContent,
+                  hasPhoto && { justifyContent: 'flex-end', flexGrow: 1, paddingHorizontal: 20, paddingBottom: 10 }
+                ]}
+              >
+                {hasPhoto ? (
+                  <View style={s.captionContainer}>
+                    {!!story.title && <Text style={s.captionTitle}>{story.title}</Text>}
+                    {!!story.body && <Text style={s.captionBody}>{story.body}</Text>}
                   </View>
+                ) : (
+                  <>
+                    <Text style={s.title}>{story.title}</Text>
+                    {!!story.body && (
+                      <View style={s.bodyWrap}>
+                        <Text style={s.bodyText}>{story.body}</Text>
+                      </View>
+                    )}
+                  </>
                 )}
               </ScrollView>
             ) : null}
@@ -176,10 +199,38 @@ const s = StyleSheet.create({
   content: { flex: 1, justifyContent: 'center' },
   center: { alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: 32, paddingBottom: 120 },
-  title: { color: '#FFF', fontSize: 34, fontWeight: '900', lineHeight: 42, letterSpacing: -1, marginBottom: 24, textAlign: 'center' },
+  title: { color: '#FFF', fontSize: 34, fontWeight: '900', lineHeight: 42, letterSpacing: -1, marginBottom: 24, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: {width:0,height:1}, textShadowRadius: 8 },
   bodyWrap: { backgroundColor: 'rgba(0,0,0,0.1)', padding: 24, borderRadius: 32 },
-  bodyText: { color: '#FFF', fontSize: 18, lineHeight: 28, fontWeight: '500', textAlign: 'center' },
+  bodyText: { color: '#FFF', fontSize: 18, lineHeight: 28, fontWeight: '500', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: {width:0,height:1}, textShadowRadius: 8 },
   footer: { padding: 20, paddingBottom: 30 },
   commentBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.2)' },
   commentInputTxt: { color: '#FFF', fontSize: 15, fontWeight: '700', opacity: 0.8 },
+  captionContainer: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    width: '100%',
+    alignSelf: 'center',
+    gap: 6,
+  },
+  captionTitle: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  captionBody: {
+    color: '#FFF',
+    fontSize: 14.5,
+    fontWeight: '500',
+    lineHeight: 20,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
 });

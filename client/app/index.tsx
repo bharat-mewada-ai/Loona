@@ -11,9 +11,7 @@ export default function Index() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Small delay to ensure navigation stack is mounted
-    const timer = setTimeout(() => setIsReady(true), 100);
-    return () => clearTimeout(timer);
+    setIsReady(true);
   }, []);
 
   useEffect(() => {
@@ -29,7 +27,7 @@ export default function Index() {
 
   // Render a matching background while navigating to avoid "White Flash"
   return (
-    <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ flex: 1, backgroundColor: '#0d0d0f', justifyContent: 'center', alignItems: 'center' }}>
       <ActivityIndicator color="#fff" />
     </View>
   );

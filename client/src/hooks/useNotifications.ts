@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import client from '../api/client';
 import type { Notification as InAppNotification } from '../types';
 import { useAuthStore } from '../store/authStore';
+import { getSocket } from '../utils/socket';
 
 // ─── In-App Notifications Hook (Infinite Scroll) ──────────────────────────────
 export const useInAppNotifications = () => {
@@ -34,21 +35,33 @@ export const useMarkNotificationsRead = () => {
 
 // ─── Push Notification Setup & Deep-linking Hook ───────────────────────────
 export const useNotifications = () => {
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const router = useRouter();
   const qc = useQueryClient();
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !token) return;
 
     // Register token
-    registerForPushNotificationsAsync().then(token => {
-      if (token) {
-        client.patch('/auth/push-token', { token }).catch(() => {});
+    registerForPushNotificationsAsync().then(pushToken => {
+      if (pushToken) {
+        client.patch('/auth/push-token', { token: pushToken }).catch(() => {});
       }
     });
+
+    // Listen to newNotification events on global socket
+    const s = getSocket(token);
+    const handleNewNotification = (notification: any) => {
+      qc.invalidateQueries({ queryKey: ['chats'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+      if (notification?.type === 'potato_update') {
+        qc.invalidateQueries({ queryKey: ['me'] });
+      }
+    };
+    
+    s.on('newNotification', handleNewNotification);
 
     // Handle notifications in foreground & deep-linking
     if (Platform.OS !== 'web') {
@@ -76,6 +89,7 @@ export const useNotifications = () => {
     }
 
     return () => {
+      s.off('newNotification', handleNewNotification);
       if (notificationListener.current) {
         notificationListener.current.remove();
       }
@@ -83,7 +97,7 @@ export const useNotifications = () => {
         responseListener.current.remove();
       }
     };
-  }, [user]);
+  }, [user, token, qc]);
 };
 
 async function registerForPushNotificationsAsync() {

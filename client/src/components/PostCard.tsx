@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Alert } from 'react-native';
 import { Post } from '../types';
 import { useDeletePost } from '../hooks/usePosts';
@@ -18,11 +18,11 @@ interface Props {
   userLocation?: { latitude: number; longitude: number } | null;
 }
 
-export default function PostCard({ post, isAllTab, isConfessionTab, userLocation }: Props) {
+const PostCard = React.memo(({ post, isAllTab, isConfessionTab, userLocation }: Props) => {
   const { mutate: deletePost } = useDeletePost();
   const { openReportSheet } = useUIStore();
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     Alert.alert(
       "Delete Post",
       "Are you sure? This cannot be undone.",
@@ -31,11 +31,11 @@ export default function PostCard({ post, isAllTab, isConfessionTab, userLocation
         { text: "Delete", style: "destructive", onPress: () => deletePost(post._id) }
       ]
     );
-  };
+  }, [deletePost, post._id]);
 
-  const handleReport = () => {
+  const handleReport = useCallback(() => {
     openReportSheet(post._id);
-  };
+  }, [openReportSheet, post._id]);
 
   // Route to specialized card
   switch (post.type) {
@@ -71,4 +71,6 @@ export default function PostCard({ post, isAllTab, isConfessionTab, userLocation
         />
       );
   }
-}
+});
+
+export default PostCard;

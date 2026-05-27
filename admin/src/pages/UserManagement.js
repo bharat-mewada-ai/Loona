@@ -91,11 +91,17 @@ const UserManagement = () => {
 
   const handleVerify = async (userId) => {
     try {
-      await api.post(`/admin/users/${userId}/verify`);
-      alert('User verified');
+      if (selectedUser?.user?.isVerified) {
+        if (!window.confirm('Remove verification badge from this user?')) return;
+        await api.post(`/admin/users/${userId}/unverify`);
+        alert('User verification removed');
+      } else {
+        await api.post(`/admin/users/${userId}/verify`);
+        alert('User verified');
+      }
       if (selectedUser) fetchDetails(userId);
     } catch (err) {
-      alert('Failed to verify user');
+      alert(selectedUser?.user?.isVerified ? 'Failed to remove verification' : 'Failed to verify user');
     }
   };
 
@@ -207,9 +213,9 @@ const UserManagement = () => {
                 <button onClick={() => handleBan(selectedUser.user._id)} style={{ background: selectedUser.user.isBanned ? '#34C759' : '#FF3B30', color: '#FFF', padding: '12px 24px', borderRadius: '12px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>
                    {selectedUser.user.isBanned ? 'Unban User' : 'Ban User'}
                 </button>
-                <button onClick={() => handleVerify(selectedUser.user._id)} style={{ background: '#0A0A0A', color: selectedUser.user.isVerified ? '#71717A' : '#34C759', padding: '12px 24px', borderRadius: '12px', fontWeight: 'bold', border: '1px solid #222', cursor: 'pointer' }}>
-                   {selectedUser.user.isVerified ? 'Verified' : 'Verify User'}
-                </button>
+                 <button onClick={() => handleVerify(selectedUser.user._id)} style={{ background: '#0A0A0A', color: selectedUser.user.isVerified ? '#FF3B30' : '#34C759', padding: '12px 24px', borderRadius: '12px', fontWeight: 'bold', border: '1px solid #222', cursor: 'pointer' }}>
+                   {selectedUser.user.isVerified ? 'Remove Verification' : 'Verify User'}
+                 </button>
              </div>
           </div>
 

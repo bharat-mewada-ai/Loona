@@ -8,6 +8,7 @@ import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 import { checkContent } from "../utils/moderation.js";
 import logger from "../utils/logger.js";
+import redis from "../utils/redis.js";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -219,20 +220,13 @@ export const getMe = async (req, res) => {
   if (!userObj.tags) userObj.tags = [];
 
   // Calculate campusRank with 1 min Redis Cache for near-real-time updates
-  const { default: redis } = await import("../utils/redis.js");
   const rankKey = `campusRank:${req.user._id}`;
   let rank = await redis.get(rankKey);
   if (!rank) {
-    if (req.user.potato > 0) {
-      rank = await User.countDocuments({
-        campus: req.user.campus,
-        potato: { $gt: req.user.potato }
-      }) + 1;
-    } else {
-      // If potato is 0, rank is the bottom/total number of users in their campus
-      const totalCampusUsers = await User.countDocuments({ campus: req.user.campus });
-      rank = totalCampusUsers || 1;
-    }
+    rank = await User.countDocuments({
+      campus: req.user.campus,
+      potato: { $gt: req.user.potato }
+    }) + 1;
     await redis.set(rankKey, rank, 'EX', 60); // 1 min cache
   } else {
     rank = parseInt(rank, 10);
@@ -263,7 +257,12 @@ export const getCampuses = async (req, res) => {
 
 // --- LEADERBOARD -------------------------------------------------------------
 export const getLeaderboard = async (req, res) => {
+  const LEADERBOARD_CACHE_KEY = 'cache:leaderboard';
+  const LEADERBOARD_TTL = 300; // 5 minutes
   try {
+    const cached = await redis.get(LEADERBOARD_CACHE_KEY);
+    if (cached) return res.json(JSON.parse(cached));
+
     const [campusWarData, topUsersData] = await Promise.all([
       User.aggregate([
         { $group: { _id: "$campus", potato: { $sum: "$potato" } } },
@@ -272,7 +271,9 @@ export const getLeaderboard = async (req, res) => {
       User.find().sort({ potato: -1 }).limit(10).select("name avatar potato campus").lean(),
     ]);
 
-    res.json({ campusWar: campusWarData, topUsers: topUsersData });
+    const payload = { campusWar: campusWarData, topUsers: topUsersData };
+    await redis.set(LEADERBOARD_CACHE_KEY, JSON.stringify(payload), 'EX', LEADERBOARD_TTL);
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -528,12 +529,15 @@ export const updateLocation = async (req, res) => {
       type: "Point",
       coordinates: [longitude, latitude],
     };
+    // Bump lastActive so this user remains visible in Nearby (24h filter)
+    req.user.lastActive = new Date();
     await req.user.save();
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // --- GET NEARBY USERS -------------------------------------------------------
 export const getNearbyUsers = async (req, res) => {
@@ -543,13 +547,32 @@ export const getNearbyUsers = async (req, res) => {
       return res.status(400).json({ error: "Your location is not set. Please update it first." });
     }
 
+    // Exclude blocked users from the nearby list (both blocker & blocked)
+    let blockedUserIds = [];
+    try {
+      const { default: Block } = await import("../models/block.model.js");
+      const blocks = await Block.find({
+        $or: [{ blocker: req.user._id }, { blocked: req.user._id }]
+      }).lean();
+      blockedUserIds = blocks.map(b => b.blocker.toString() === req.user._id.toString() ? b.blocked : b.blocker);
+    } catch (blockErr) {
+      // Non-blocking log
+    }
+
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const nearbyUsers = await User.aggregate([
       {
         $geoNear: {
           near: { type: "Point", coordinates: [longitude, latitude] },
           distanceField: "dist.calculated",
           maxDistance: 5000, // 5km limit
-          query: { _id: { $ne: req.user._id }, campus: req.user.campus, isBanned: false },
+          query: { 
+            _id: { $ne: req.user._id, $nin: blockedUserIds }, 
+            campus: req.user.campus, 
+            isBanned: false,
+            isPrivate: { $ne: true }, // Exclude private/ghosted profiles
+            lastActive: { $gte: twentyFourHoursAgo }
+          },
           spherical: true,
         },
       },
@@ -600,6 +623,12 @@ export const waveUser = async (req, res) => {
     // Deduct potato
     req.user.potato -= WAVE_COST;
     await req.user.save();
+
+    try {
+      await redis.del(`campusRank:${req.user._id}`);
+    } catch (err) {
+      logger.error("Rank invalidation failed in waveUser:", err.message);
+    }
 
     const { createNotification } = await import("../utils/notificationService.js");
 

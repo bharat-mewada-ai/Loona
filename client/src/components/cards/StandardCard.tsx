@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Share } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Share } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../../types';
 import { POST_TYPES } from '../../constants';
@@ -10,6 +11,7 @@ import { useAuthStore } from '../../store/authStore';
 import { formatDistanceToNow } from '../../utils/time';
 import { getDistance, formatDistance } from '../../utils/geo';
 import { triggerHaptic } from '../../utils/haptics';
+import { getOptimizedCloudinaryUrl } from '../../utils/cloudinary';
 
 interface Props {
   post: Post;
@@ -27,13 +29,10 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
-  const isAuthor = !!(user?._id && (
-    typeof post.author === 'string' 
-      ? post.author === user._id 
-      : post.author?._id === user._id
-  ));
-  const isAdmin = user?.role === 'admin';
-  const canDelete = isAuthor || isAdmin;
+  const authorId = typeof post.author === 'string' ? post.author : post.author?._id?.toString();
+  const isAuthor = !!(user?._id && authorId && authorId === user._id.toString());
+  const isStaff = ['admin', 'moderator', 'super-admin'].includes(user?.role || '');
+  const canDelete = isAuthor || isStaff;
   const canReport = !isAuthor;
 
   const [votedLocal, setVotedLocal] = useState(post.hasVoted ?? false);
@@ -202,9 +201,9 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
       {!!post.image && (
         <View style={s.mediaContainer}>
           <Image 
-            source={{ uri: post.image }} 
+            source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }} 
             style={[s.mediaImg, { backgroundColor: '#111' }]} 
-            resizeMode="contain" 
+            contentFit="contain" 
             accessibilityLabel="Attached post image"
           />
         </View>
@@ -297,14 +296,14 @@ const s = StyleSheet.create({
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   avatarWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   avatarEmoji: { fontSize: 24 },
-  authorName: { fontSize: 16, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold' },
+  authorName: { fontSize: 13, fontWeight: '500', fontFamily: 'PlusJakartaSans_500Medium' },
   authorHandle: { fontSize: 12, marginTop: 1, opacity: 0.6 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   statusTxt: { fontSize: 11, fontWeight: '800' },
   moreBtn: { padding: 4 },
   contentArea: { paddingHorizontal: 16, paddingVertical: 8 },
-  textBody: { fontSize: 15, lineHeight: 24, fontFamily: 'PlusJakartaSans_400Regular', opacity: 0.9 },
+  textBody: { fontSize: 14.5, lineHeight: 21.5, fontFamily: 'PlusJakartaSans_400Regular' },
   mediaContainer: { marginHorizontal: 16, height: 300, borderRadius: 20, overflow: 'hidden', marginTop: 8 },
   mediaImg: { width: '100%', height: '100%' },
   pollWrap: { paddingHorizontal: 16, gap: 8, marginTop: 12 },

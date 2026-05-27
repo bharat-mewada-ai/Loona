@@ -60,12 +60,15 @@ export default function ProfileScreen() {
 
   const { data: myPostsData } = useMyPosts();
   const { data: savedPosts } = useSavedPosts();
+  const { data: meData } = useMe();
   
   const myPosts = myPostsData?.pages?.flatMap((p: any) => p?.posts ?? []) ?? [];
   const potato = user?.potato ?? 0;
   const postCount = user?.postCount ?? 0;
   const repliesCount = user?.commentsCount ?? 0;
   const campus = user?.campus?.toUpperCase() || 'OGI';
+  // Use fresh data from useMe for campusRank (avoid stale AsyncStorage value showing '99+')
+  const campusRank = meData?.campusRank ?? user?.campusRank;
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure?', [
@@ -200,7 +203,9 @@ export default function ProfileScreen() {
               <Text style={[s.statLabel, { color: themeColors.txt3 }]}>Potatoes</Text>
             </View>
             <View style={s.statItem}>
-              <Text style={[s.statNum, { color: themeColors.txt }]}>#{user?.campusRank || '99+'}</Text>
+              <Text style={[s.statNum, { color: themeColors.txt }]}>
+                {campusRank != null ? `#${campusRank}` : '—'}
+              </Text>
               <Text style={[s.statLabel, { color: themeColors.txt3 }]}>Rank</Text>
             </View>
           </View>

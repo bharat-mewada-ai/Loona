@@ -28,3 +28,9 @@ export const disconnectSocket = () => {
     socket = null;
   }
 };
+
+export const reconnectSocket = (token: string): Socket => {
+  disconnectSocket();
+  return getSocket(token);
+};
+

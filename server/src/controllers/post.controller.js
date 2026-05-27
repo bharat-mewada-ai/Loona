@@ -36,7 +36,10 @@ export const createPost = async (req, res) => {
   // This prevents 403 campus-mismatch errors caused by stale client state.
   const campus = req.user.campus;
 
-  if (!title) return res.status(400).json({ error: "Title is required" });
+  const isPhotoStory = type === 'stories' && !!image;
+  if (!title && !isPhotoStory) return res.status(400).json({ error: "Title is required" });
+  const safeTitle = title || '';
+
   if (!campus) return res.status(400).json({ error: "Your account has no campus set. Please log out and log in again." });
 
   // ─── Double-Post Lock (Idempotency) ──────────────────────────────────────────
@@ -62,7 +65,7 @@ export const createPost = async (req, res) => {
     });
   }
 
-  const moderation = checkContent(`${title} ${body || ""}`);
+  const moderation = checkContent(`${safeTitle} ${body || ""}`);
   if (moderation.level === "bad") return res.status(400).json({ error: moderation.reason });
 
   let anonName = req.user.name;
@@ -76,7 +79,7 @@ export const createPost = async (req, res) => {
   }
 
   const postData = {
-    title, body, campus, type: type || "all",
+    title: safeTitle, body, campus, type: type || "all",
     author: req.user._id,
     anonName,
     anonAvatar,
@@ -87,8 +90,8 @@ export const createPost = async (req, res) => {
     location: req.body.location || { type: "Point", coordinates: [0, 0] },
     isPoll: isPoll || false,
     pollOptions: isPoll && pollOptions ? pollOptions.map(opt => ({ text: opt, votes: 0 })) : [],
-    hashtags: `${title} ${body || ""}`.match(/#[a-zA-Z0-9_]+/g) 
-      ? [...new Set(`${title} ${body || ""}`.match(/#[a-zA-Z0-9_]+/g).map(t => t.toLowerCase()))] 
+    hashtags: `${safeTitle} ${body || ""}`.match(/#[a-zA-Z0-9_]+/g) 
+      ? [...new Set(`${safeTitle} ${body || ""}`.match(/#[a-zA-Z0-9_]+/g).map(t => t.toLowerCase()))] 
       : [],
   };
 
@@ -121,6 +124,11 @@ export const createPost = async (req, res) => {
         user.lastPostDate = new Date();
         await checkAndAwardBadges(user);
         await user.save();
+        try {
+          await redis.del(`campusRank:${user._id}`);
+        } catch (err) {
+          logger.error("Rank invalidation failed in createPost:", err.message);
+        }
       }
 
       if (burnAfter24h) await scheduleBurn(post._id);
@@ -176,7 +184,6 @@ export const getPosts = async (req, res) => {
 
   if (req.user) {
     try {
-      const { default: redis } = await import("../utils/redis.js");
       const blockKey = `blocks:${req.user._id}`;
       let blockedIds;
       const cachedBlocks = await redis.get(blockKey);
@@ -199,7 +206,7 @@ export const getPosts = async (req, res) => {
   }
 
   const posts = await Post.find(filter)
-      .hint({ campus: 1, hidden: 1, createdAt: -1 })
+      .hint(filter.campus ? { campus: 1, hidden: 1, _id: -1 } : { hidden: 1, _id: -1 })
       .populate("author", "bio isVerified tags name avatar isPremium badges")
       .select("-reports")
       .sort({ _id: -1 })
@@ -209,7 +216,6 @@ export const getPosts = async (req, res) => {
   // Fetch top 3 contributors for campus
   let topUserIds = [];
   try {
-    const { default: redis } = await import("../utils/redis.js");
     const topKey = `top3:${filter.campus || 'all'}`;
     const cachedTop = await redis.get(topKey);
     if (cachedTop) topUserIds = JSON.parse(cachedTop);
@@ -331,6 +337,11 @@ export const votePost = async (req, res) => {
   if (postAuthor) {
     await checkAndAwardBadges(postAuthor);
     await postAuthor.save();
+    try {
+      await redis.del(`campusRank:${post.author}`);
+    } catch (err) {
+      logger.error("Rank invalidation failed in votePost:", err.message);
+    }
   }
 
   // Track voter stats
@@ -619,6 +630,11 @@ export const addComment = async (req, res) => {
   
   await checkAndAwardBadges(req.user);
   await req.user.save();
+  try {
+    await redis.del(`campusRank:${req.user._id}`);
+  } catch (err) {
+    logger.error("Rank invalidation failed in addComment:", err.message);
+  }
 
   // ─── Trigger Notification ──────────────────────────────────────────────────
   if (post.author.toString() !== req.user._id.toString()) {
@@ -715,6 +731,11 @@ export const reactPost = async (req, res) => {
   }
 
   invalidateCache("/api/posts");
+  try {
+    await redis.del(`campusRank:${post.author}`);
+  } catch (err) {
+    logger.error("Rank invalidation failed in reactPost:", err.message);
+  }
   res.json({ reactions: post.reactions, userReaction: post.reactedBy.get(userId) ?? null });
 };
 
