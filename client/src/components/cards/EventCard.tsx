@@ -210,7 +210,7 @@ const s = StyleSheet.create({
   
   main: { padding: 20 },
   title: { fontSize: 22, fontWeight: '900', marginBottom: 8 },
-  body: { fontSize: 14.5, lineHeight: 21.5, marginBottom: 16, opacity: 0.8 },
+  body: { fontSize: 15, lineHeight: 22.5, marginBottom: 16, fontFamily: 'PlusJakartaSans_400Regular' },
   
   metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -224,5 +224,5 @@ const s = StyleSheet.create({
   footer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 16 },
   footerLeft: { flexDirection: 'row', gap: 16 },
   fBtn: { paddingVertical: 4 },
-  fTxt: { fontSize: 13, fontWeight: '700' }
+  fTxt: { fontSize: 13, fontWeight: '400', fontFamily: 'PlusJakartaSans_400Regular' }
 });

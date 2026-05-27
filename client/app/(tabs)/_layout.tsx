@@ -133,8 +133,8 @@ const s = StyleSheet.create({
   },
   niLabel: {
     fontSize: 11,
-    fontWeight: '800',
-    fontFamily: 'Syne_700Bold',
+    fontWeight: '600',
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     letterSpacing: 0.3,
   },
 });

@@ -85,7 +85,7 @@ const s = StyleSheet.create({
   brandPill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   brandName: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
   title: { fontSize: 18, fontWeight: '900' },
-  body: { fontSize: 13, lineHeight: 18 },
+  body: { fontSize: 15, lineHeight: 22.5, fontFamily: 'PlusJakartaSans_400Regular' },
   discountArea: { alignItems: 'center', minWidth: 70 },
   discount: { fontSize: 28, fontWeight: '900', lineHeight: 28 },
   off: { fontSize: 12, fontWeight: '900', marginTop: -4 },
