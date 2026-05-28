@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, ImageBackground } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, getColors } from '../../src/theme/colors';
@@ -36,7 +36,7 @@ export default function LeaderboardScreen() {
   const router = useRouter();
   const { isDark } = useUIStore();
   const themeColors = getColors(isDark);
-  const { data, isLoading } = useLeaderboard();
+  const { data, isLoading, isError, refetch, isRefetching } = useLeaderboard();
 
   useAnalytics('leaderboard');
 
@@ -75,7 +75,18 @@ export default function LeaderboardScreen() {
         <Text style={[s.headerTitle, { color: themeColors.txt }]}>Leaderboard</Text>
         <View style={{ width: 42 }} />
       </View>
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={s.scroll} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={isRefetching} 
+            onRefresh={refetch} 
+            tintColor={themeColors.ogi}
+            colors={[themeColors.ogi]}
+          />
+        }
+      >
         
         {/* Battleground Header */}
         <View style={[s.battleHeader, { backgroundColor: themeColors.card }]}>

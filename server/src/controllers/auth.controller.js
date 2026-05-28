@@ -216,20 +216,47 @@ export const refresh = async (req, res) => {
 
 // --- GET ME ------------------------------------------------------------------
 export const getMe = async (req, res) => {
+  const todayStr = new Date().toISOString().split('T')[0];
+  if (req.user.lastQuestResetDate !== todayStr) {
+    req.user.dailyUpvotesCount = 0;
+    req.user.dailyPostsCount = 0;
+    req.user.questsCompletedToday = false;
+    req.user.lastQuestResetDate = todayStr;
+    await req.user.save();
+  }
+
   const userObj = req.user.toObject();
   if (!userObj.tags) userObj.tags = [];
 
   // Calculate campusRank with 1 min Redis Cache for near-real-time updates
   const rankKey = `campusRank:${req.user._id}`;
-  let rank = await redis.get(rankKey);
+  let rank = null;
+
+  try {
+    const cachedRank = await redis.get(rankKey);
+    if (cachedRank) {
+      rank = parseInt(cachedRank, 10);
+    }
+  } catch (err) {
+    logger.warn(`[Redis] Get rank failed for user ${req.user._id}: ${err.message}`);
+  }
+
   if (!rank) {
-    rank = await User.countDocuments({
-      campus: req.user.campus,
-      potato: { $gt: req.user.potato }
-    }) + 1;
-    await redis.set(rankKey, rank, 'EX', 60); // 1 min cache
-  } else {
-    rank = parseInt(rank, 10);
+    try {
+      rank = await User.countDocuments({
+        campus: req.user.campus,
+        potato: { $gt: req.user.potato }
+      }) + 1;
+
+      try {
+        await redis.set(rankKey, rank, "EX", 60); // 1 min cache
+      } catch (err) {
+        // Safe to ignore Redis set failures
+      }
+    } catch (dbErr) {
+      logger.error(`[getMe] Database rank count failed: ${dbErr.message}`);
+      rank = null;
+    }
   }
 
   userObj.campusRank = rank;
@@ -259,10 +286,23 @@ export const getCampuses = async (req, res) => {
 export const getLeaderboard = async (req, res) => {
   const LEADERBOARD_CACHE_KEY = 'cache:leaderboard';
   const LEADERBOARD_TTL = 300; // 5 minutes
-  try {
-    const cached = await redis.get(LEADERBOARD_CACHE_KEY);
-    if (cached) return res.json(JSON.parse(cached));
 
+  let cached = null;
+  try {
+    cached = await redis.get(LEADERBOARD_CACHE_KEY);
+  } catch (redisErr) {
+    logger.warn(`[Redis] Leaderboard get failed: ${redisErr.message}`);
+  }
+
+  if (cached) {
+    try {
+      return res.json(JSON.parse(cached));
+    } catch (parseErr) {
+      logger.error(`[Redis] Leaderboard parse failed: ${parseErr.message}`);
+    }
+  }
+
+  try {
     const [campusWarData, topUsersData] = await Promise.all([
       User.aggregate([
         { $group: { _id: "$campus", potato: { $sum: "$potato" } } },
@@ -272,10 +312,17 @@ export const getLeaderboard = async (req, res) => {
     ]);
 
     const payload = { campusWar: campusWarData, topUsers: topUsersData };
-    await redis.set(LEADERBOARD_CACHE_KEY, JSON.stringify(payload), 'EX', LEADERBOARD_TTL);
+
+    try {
+      await redis.set(LEADERBOARD_CACHE_KEY, JSON.stringify(payload), 'EX', LEADERBOARD_TTL);
+    } catch (redisSetErr) {
+      logger.warn(`[Redis] Leaderboard set failed: ${redisSetErr.message}`);
+    }
+
     res.json(payload);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    logger.error(`[getLeaderboard] Database query failed: ${err.message}`);
+    res.status(500).json({ error: "Failed to fetch leaderboard data" });
   }
 };
 
@@ -631,8 +678,54 @@ export const waveUser = async (req, res) => {
     }
 
     const { createNotification } = await import("../utils/notificationService.js");
+    const { default: NotificationModel } = await import("../models/notification.model.js");
 
-    // createNotification handles both in-app storage AND push (with notificationsEnabled guard)
+    // Check if target user has already waved at us
+    const hasReciprocalWave = await NotificationModel.findOne({
+      recipient: req.user._id,
+      sender: userId,
+      type: "wave"
+    }).lean();
+
+    if (hasReciprocalWave) {
+      const { default: Chat } = await import("../models/chat.model.js");
+      let chat = await Chat.findOne({
+        participants: { $all: [req.user._id, userId] },
+        isGroup: false
+      });
+
+      if (!chat) {
+        chat = await Chat.create({
+          participants: [req.user._id, userId],
+          isGroup: false,
+          isAnonymous: true,
+          anonAuthorId: req.user._id
+        });
+      }
+
+      await Promise.all([
+        createNotification({
+          recipient: req.user._id,
+          sender: userId,
+          type: "system",
+          title: "⚡ It's a Mutual Match!",
+          body: "You and someone nearby waved at each other! Tap to chat for 0 Potatoes.",
+          data: { chatId: chat._id.toString() }
+        }),
+        createNotification({
+          recipient: userId,
+          sender: req.user._id,
+          type: "system",
+          title: "⚡ It's a Mutual Match!",
+          body: "You and someone nearby waved at each other! Tap to chat for 0 Potatoes.",
+          data: { chatId: chat._id.toString() }
+        })
+      ]);
+
+      return res.json({ ok: true, matched: true, chatId: chat._id });
+    }
+
+    // regular wave
     await createNotification({
       recipient: userId,
       sender: req.user._id,
@@ -642,7 +735,7 @@ export const waveUser = async (req, res) => {
       data: { senderId: req.user._id.toString() }
     });
 
-    res.json({ ok: true });
+    res.json({ ok: true, matched: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
