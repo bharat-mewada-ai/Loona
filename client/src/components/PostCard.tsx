@@ -20,7 +20,7 @@ interface Props {
 
 const PostCard = React.memo(({ post, isAllTab, isConfessionTab, userLocation }: Props) => {
   const { mutate: deletePost } = useDeletePost();
-  const { openReportSheet } = useUIStore();
+  const openReportSheet = useUIStore(s => s.openReportSheet);
 
   const handleDelete = useCallback(() => {
     Alert.alert(

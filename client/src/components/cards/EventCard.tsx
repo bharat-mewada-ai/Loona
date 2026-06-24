@@ -21,7 +21,9 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
   const { mutate: vote } = useVote();
   const { mutate: toggleGoing } = useGoing();
   const { mutateAsync: voteBhandaraAsync } = useVoteBhandara();
-  const { openCommentSheet, openReportSheet, isDark } = useUIStore();
+  const isDark = useUIStore(s => s.isDark);
+  const openCommentSheet = useUIStore(s => s.openCommentSheet);
+  const openReportSheet = useUIStore(s => s.openReportSheet);
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 

@@ -42,13 +42,7 @@ export const useStartChat = () => {
       qc.invalidateQueries({ queryKey: ['chats'] });
       // Sync potato balance in real-time only if the chat cost potatoes (started from Nearby)
       if (variables.postId === 'nearby') {
-        try {
-          const updatedUser = await authApi.me();
-          setUser(updatedUser);
-          qc.invalidateQueries({ queryKey: ['me'] });
-        } catch (err) {
-          console.error('Failed to sync user profile after starting chat:', err);
-        }
+        qc.invalidateQueries({ queryKey: ['me'] });
       }
     },
   });
@@ -134,14 +128,49 @@ export const useSendMessage = () => {
   return useMutation({
     mutationFn: ({ chatId, content, image }: { chatId: string; content: string; image?: string }) =>
       chatApi.sendMessage(chatId, content, image),
-    onSuccess: (newMsg, { chatId }) => {
-      qc.setQueryData(['messages', chatId], (old: any) => {
-        if (!old) return old;
+    onMutate: async ({ chatId, content, image }) => {
+      const queryKey = ['messages', chatId];
+      await qc.cancelQueries({ queryKey });
+
+      const previousMessages = qc.getQueryData(queryKey);
+      const tempId = `temp-${Date.now()}`;
+      
+      const optimisticMsg = {
+        _id: tempId,
+        chatId,
+        content,
+        image,
+        senderType: 'me',
+        createdAt: new Date().toISOString(),
+        isOptimistic: true,
+        status: 'sending',
+      };
+
+      qc.setQueryData(queryKey, (old: any) => {
+        if (!old) return { messages: [optimisticMsg] };
         return {
           ...old,
-          messages: [...old.messages, newMsg]
+          messages: [...(old.messages || []), optimisticMsg]
         };
       });
+
+      return { previousMessages, tempId, chatId };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousMessages) {
+        qc.setQueryData(['messages', context.chatId], context.previousMessages);
+      }
+    },
+    onSuccess: (newMsg, variables, context) => {
+      qc.setQueryData(['messages', context.chatId], (old: any) => {
+        if (!old || !old.messages) return old;
+        return {
+          ...old,
+          messages: old.messages.map((m: any) => m._id === context.tempId ? newMsg : m)
+        };
+      });
+    },
+    onSettled: (data, error, variables, context) => {
       qc.invalidateQueries({ queryKey: ['chats'] });
     },
   });

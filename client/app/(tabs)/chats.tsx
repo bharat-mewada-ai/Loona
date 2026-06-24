@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors, getColors } from '../../src/theme/colors';
@@ -52,10 +53,11 @@ export default function ChatsScreen() {
         </View>
       </View>
 
-      <FlatList
+      <FlashList
         data={filteredChats}
         keyExtractor={i => i._id}
         contentContainerStyle={s.scroll}
+        estimatedItemSize={75}
         ListHeaderComponent={
           <View style={[s.searchBox, { backgroundColor: themeColors.card2 }]}>
             <Ionicons name="search-outline" size={18} color={themeColors.txt3} style={{ marginRight: 10 }} />

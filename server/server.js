@@ -157,6 +157,12 @@ mongoose
           logger.error(`[Socket] Error joining chat ${chatId}:`, err.message);
         }
       });
+      socket.on("typing", (chatId) => {
+        socket.to(chatId).emit("userTyping", { chatId, userId: socket.data.userId });
+      });
+      socket.on("stopTyping", (chatId) => {
+        socket.to(chatId).emit("userStopTyping", { chatId, userId: socket.data.userId });
+      });
       socket.on("leaveChat", (chatId) => socket.leave(chatId));
       socket.on("disconnect", () =>
         logger.info(`[Socket] Disconnected: ${socket.id} (user: ${socket.data.userId})`)

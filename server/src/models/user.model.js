@@ -91,6 +91,12 @@ const userSchema = new mongoose.Schema(
     premiumExpiresAt: { type: Date },
     razorpayOrderId: { type: String },
 
+    // ─── Daily Quests ─────────────────────────────────────────────────────────
+    dailyUpvotesCount: { type: Number, default: 0 },
+    dailyPostsCount: { type: Number, default: 0 },
+    questsCompletedToday: { type: Boolean, default: false },
+    lastQuestResetDate: { type: String, default: "" },
+
     // ─── Soft Delete (30-day grace period) ────────────────────────────────────
     scheduledForDeletion: { type: Boolean, default: false },
     deletionScheduledAt:  { type: Date, default: null },

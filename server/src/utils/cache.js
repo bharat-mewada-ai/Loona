@@ -1,10 +1,15 @@
 import redisClient from "./redis.js";
 import logger from "./logger.js";
 
-export const cacheMiddleware = (ttlSeconds) => async (req, res, next) => {
+export const cacheMiddleware = (ttlSeconds, options = {}) => async (req, res, next) => {
   if (!redisClient || redisClient.status !== "ready") return next();
 
-  const key = `cache:${req.originalUrl}`;
+  if (options.firstPageOnly && req.query.cursor) {
+    return next();
+  }
+
+  const userId = req.user?._id || req.user?.id || 'anon';
+  const key = `cache:${req.originalUrl}:${userId}`;
   try {
     const cached = await redisClient.get(key);
     if (cached) {

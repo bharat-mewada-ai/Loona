@@ -13,7 +13,8 @@ interface Props {
 }
 
 export default function OfferCard({ post, onDelete }: Props) {
-  const { isDark, openReportSheet } = useUIStore();
+  const isDark = useUIStore(s => s.isDark);
+  const openReportSheet = useUIStore(s => s.openReportSheet);
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 

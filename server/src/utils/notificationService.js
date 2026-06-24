@@ -22,11 +22,19 @@ export const createNotification = async ({
       data
     });
 
-    // 2. Send push notification (if recipient has token and enabled)
-    const recipientUser = await User.findById(recipient).select("expoPushToken notificationsEnabled");
-    if (recipientUser?.expoPushToken && recipientUser.notificationsEnabled !== false) {
-      await sendPushNotification(recipientUser.expoPushToken, title, body, data);
-    }
+    // 2. Send push notification in background (if recipient has token and enabled)
+    User.findById(recipient)
+      .select("expoPushToken notificationsEnabled")
+      .then((recipientUser) => {
+        if (recipientUser?.expoPushToken && recipientUser.notificationsEnabled !== false) {
+          sendPushNotification(recipientUser.expoPushToken, title, body, data).catch((err) => {
+            logger.error("Error sending push notification: " + err.message);
+          });
+        }
+      })
+      .catch((err) => {
+        logger.error("Error looking up recipient for push: " + err.message);
+      });
 
     return notification;
   } catch (error) {

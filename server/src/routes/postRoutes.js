@@ -19,7 +19,7 @@ import { cacheMiddleware } from "../utils/cache.js";
 const router = express.Router();
 
 // ─── Public / Feed routes ──────────────────────────────────────────────────────
-router.get("/",          getPostsRules,    validate, optionalAuth, asyncHandler(getPosts));
+router.get("/",          getPostsRules,    validate, optionalAuth, cacheMiddleware(20, { firstPageOnly: true }), asyncHandler(getPosts));
 router.get("/stats",                                 cacheMiddleware(300), asyncHandler(getStats));
 router.get("/trending-tags",                         cacheMiddleware(300), asyncHandler(getTrendingTags));
 router.get("/search/posts",                          asyncHandler(searchPosts));

@@ -93,4 +93,14 @@ export const authApi = {
   waveUser: async (userId: string): Promise<void> => {
     await client.post(`/auth/wave/${userId}`);
   },
+
+  getStreakStatus: async (): Promise<{
+    currentLeader: string | null;
+    streakDays: number;
+    multiplierActive: boolean;
+    multiplierValue: number;
+  }> => {
+    const { data } = await client.get('/streaks/status');
+    return data;
+  },
 };

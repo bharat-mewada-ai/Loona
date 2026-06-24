@@ -113,8 +113,8 @@ export default function PrivacySheet() {
             <Text style={[s.body, { color: themeColors.txt2 }]}>
               For privacy concerns, account deletion, or terms-related queries, use the Feedback section in your profile, or email us at:{' '}
               <Text style={{ color: '#C94030', fontWeight: '700' }}
-                onPress={() => Linking.openURL('mailto:loona.bhopal@gmail.com')}>
-                loona.bhopal@gmail.com
+                onPress={() => Linking.openURL('mailto:loona43210@gmail.com')}>
+                loona43210@gmail.com
               </Text>
             </Text>
 

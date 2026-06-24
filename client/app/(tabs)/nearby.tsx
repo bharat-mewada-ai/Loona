@@ -8,10 +8,10 @@ import {
   Easing, 
   TouchableOpacity, 
   ActivityIndicator, 
-  FlatList,
   Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
 import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
 import { StatusBar } from 'expo-status-bar';
@@ -42,13 +42,15 @@ export default function NearbyScreen() {
   
   useAnalytics('nearby');
 
+  const [locSynced, setLocSynced] = useState(false);
   const queryClient = useQueryClient();
-  const { data: nearbyUsers, isLoading, refetch } = useNearby();
+  const { data: nearbyUsers, isLoading, refetch } = useNearby(locSynced);
   const { mutateAsync: updateLocationAsync } = useUpdateLocation();
   const { mutate: updateProfile } = useUpdateProfile();
-  const { mutate: startChat, isPending: isStartingChat } = useStartChat();
-  const { mutate: waveUser, isPending: isWaving } = useWaveUser();
+  const { mutate: startChat } = useStartChat();
+  const { mutate: waveUser } = useWaveUser();
 
+  const [activeActionUserId, setActiveActionUserId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(!user?.isPrivate);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -107,16 +109,15 @@ export default function NearbyScreen() {
 
     // Location Logic — on mount, update location then fetch nearby
     (async () => {
-      const loc = await requestLocation(false); // OK to use cached GPS on mount
-      if (loc) {
-        try {
+      try {
+        const loc = await requestLocation(false); // OK to use cached GPS on mount
+        if (loc) {
           await updateLocationAsync(loc);
-        } catch (err) {
-          console.error('Initial location update failed:', err);
         }
-        // Invalidate then refetch to ensure fresh server data
-        await queryClient.invalidateQueries({ queryKey: ['nearby'] });
-        refetch();
+      } catch (err) {
+        console.error('Initial location update failed:', err);
+      } finally {
+        setLocSynced(true);
       }
     })();
 
@@ -133,17 +134,31 @@ export default function NearbyScreen() {
 
   const handleChat = (targetUserId: string) => {
     triggerHaptic('selection');
+    setActiveActionUserId(targetUserId);
     startChat({ targetUserId, postId: 'nearby' }, {
-      onSuccess: (chat) => router.push(`/chat/${chat._id}`),
-      onError: (err: any) => Alert.alert('Error', err.response?.data?.error || 'Could not start chat'),
+      onSuccess: (chat) => {
+        setActiveActionUserId(null);
+        router.push(`/chat/${chat._id}`);
+      },
+      onError: (err: any) => {
+        setActiveActionUserId(null);
+        Alert.alert('Error', err.response?.data?.error || 'Could not start chat');
+      },
     });
   };
 
   const handleWave = (userId: string, name: string) => {
     triggerHaptic('impact');
+    setActiveActionUserId(userId);
     waveUser(userId, {
-      onSuccess: () => Alert.alert('👋 Wave Sent!', `You waved at ${name}.`),
-      onError: (err: any) => Alert.alert('Error', err.response?.data?.error || 'Could not wave'),
+      onSuccess: () => {
+        setActiveActionUserId(null);
+        Alert.alert('👋 Wave Sent!', `You waved at ${name}.`);
+      },
+      onError: (err: any) => {
+        setActiveActionUserId(null);
+        Alert.alert('Error', err.response?.data?.error || 'Could not wave');
+      },
     });
   };
 
@@ -263,12 +278,15 @@ export default function NearbyScreen() {
       {isLoading ? (
         <ActivityIndicator color={THEME.accent} style={{ marginTop: 20 }} />
       ) : (
-        <FlatList
+        <FlashList
           data={nearbyUsers}
           keyExtractor={item => item._id}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          estimatedItemSize={80}
           renderItem={({ item }) => {
             const isVeryClose = item.distance < 250;
+            const isActionPending = activeActionUserId === item._id;
+            const isAnyActionPending = !!activeActionUserId;
             return (
               <View style={[
                 s.personCard, 
@@ -294,6 +312,14 @@ export default function NearbyScreen() {
                 </View>
                 <View style={s.cardInfo}>
                   <Text style={[s.cardName, { color: themeColors.txt }]}>{item.name}</Text>
+                  {!!item.bio && (
+                    <Text
+                      style={[s.cardBio, { color: themeColors.txt3 }]}
+                      numberOfLines={1}
+                    >
+                      {item.bio}
+                    </Text>
+                  )}
                   <View style={s.cardMeta}>
                     <View style={[
                       s.zoneBadge, 
@@ -313,26 +339,32 @@ export default function NearbyScreen() {
                     style={[
                       s.waveBtn, 
                       { backgroundColor: themeColors.card2, borderColor: themeColors.bdr },
-                      (isStartingChat || isWaving) && { opacity: 0.6 }
+                      isActionPending && { opacity: 0.6 }
                     ]}
-                    disabled={isStartingChat || isWaving}
+                    disabled={isAnyActionPending}
                     onPress={() => isVeryClose ? handleChat(item._id) : handleWave(item._id, item.name)}
                   >
-                    <Text style={[
-                      s.waveBtnTxt, 
-                      { color: isVeryClose ? (isDark ? LIME : '#3f6212') : themeColors.txt }
-                    ]}>
-                      {isVeryClose ? '💬 Chat' : '👋 Wave'}
-                    </Text>
-                    {/* Cost badge */}
-                    <View style={[
-                      s.costBadge, 
-                      { backgroundColor: isDark ? 'rgba(200,245,58,0.15)' : 'rgba(63,98,18,0.1)' }
-                    ]}>
-                      <Text style={[s.costTxt, { color: isDark ? LIME : '#3f6212' }]}>
-                        🥔{isVeryClose ? 10 : 5}
-                      </Text>
-                    </View>
+                    {isActionPending ? (
+                      <ActivityIndicator size="small" color={isVeryClose ? (isDark ? LIME : '#3f6212') : themeColors.txt} />
+                    ) : (
+                      <>
+                        <Text style={[
+                          s.waveBtnTxt, 
+                          { color: isVeryClose ? (isDark ? LIME : '#3f6212') : themeColors.txt }
+                        ]}>
+                          {isVeryClose ? '💬 Chat' : '👋 Wave'}
+                        </Text>
+                        {/* Cost badge */}
+                        <View style={[
+                          s.costBadge, 
+                          { backgroundColor: isDark ? 'rgba(200,245,58,0.15)' : 'rgba(63,98,18,0.1)' }
+                        ]}>
+                          <Text style={[s.costTxt, { color: isDark ? LIME : '#3f6212' }]}>
+                            🥔{isVeryClose ? 10 : 5}
+                          </Text>
+                        </View>
+                      </>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
@@ -408,7 +440,8 @@ const s = StyleSheet.create({
   veryCloseCard: { borderColor: 'rgba(200, 245, 58, 0.15)', backgroundColor: 'rgba(200, 245, 58, 0.02)' },
   cardEmoji: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   cardInfo: { flex: 1 },
-  cardName: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  cardName: { fontSize: 15, fontWeight: '700', marginBottom: 1 },
+  cardBio: { fontSize: 11, fontWeight: '400', marginBottom: 2, opacity: 0.7 },
   cardMeta: { flexDirection: 'row', alignItems: 'center' },
   zoneBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   zoneClose: { },

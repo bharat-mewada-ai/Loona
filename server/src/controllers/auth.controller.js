@@ -217,12 +217,27 @@ export const refresh = async (req, res) => {
 // --- GET ME ------------------------------------------------------------------
 export const getMe = async (req, res) => {
   const todayStr = new Date().toISOString().split('T')[0];
-  if (req.user.lastQuestResetDate !== todayStr) {
-    req.user.dailyUpvotesCount = 0;
-    req.user.dailyPostsCount = 0;
-    req.user.questsCompletedToday = false;
-    req.user.lastQuestResetDate = todayStr;
-    await req.user.save();
+  // Redis lock: Only do quest reset DB write ONCE per user per day
+  const resetKey = `quest_reset:${req.user._id}:${todayStr}`;
+  try {
+    const alreadyReset = await redis.get(resetKey);
+    if (!alreadyReset && req.user.lastQuestResetDate !== todayStr) {
+      req.user.dailyUpvotesCount = 0;
+      req.user.dailyPostsCount = 0;
+      req.user.questsCompletedToday = false;
+      req.user.lastQuestResetDate = todayStr;
+      await req.user.save();
+      await redis.set(resetKey, '1', 'EX', 86400); // lock for 24h
+    }
+  } catch (e) {
+    // Redis fail: fallback to old behavior
+    if (req.user.lastQuestResetDate !== todayStr) {
+      req.user.dailyUpvotesCount = 0;
+      req.user.dailyPostsCount = 0;
+      req.user.questsCompletedToday = false;
+      req.user.lastQuestResetDate = todayStr;
+      await req.user.save();
+    }
   }
 
   const userObj = req.user.toObject();

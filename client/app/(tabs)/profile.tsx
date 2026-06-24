@@ -69,6 +69,9 @@ export default function ProfileScreen() {
   const campus = user?.campus?.toUpperCase() || 'OGI';
   // Use fresh data from useMe for campusRank (avoid stale AsyncStorage value showing '99+')
   const campusRank = meData?.campusRank ?? user?.campusRank;
+  const dailyUpvotesCount = meData?.dailyUpvotesCount ?? user?.dailyUpvotesCount ?? 0;
+  const dailyPostsCount = meData?.dailyPostsCount ?? user?.dailyPostsCount ?? 0;
+  const questsCompletedToday = meData?.questsCompletedToday ?? user?.questsCompletedToday ?? false;
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure?', [
@@ -160,9 +163,17 @@ export default function ProfileScreen() {
         <Text style={[s.logo, { color: themeColors.txt }]}>
           🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>profile</Text>
         </Text>
-        <TouchableOpacity onPress={() => setSettingsVisible(true)} style={[s.gearBtn, { backgroundColor: themeColors.card2 }]}>
-          <Ionicons name="settings-sharp" size={20} color={themeColors.txt} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity 
+            onPress={() => router.push('/shop' as any)} 
+            style={[s.gearBtn, { backgroundColor: themeColors.card2 }]}
+          >
+            <Ionicons name="storefront-outline" size={20} color={themeColors.txt} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setSettingsVisible(true)} style={[s.gearBtn, { backgroundColor: themeColors.card2 }]}>
+            <Ionicons name="settings-sharp" size={20} color={themeColors.txt} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
@@ -232,6 +243,43 @@ export default function ProfileScreen() {
         <View style={[s.activityBox, { backgroundColor: themeColors.card }]}>
           <ActivityItem icon="document-text" label="My Posts" count={postCount} color="#FF9500" onPress={() => setActiveView('posts')} />
           <ActivityItem icon="bookmark" label="Saved Posts" count={Array.isArray(savedPosts) ? savedPosts.length : 0} color="#007AFF" onPress={() => setActiveView('saved')} />
+        </View>
+
+        <Text style={[s.sectionTitle, { color: themeColors.txt3, marginTop: 25 }]}>DAILY QUESTS 🥔</Text>
+        <View style={{ backgroundColor: themeColors.card, padding: 16, marginHorizontal: 20, borderRadius: 20, gap: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ color: themeColors.txt, fontSize: 14, fontWeight: '800' }}>Daily Payout Quest</Text>
+            {questsCompletedToday ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: themeColors.ok + '20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }}>
+                <Ionicons name="checkmark-circle" size={14} color={themeColors.ok} />
+                <Text style={{ color: themeColors.ok, fontSize: 11, fontWeight: '800' }}>Completed (+5 🥔)</Text>
+              </View>
+            ) : (
+              <Text style={{ color: themeColors.txt3, fontSize: 11, fontWeight: '700' }}>Reward: +5 🥔</Text>
+            )}
+          </View>
+
+          {/* Upvote Task */}
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: themeColors.txt2, fontSize: 13 }}>Upvote 3 posts</Text>
+              <Text style={{ color: themeColors.txt, fontSize: 12, fontWeight: '700' }}>{Math.min(dailyUpvotesCount, 3)} / 3</Text>
+            </View>
+            <View style={{ height: 6, backgroundColor: themeColors.card2, borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{ height: '100%', width: `${Math.min((dailyUpvotesCount / 3) * 100, 100)}%`, backgroundColor: themeColors.ogi }} />
+            </View>
+          </View>
+
+          {/* Post Task */}
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ color: themeColors.txt2, fontSize: 13 }}>Create 1 post</Text>
+              <Text style={{ color: themeColors.txt, fontSize: 12, fontWeight: '700' }}>{Math.min(dailyPostsCount, 1)} / 1</Text>
+            </View>
+            <View style={{ height: 6, backgroundColor: themeColors.card2, borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{ height: '100%', width: `${Math.min((dailyPostsCount / 1) * 100, 100)}%`, backgroundColor: themeColors.ogi }} />
+            </View>
+          </View>
         </View>
 
         <Text style={[s.sectionTitle, { color: themeColors.txt3, marginTop: 25 }]}>SETTINGS</Text>
@@ -532,6 +580,30 @@ export default function ProfileScreen() {
                     <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Get +25 Potatoes instantly on creating a new account.</Text>
                   </View>
                   <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+25 🥔</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>📅</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Daily Quest Completion</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Complete all daily tasks (Upvote 3 posts & Create 1 post).</Text>
+                  </View>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+5 🥔</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>🔥</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Campus Streak Multiplier</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Earn double potatoes (2x multiplier) during campus win-streaks!</Text>
+                  </View>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>2x Multiplier</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>🤝</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Mutual Wave Chat Matching</Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Get free chat rooms instantly on mutual wave matching (0 potato cost).</Text>
+                  </View>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>FREE</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                   <Text style={{ fontSize: 20 }}>📝</Text>

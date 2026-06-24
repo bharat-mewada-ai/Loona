@@ -28,7 +28,11 @@ export default class ErrorBoundary extends Component<Props, State> {
     
     // Report crash to backend
     // Note: We use the /v1 prefix as configured in the server
-    fetch(`${API_URL}/errors/log`, {
+    const baseUrl = API_URL.endsWith('v1') || API_URL.endsWith('v1/')
+      ? (API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL)
+      : `${API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL}/v1`;
+
+    fetch(`${baseUrl}/errors/log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

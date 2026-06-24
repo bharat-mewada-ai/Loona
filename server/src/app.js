@@ -19,6 +19,9 @@ import uploadRoutes from "./routes/upload.routes.js";
 import configRoutes from "./routes/config.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import errorRoutes from "./routes/error.routes.js";
+import dailyPollRoutes from "./routes/dailyPoll.routes.js";
+import campusStreakRoutes from "./routes/campusStreak.routes.js";
+import shopRoutes from "./routes/shop.routes.js";
 import redis from "./utils/redis.js";
 import { optionalAuth } from "./middlewares/auth.js";
 import { startDeleteExpiredAccountsJob } from "./jobs/deleteExpiredAccounts.js";
@@ -146,6 +149,9 @@ app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/config", configRoutes);
 app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/v1/errors", errorRoutes);
+app.use("/api/v1/polls", dailyPollRoutes);
+app.use("/api/v1/streaks", campusStreakRoutes);
+app.use("/api/v1/shop", shopRoutes);
 
 // ─── Start Cron Jobs ──────────────────────────────────────────────────────────
 startDeleteExpiredAccountsJob();

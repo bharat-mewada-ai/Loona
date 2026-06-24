@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Image, Alert } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useUIStore } from '../../src/store/uiStore';
@@ -12,6 +13,7 @@ import { uploadToCloudinary } from '../../src/utils/uploadToCloudinary';
 import { Ionicons } from '@expo/vector-icons';
 import { formatMessageTime } from '../../src/utils/time';
 import { useAnalytics } from '../../src/hooks/useAnalytics';
+import { getSocket } from '../../src/utils/socket';
 
 export default function ChatRoomScreen() {
   const { id, name, isGroup } = useLocalSearchParams();
@@ -27,9 +29,40 @@ export default function ChatRoomScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [showAttachment, setShowAttachment] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashList<any>>(null);
+
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef(false);
+  const token = useAuthStore(s => s.token);
 
   const { data, isLoading, isError } = useMessages(id as string);
+
+  useEffect(() => {
+    if (!id || !token) return;
+    const s = getSocket(token);
+    
+    const handleUserTyping = (payload: any) => {
+      if (payload.chatId === id && payload.userId !== user?._id) {
+        setIsOtherTyping(true);
+      }
+    };
+    
+    const handleUserStopTyping = (payload: any) => {
+      if (payload.chatId === id && payload.userId !== user?._id) {
+        setIsOtherTyping(false);
+      }
+    };
+    
+    s.on('userTyping', handleUserTyping);
+    s.on('userStopTyping', handleUserStopTyping);
+    
+    return () => {
+      s.off('userTyping', handleUserTyping);
+      s.off('userStopTyping', handleUserStopTyping);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [id, token, user?._id]);
   const { mutate: sendMessage, isPending } = useSendMessage();
   const { mutate: blockUser } = useBlockUser();
   const { mutate: reveal } = useRevealIdentity();
@@ -93,6 +126,14 @@ export default function ChatRoomScreen() {
 
   const handleSend = () => {
     if (!inputText.trim() && !image) return;
+    
+    // Stop typing status instantly on send
+    if (isTypingRef.current && token && id) {
+      isTypingRef.current = false;
+      getSocket(token).emit('stopTyping', id);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    }
+    
     sendMessage({ chatId: id as string, content: inputText, image: image || undefined });
     setInputText('');
     setImage('');
@@ -174,6 +215,10 @@ export default function ChatRoomScreen() {
     const isMe = item.senderType === 'me';
     if (!isMe) return null;
 
+    if (item.status === 'sending' || item.isOptimistic) {
+      return <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.55)" style={{ marginLeft: 3 }} />;
+    }
+
     const isRead = item.readBy && item.readBy.length > 1;
     
     // Determine delivery status: if the other user has been active since the message was created
@@ -249,7 +294,9 @@ export default function ChatRoomScreen() {
             </View>
             <View>
               <Text style={[s.headerName, { color: themeColors.txt }]}>{otherName}</Text>
-              <Text style={[s.statusTxt, { color: themeColors.txt3 }]}>Last seen recently</Text>
+              <Text style={[s.statusTxt, { color: isOtherTyping ? themeColors.ogi : themeColors.txt3, fontWeight: isOtherTyping ? '700' : '400' }]}>
+                {isOtherTyping ? 'typing...' : 'Last seen recently'}
+              </Text>
             </View>
           </TouchableOpacity>
           <View style={s.headerRight}>
@@ -280,13 +327,18 @@ export default function ChatRoomScreen() {
         )}
 
         {/* Messages */}
-        <FlatList
+        <FlashList
           ref={flatListRef}
           data={messages}
+          estimatedItemSize={80}
           keyExtractor={(item) => item._id}
           contentContainerStyle={s.listContent}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          removeClippedSubviews={Platform.OS !== 'web'}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={11}
           renderItem={({ item }) => {
             const isMe = item.senderType === 'me';
             const hasImage = !!item.image;
@@ -394,6 +446,19 @@ export default function ChatRoomScreen() {
                 onChangeText={(text) => {
                   setInputText(text);
                   if (showAttachment) setShowAttachment(false);
+                  
+                  if (token && id) {
+                    const s = getSocket(token);
+                    if (!isTypingRef.current) {
+                      isTypingRef.current = true;
+                      s.emit('typing', id);
+                    }
+                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                    typingTimeoutRef.current = setTimeout(() => {
+                      isTypingRef.current = false;
+                      s.emit('stopTyping', id);
+                    }, 2000);
+                  }
                 }}
                 onFocus={() => setShowAttachment(false)}
                 multiline

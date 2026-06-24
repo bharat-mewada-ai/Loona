@@ -5,8 +5,9 @@ import '../global.css';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 import * as Updates from 'expo-updates';
+import { QueryClientProvider } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '../src/utils/queryClient';
 import {
   useFonts,
   Syne_700Bold,
@@ -89,9 +90,7 @@ Notifications.setNotificationHandler({
   } as any),
 });
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
-});
+
 
 function RootLayout() {
   const { loadStoredAuth, user, isInitialized } = useAuthStore();

@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
   Text, 
   TouchableOpacity, 
   ScrollView, 
-  FlatList, 
   ActivityIndicator, 
   StyleSheet,
   Modal,
   Platform,
   RefreshControl,
-  Image
+  Image,
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from "expo-location";
 import NetInfo from '@react-native-community/netinfo';
@@ -34,6 +34,10 @@ import StoryRail from "../../src/components/StoryRail";
 import EventsView from "../../src/components/EventsView";
 import { useDeletePost } from "../../src/hooks/usePosts";
 
+import { useTodayPoll, useVoteTodayPoll } from "../../src/hooks/useDailyPoll";
+import { postsApi } from "../../src/api/posts.api";
+import { BlurView } from "expo-blur";
+
 export default function Feed() {
   useAnalytics('home');
   const router = useRouter();
@@ -41,7 +45,14 @@ export default function Feed() {
   const { mutate: deletePost } = useDeletePost();
   const { data: leaderboardData } = useLeaderboard();
   
+  const { user } = useAuthStore();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  const { data: poll, isLoading: pollLoading } = useTodayPoll();
+  const { mutate: votePoll, isPending: isVoting } = useVoteTodayPoll();
+  const [shakeModalVisible, setShakeModalVisible] = useState(false);
+  const [randomPost, setRandomPost] = useState<any>(null);
+  const [shakeLoading, setShakeLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -49,6 +60,37 @@ export default function Feed() {
       if (loc) setUserLocation(loc);
     })();
   }, []);
+
+  // Fix: auto-refetch when user switches to events tab so data appears without manual pull-to-refresh
+  useEffect(() => {
+    if (activeTab === 'events') {
+      refetch();
+    }
+  }, [activeTab]);
+
+  const handleShakeSneak = async () => {
+    if (shakeModalVisible || shakeLoading || !user) return;
+    triggerHaptic();
+    setShakeLoading(true);
+    try {
+      const otherCampus = user?.campus === 'ogi' ? 'lnct' : 'ogi';
+      const res = await postsApi.getFeed({ campus: otherCampus, limit: 15 });
+      if (res && res.posts && res.posts.length > 0) {
+        const randomIdx = Math.floor(Math.random() * res.posts.length);
+        setRandomPost(res.posts[randomIdx]);
+        setShakeModalVisible(true);
+      }
+    } catch (err) {
+      console.warn("Shake to Sneak fetch failed", err);
+    } finally {
+      setShakeLoading(false);
+    }
+  };
+
+  // Shake detector (disabled to prevent native module crashes on older builds)
+  useEffect(() => {
+    console.log("[Accelerometer] Disabled to prevent startup crash on this build version.");
+  }, [user, shakeModalVisible, shakeLoading]);
 
   const activeCampus = useUIStore(s => s.activeCampus);
   const activeTab = useUIStore(s => s.activeTab);
@@ -68,7 +110,6 @@ export default function Feed() {
     });
     return () => unsubscribe();
   }, []);
-  const { user } = useAuthStore();
   let posts = data?.pages.flatMap((page) => page.posts) ?? [];
 
   // Filter stories out of 'all' feed because they are in the Rail
@@ -81,10 +122,77 @@ export default function Feed() {
     setDropdownOpen(false);
   };
 
+  const DailyPollWidget = () => {
+    if (pollLoading || !poll) return null;
+    const totalVotes = poll.options.reduce((acc, opt) => acc + opt.votes, 0);
+
+    return (
+      <View style={[s.pollCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <Text style={{ fontSize: 11, fontWeight: '900', color: themeColors.ogi, letterSpacing: 1 }}>POLL OF THE DAY</Text>
+          <View style={{ backgroundColor: themeColors.ogi + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+            <Text style={{ color: themeColors.ogi, fontSize: 8, fontWeight: '900' }}>LIVE</Text>
+          </View>
+        </View>
+        <Text style={{ fontSize: 15, fontWeight: '800', color: themeColors.txt, marginBottom: 12 }}>{poll.question}</Text>
+        <View style={{ gap: 8 }}>
+          {poll.options.map((opt, idx) => {
+            const hasVoted = poll.userVote !== null && poll.userVote !== undefined;
+            const isSelected = poll.userVote === idx;
+            const percent = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
+
+            if (hasVoted) {
+              return (
+                <View key={idx} style={{ height: 44, borderRadius: 12, backgroundColor: themeColors.card2, overflow: 'hidden', justifyContent: 'center' }}>
+                  <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${percent}%`, backgroundColor: isSelected ? themeColors.ogi + '25' : themeColors.bdr + '50' }} />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16 }}>
+                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: isSelected ? '700' : '500' }}>
+                      {opt.text} {isSelected && ' ⭐️'}
+                    </Text>
+                    <Text style={{ color: themeColors.txt2, fontSize: 12, fontWeight: '700' }}>{percent}% ({opt.votes})</Text>
+                  </View>
+                </View>
+              );
+            }
+
+            return (
+              <TouchableOpacity
+                key={idx}
+                style={{ height: 44, borderRadius: 12, borderWidth: 1, borderColor: themeColors.bdr, justifyContent: 'center', paddingHorizontal: 16 }}
+                onPress={() => {
+                  triggerHaptic();
+                  votePoll(idx);
+                }}
+                disabled={isVoting}
+              >
+                <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '600' }}>{opt.text}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={{ color: themeColors.txt3, fontSize: 10, marginTop: 10 }}>Total Votes: {totalVotes}</Text>
+      </View>
+    );
+  };
+
+  const renderItem = useCallback(({ item }: { item: any }) => (
+    <PostCard
+      post={item}
+      isAllTab={activeTab === 'all'}
+      isConfessionTab={activeTab === 'confess'}
+      userLocation={userLocation}
+    />
+  ), [activeTab, userLocation]);
+
   const renderHeader = () => {
     // Show Story Rail in 'All' tab only
     if (activeTab === 'all') {
-      return <StoryRail />;
+      return (
+        <View style={{ gap: 16, marginBottom: 8 }}>
+          <StoryRail />
+          <DailyPollWidget />
+        </View>
+      );
     }
 
     // Show Discussions Section only in Discussion tab
@@ -238,11 +346,12 @@ export default function Feed() {
             userLocation={userLocation}
           />
       ) : (
-        <FlatList
+        <FlashList
           data={posts}
           keyExtractor={(item) => item._id}
           ListHeaderComponent={renderHeader}
-          renderItem={({ item }) => <PostCard post={item} isAllTab={activeTab === 'all'} isConfessionTab={activeTab === 'confess'} userLocation={userLocation} />}
+          renderItem={renderItem}
+          estimatedItemSize={380}
           scrollEventThrottle={16}
           contentContainerStyle={[s.listContent, { paddingBottom: 110 }]}
           showsVerticalScrollIndicator={false}
@@ -293,6 +402,63 @@ export default function Feed() {
           <Text style={s.fabIcon}>+</Text>
         </TouchableOpacity>
       )}
+
+      {/* Shake to Sneak Modal */}
+      <Modal visible={shakeModalVisible} transparent animationType="slide">
+        <View style={s.modalBg}>
+          <BlurView intensity={90} style={[s.shakeModal, { backgroundColor: isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)', borderColor: themeColors.bdr, borderWidth: 1 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 24 }}>🕵️‍♂️</Text>
+                <View>
+                  <Text style={{ color: themeColors.txt, fontSize: 16, fontWeight: '900' }}>SHAKE TO SNEAK</Text>
+                  <Text style={{ color: themeColors.txt3, fontSize: 10 }}>Spying on the neighboring campus...</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShakeModalVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={24} color={themeColors.txt} />
+              </TouchableOpacity>
+            </View>
+
+            {randomPost && (
+              <View style={{ backgroundColor: themeColors.card, borderRadius: 20, padding: 16, borderColor: themeColors.ogi, borderWidth: 1.5, gap: 10 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: themeColors.txt3, fontSize: 11, fontWeight: '800' }}>
+                    🏫 {randomPost.campus?.toUpperCase()} CAMPUS
+                  </Text>
+                  <Text style={{ color: themeColors.txt3, fontSize: 10 }}>{new Date(randomPost.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                </View>
+                <Text style={{ color: themeColors.txt, fontSize: 15, fontWeight: '800' }}>{randomPost.title}</Text>
+                {randomPost.body && <Text style={{ color: themeColors.txt2, fontSize: 13 }} numberOfLines={3}>{randomPost.body}</Text>}
+                
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontSize: 14 }}>🔥</Text>
+                    <Text style={{ color: themeColors.ogi, fontWeight: '800', fontSize: 12 }}>{randomPost.upvotes} upvotes</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={{ backgroundColor: themeColors.ogi, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 }}
+                    onPress={() => {
+                      setShakeModalVisible(false);
+                      router.push({ pathname: '/post/[id]', params: { id: randomPost._id } } as any);
+                    }}
+                  >
+                    <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '800' }}>Reveal Thread</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={{ alignSelf: 'center', marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+              onPress={handleShakeSneak}
+              disabled={shakeLoading}
+            >
+              <Text style={{ color: themeColors.ogi, fontWeight: '800', fontSize: 13 }}>{shakeLoading ? 'Loading...' : '🔄 Shake Again'}</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -362,4 +528,15 @@ const s = StyleSheet.create({
   startDiscussionBanner: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 20, borderWidth: 1, padding: 16, marginTop: 8 },
   offlineBanner: { padding: 8, alignItems: 'center' },
   offlineTxt: { color: '#FFF', fontSize: 11, fontWeight: '800' },
+  shakeModal: {
+    width: '95%',
+    borderRadius: 24,
+    padding: 20,
+    alignSelf: 'center',
+  },
+  pollCard: {
+    padding: 16,
+    borderRadius: 24,
+    borderWidth: 1,
+  },
 });

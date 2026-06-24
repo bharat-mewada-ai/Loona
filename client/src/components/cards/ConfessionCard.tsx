@@ -23,7 +23,8 @@ const REACTION_LIST = [
 
 const ConfessionCard = React.memo(({ post, onDelete, onReport }: Props) => {
   const { mutate: react } = useReact();
-  const { isDark, openCommentSheet } = useUIStore();
+  const isDark = useUIStore(s => s.isDark);
+  const openCommentSheet = useUIStore(s => s.openCommentSheet);
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 

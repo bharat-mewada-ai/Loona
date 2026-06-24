@@ -7,7 +7,9 @@ import { getColors } from '../theme/colors';
 
 export default function StoryRail() {
   const { data, isLoading } = useStories();
-  const { isDark, openStoryViewer, openComposeSheet } = useUIStore();
+  const isDark = useUIStore(s => s.isDark);
+  const openStoryViewer = useUIStore(s => s.openStoryViewer);
+  const openComposeSheet = useUIStore(s => s.openComposeSheet);
   const themeColors = getColors(isDark);
 
   const stories = data?.pages.flatMap(p => p.posts) || [];

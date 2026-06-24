@@ -49,10 +49,10 @@ export const useVote = () => {
   return useMutation({
     mutationFn: postsApi.vote,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['posts'] });
+      // Optimistic update in onMutate already updated the UI instantly.
+      // Only invalidate leaderboard as potato rankings change server-side.
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
       qc.invalidateQueries({ queryKey: ['me'] });
-      qc.invalidateQueries({ queryKey: ['post'] }); // Invalidate detail view too
     },
   });
 };
@@ -105,7 +105,8 @@ export const useVotePoll = () => {
       qc.setQueryData(['posts', campus, tab], context?.previousPosts);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['posts'] });
+      // Optimistic update in onMutate already applied the poll vote to the UI.
+      // No feed refetch needed.
     },
   });
 };
@@ -117,10 +118,9 @@ export const useReact = () => {
     mutationFn: ({ id, reaction }: { id: string; reaction: string }) =>
       postsApi.react(id, reaction),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['posts'] });
+      // Reactions are instant via haptics — no full feed refetch needed.
+      // Leaderboard may update reaction-based potato scores.
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
-      qc.invalidateQueries({ queryKey: ['me'] });
-      qc.invalidateQueries({ queryKey: ['post'] });
     },
   });
 };
@@ -254,6 +254,7 @@ export const useCreatePost = () => {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['posts'], exact: false });
       qc.invalidateQueries({ queryKey: ['stats'] });
+      qc.invalidateQueries({ queryKey: ['me'] });
       // After posting, ensure user is back in their own campus feed to see the post
       const user = useAuthStore.getState().user;
       if (user?.campus) {

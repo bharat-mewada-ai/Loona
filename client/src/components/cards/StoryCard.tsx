@@ -15,7 +15,8 @@ interface Props {
 
 export default function StoryCard({ post, onDelete }: Props) {
   const { mutate: vote } = useVote();
-  const { isDark, openStoryViewer } = useUIStore();
+  const isDark = useUIStore(s => s.isDark);
+  const openStoryViewer = useUIStore(s => s.openStoryViewer);
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 

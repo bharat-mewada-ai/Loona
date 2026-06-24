@@ -1,6 +1,8 @@
 import Post from "../models/post.model.js";
 import Comment from "../models/comment.model.js";
 import User from "../models/user.model.js";
+import Chat from "../models/chat.model.js";
+import { getCampusMultiplier } from "../utils/streakHelper.js";
 import Vote from "../models/vote.model.js";
 import Report from "../models/report.model.js";
 import BhandaraVote from "../models/bhandaraVote.model.js";
@@ -108,7 +110,28 @@ export const createPost = async (req, res) => {
       if (user) {
         // Update user stats
         user.postCount = (user.postCount || 0) + 1;
-        user.potato = (user.potato || 0) + 5;
+
+        // Apply campus multiplier to post potato payout
+        const multiplier = await getCampusMultiplier(user.campus);
+        user.potato = (user.potato || 0) + (5 * multiplier);
+
+        // Daily Quest: Create 1 post
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (user.lastQuestResetDate !== todayStr) {
+          user.dailyUpvotesCount = 0;
+          user.dailyPostsCount = 0;
+          user.questsCompletedToday = false;
+          user.lastQuestResetDate = todayStr;
+        }
+
+        user.dailyPostsCount = (user.dailyPostsCount || 0) + 1;
+
+        let questCompletedJustNow = false;
+        if (user.dailyPostsCount >= 1 && user.dailyUpvotesCount >= 3 && !user.questsCompletedToday) {
+          user.questsCompletedToday = true;
+          user.potato += 5; // Reward +5 potatoes
+          questCompletedJustNow = true;
+        }
 
         const today = new Date();
         today.setUTCHours(0, 0, 0, 0);
@@ -124,6 +147,18 @@ export const createPost = async (req, res) => {
         user.lastPostDate = new Date();
         await checkAndAwardBadges(user);
         await user.save();
+
+        if (questCompletedJustNow) {
+          await createNotification({
+            recipient: user._id,
+            sender: user._id,
+            type: "system",
+            title: "⚡ Daily Quest Completed!",
+            body: "You created a post today and earned +5 Potatoes! 🥔",
+            data: { type: "potato_update" }
+          });
+        }
+
         try {
           await redis.del(`campusRank:${user._id}`);
         } catch (err) {
@@ -152,8 +187,6 @@ export const createPost = async (req, res) => {
           }
         }
       }
-
-
 
       invalidateCache("/api/posts");
       invalidateCache("/api/auth/leaderboard");
@@ -325,14 +358,15 @@ export const votePost = async (req, res) => {
   updatePostScore(post);
   await post.save();
 
-  // Karma logic for author
+  // Karma logic for author (adjusted with campus multiplier)
+  const multiplier = await getCampusMultiplier(post.campus);
+  const potatoChange = existingVote ? -(3 * multiplier) : (3 * multiplier);
+
   const postAuthor = await User.findByIdAndUpdate(
     post.author,
-    { $inc: { potato: existingVote ? -3 : 3, upvotesReceived: existingVote ? -1 : 1 } },
+    { $inc: { potato: potatoChange, upvotesReceived: existingVote ? -1 : 1 } },
     { new: true }
   );
-
-
 
   if (postAuthor) {
     await checkAndAwardBadges(postAuthor);
@@ -344,20 +378,58 @@ export const votePost = async (req, res) => {
     }
   }
 
-  // Track voter stats
+  // Track voter stats & Daily Quest: Upvote 3 posts
   if (!existingVote) {
     req.user.upvotesGiven += 1;
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (req.user.lastQuestResetDate !== todayStr) {
+      req.user.dailyUpvotesCount = 0;
+      req.user.dailyPostsCount = 0;
+      req.user.questsCompletedToday = false;
+      req.user.lastQuestResetDate = todayStr;
+    }
+
+    req.user.dailyUpvotesCount = (req.user.dailyUpvotesCount || 0) + 1;
+
+    let voterQuestCompletedJustNow = false;
+    if (req.user.dailyUpvotesCount >= 3 && req.user.dailyPostsCount >= 1 && !req.user.questsCompletedToday) {
+      req.user.questsCompletedToday = true;
+      req.user.potato += 5; // Reward +5 potatoes
+      voterQuestCompletedJustNow = true;
+    }
+
     await req.user.save();
+
+    if (voterQuestCompletedJustNow) {
+      await createNotification({
+        recipient: req.user._id,
+        sender: req.user._id,
+        type: "system",
+        title: "⚡ Daily Quest Completed!",
+        body: "You upvoted 3 posts today and earned +5 Potatoes! 🥔",
+        data: { type: "potato_update" }
+      });
+    }
   }
 
-  // ─── Trigger Notification ──────────────────────────────────────────────────
+  // ─── Trigger Notification (High-Dopamine Template Randomization) ──────────────────────────────────────────────────
   if (!existingVote && post.author.toString() !== req.user._id.toString()) {
-    createNotification({
+    const postSnippet = `"${post.title.substring(0, 20)}${post.title.length > 20 ? '...' : ''}"`;
+    const templates = [
+      { title: "New Potato! 🥔", body: `Someone upvoted your post ${postSnippet}` },
+      { title: "🔥 Going Hot!", body: `Your post ${postSnippet} just received an upvote! Keep it up.` },
+      { title: "✨ Sweet Validation!", body: `A peer upvoted your post ${postSnippet}!` },
+      { title: "📈 Potato Alert!", body: `Your stats are rising! Someone upvoted your post.` }
+    ];
+    const picked = templates[Math.floor(Math.random() * templates.length)];
+
+    await createNotification({
       recipient: post.author,
       sender: req.user._id,
       type: "upvote",
-      title: "New Potato! 🥔",
-      body: `Someone upvoted your post: "${post.title.substring(0, 30)}${post.title.length > 30 ? '...' : ''}"`,
+      title: picked.title,
+      body: picked.body,
       data: { postId: post._id, type: "potato_update" }
     });
   }
@@ -622,12 +694,11 @@ export const addComment = async (req, res) => {
   updatePostScore(post);
   await post.save();
 
-  // Update user stats
+  // Update user stats (adjusted with campus multiplier)
   req.user.commentsCount = (req.user.commentsCount || 0) + 1;
-  req.user.potato += 2;
-  
+  const multiplierVal = await getCampusMultiplier(req.user.campus);
+  req.user.potato += (2 * multiplierVal);
 
-  
   await checkAndAwardBadges(req.user);
   await req.user.save();
   try {
@@ -636,9 +707,18 @@ export const addComment = async (req, res) => {
     logger.error("Rank invalidation failed in addComment:", err.message);
   }
 
-  // ─── Trigger Notification ──────────────────────────────────────────────────
+  // ─── Trigger Notification (High-Dopamine Randomization) ──────────────────────────────────────────────────
   if (post.author.toString() !== req.user._id.toString()) {
-    createNotification({
+    const postSnippet = `"${post.title.substring(0, 20)}${post.title.length > 20 ? '...' : ''}"`;
+    const templates = [
+      { title: "New Comment! 💬", body: `Someone replied to your post: ${postSnippet}` },
+      { title: "🤫 Gossip Alert!", body: `Someone just replied to your anonymous post: ${postSnippet}` },
+      { title: "👀 Read the reply!", body: `A peer is sharing their thoughts on your post: ${postSnippet}` },
+      { title: "💬 Fresh Feedback!", body: `Your post ${postSnippet} has a new comment thread active.` }
+    ];
+    const picked = templates[Math.floor(Math.random() * templates.length)];
+
+    await createNotification({
       recipient: post.author,
       sender: req.user._id,
       type: "comment",

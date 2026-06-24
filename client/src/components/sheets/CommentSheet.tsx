@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal, Pressable,
-  TextInput, ScrollView, ActivityIndicator, FlatList, Image, Alert, KeyboardAvoidingView, Platform
+  TextInput, ScrollView, ActivityIndicator, Image, Alert, KeyboardAvoidingView, Platform
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, getColors } from '../../theme/colors';
 import { useUIStore } from '../../store/uiStore';
@@ -103,21 +104,32 @@ export default function CommentSheet() {
               <Text style={[s.title, { color: themeColors.txt }]}>Comments</Text>
             </View>
 
-            <FlatList
+            <FlashList
               data={comments}
+              estimatedItemSize={90}
               keyExtractor={(item) => item._id}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
                 <View style={[s.commentRow, item.parentId && s.nestedComment]}>
                   {item.parentId && <View style={[s.depthLine, { backgroundColor: themeColors.bdr }]} />}
                   <View style={[s.avatarCircle, { backgroundColor: themeColors.card2 }]}>
-                    <Text style={{ fontSize: 16 }}>{post?.type === 'confess' ? '👤' : item.anonAvatar}</Text>
+                    <Text style={{ fontSize: 16 }}>{item.anonAvatar || '👤'}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={s.commentContent}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text style={[s.cName, { color: themeColors.txt }]}>{post?.type === 'confess' ? 'Anonymous' : item.anonName}</Text>
-                        {(item.authorIsVerified && post?.type !== 'confess') && (
+                        <Text style={[
+                          s.cName, 
+                          { 
+                            color: post && (post.author?._id || post.author)?.toString() === item.author?.toString()
+                              ? themeColors.ogi 
+                              : themeColors.txt 
+                          }
+                        ]}>
+                          {item.anonName}
+                          {post && (post.author?._id || post.author)?.toString() === item.author?.toString() && ' [OP]'}
+                        </Text>
+                        {item.authorIsVerified && (
                           <Ionicons name="checkmark-circle" size={14} color="#3897f0" />
                         )}
                         <Text style={[s.cTime, { color: themeColors.txt3 }]}>• {formatDistanceToNow(item.createdAt)}</Text>
@@ -158,11 +170,11 @@ export default function CommentSheet() {
                   <View style={[s.postHeader, { borderBottomColor: themeColors.bdr }]}>
                     <View style={s.postAuthorRow}>
                       <View style={[s.avatarCircle, { backgroundColor: themeColors.card2 }]}>
-                        <Text style={{ fontSize: 18 }}>{post.type === 'confess' ? '🕳️' : (post.author?.avatar || post.anonAvatar || '👤')}</Text>
+                        <Text style={{ fontSize: 18 }}>{post.type === 'confess' ? (post.anonAvatar || '🕳️') : (post.author?.avatar || post.anonAvatar || '👤')}</Text>
                       </View>
                       <View>
                         <Text style={[s.postAuthorName, { color: themeColors.txt }]}>
-                          {post.type === 'confess' ? 'Anonymous Confession' : post.anonName}
+                          {post.type === 'confess' ? `${post.anonName} [OP]` : post.anonName}
                         </Text>
                         <Text style={[s.postTime, { color: themeColors.txt3 }]}>{formatDistanceToNow(post.createdAt)}</Text>
                       </View>

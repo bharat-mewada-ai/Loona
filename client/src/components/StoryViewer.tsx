@@ -8,8 +8,11 @@ import { Post } from '../types';
 import { getColors } from '../theme/colors';
 import { useUIStore } from '../store/uiStore';
 import { formatDistanceToNow } from '../utils/time';
-import { usePost } from '../hooks/usePosts';
+import { usePost, useDeletePost } from '../hooks/usePosts';
 import { triggerHaptic } from '../utils/haptics';
+import { useAuthStore } from '../store/authStore';
+import { Ionicons } from '@expo/vector-icons';
+import { Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const STORY_DURATION = 8000; // 8 seconds per story
@@ -25,6 +28,14 @@ export default function StoryViewer() {
   const hasNext = currentIndex < storyList.length - 1;
   const hasPrev = currentIndex > 0;
   const hasPhoto = !!(story && story.image);
+
+  const { user } = useAuthStore();
+  const { mutate: deletePost } = useDeletePost();
+
+  const authorId = typeof story?.author === 'string' ? story.author : story?.author?._id?.toString();
+  const isAuthor = !!(user?._id && authorId && authorId === user._id.toString());
+  const isStaff = ['admin', 'moderator', 'super-admin'].includes(user?.role || '');
+  const canDelete = isAuthor || isStaff;
 
   useEffect(() => {
     if (showStoryViewer && story && !isLoading) {
@@ -85,12 +96,11 @@ export default function StoryViewer() {
 
   return (
     <Modal visible={showStoryViewer} animationType="fade" transparent={false} onRequestClose={closeStoryViewer}>
-      <Pressable style={[s.container, { backgroundColor: bgColor }]} onPress={handleTap}>
+      <Pressable style={[s.container, { backgroundColor: hasPhoto ? '#000' : bgColor }]} onPress={handleTap}>
         {story && story.image && (
-          <>
-            <Image source={{ uri: story.image }} style={StyleSheet.absoluteFill} contentFit="cover" />
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
-          </>
+          <View style={s.photoContainer}>
+            <Image source={{ uri: story.image }} style={s.photoStyle} contentFit="contain" />
+          </View>
         )}
         <SafeAreaView style={s.safe}>
           {/* Progress Bars */}
@@ -126,9 +136,40 @@ export default function StoryViewer() {
                 <Text style={s.name}>Loading...</Text>
               )}
             </View>
-            <TouchableOpacity onPress={closeStoryViewer} style={s.closeBtn}>
-              <Text style={s.closeTxt}>✕</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {story && canDelete && (
+                <TouchableOpacity 
+                  onPress={() => {
+                    stopProgress();
+                    Alert.alert(
+                      "Delete Story?",
+                      "Are you sure you want to delete this story permanently?",
+                      [
+                        { text: "Cancel", style: "cancel", onPress: () => startProgress() },
+                        { 
+                          text: "Delete", 
+                          style: "destructive", 
+                          onPress: () => {
+                            deletePost(story._id, {
+                              onSuccess: () => {
+                                closeStoryViewer();
+                                Alert.alert("Success", "Story deleted.");
+                              }
+                            });
+                          } 
+                        }
+                      ]
+                    );
+                  }}
+                  style={s.deleteBtn}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#FFF" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={closeStoryViewer} style={s.closeBtn}>
+                <Text style={s.closeTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Content */}
@@ -232,5 +273,23 @@ const s = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
+  },
+  photoContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  photoStyle: {
+    width: '100%',
+    height: '100%',
+  },
+  deleteBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

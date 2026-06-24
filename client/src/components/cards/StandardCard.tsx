@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Share } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Share, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../../types';
@@ -25,7 +25,9 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const { mutate: vote } = useVote();
   const { mutate: votePoll } = useVotePoll();
   const { mutate: toggleSave } = useSavePost();
-  const { openCommentSheet, openAuthorProfile, isDark } = useUIStore();
+  const isDark = useUIStore(s => s.isDark);
+  const openCommentSheet = useUIStore(s => s.openCommentSheet);
+  const openAuthorProfile = useUIStore(s => s.openAuthorProfile);
   const { user } = useAuthStore();
   const themeColors = getColors(isDark);
 
@@ -40,6 +42,12 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const isSavedFromServer = post.isSaved || user?.savedPosts?.some(id => id === post._id || (typeof id === 'object' && (id as any)._id === post._id));
   const [isSavedLocal, setIsSavedLocal] = useState(isSavedFromServer);
 
+  // Poll local vote state — updates instantly on tap without waiting for server refetch
+  const [userVoteLocal, setUserVoteLocal] = useState<number | null | undefined>(post.userVote);
+
+  // Potato animation
+  const potatoScale = useRef(new Animated.Value(post.hasVoted ? 1.35 : 1.0)).current;
+
   // Sync when server data updates
   React.useEffect(() => {
     setIsSavedLocal(isSavedFromServer);
@@ -47,7 +55,15 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
   const handleVote = () => {
     triggerHaptic('selection');
-    setVotedLocal((v) => !v);
+    const newVoted = !votedLocal;
+    setVotedLocal(newVoted);
+    // Spring animation — pop up on vote, shrink back on unvote
+    Animated.spring(potatoScale, {
+      toValue: newVoted ? 1.5 : 1.0,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 18,
+    }).start();
     vote(post._id);
   };
 
@@ -61,8 +77,11 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   };
 
   const handlePollVote = (index: number) => {
-    if (post.userVote !== null) return;
+    // Already voted — ignore
+    if (userVoteLocal !== null && userVoteLocal !== undefined) return;
     triggerHaptic('impact');
+    // Optimistic update: show selection immediately
+    setUserVoteLocal(index);
     votePoll({ id: post._id, optionIndex: index });
   };
 
@@ -203,7 +222,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           <Image 
             source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }} 
             style={[s.mediaImg, { backgroundColor: '#111' }]} 
-            contentFit="contain" 
+            contentFit="cover"
             accessibilityLabel="Attached post image"
           />
         </View>
@@ -225,24 +244,78 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
       {post.isPoll && post.pollOptions && (
         <View style={s.pollWrap}>
           {post.pollOptions.map((opt, i) => {
+            const hasVotedLocal = userVoteLocal !== null && userVoteLocal !== undefined;
+            const isSelected = userVoteLocal === i;
+            // After voting: show percentage bar. Before voting: show plain options
             const totalVotes = post.pollOptions?.reduce((a, b) => a + b.votes, 0) || 0;
-            const percent = totalVotes === 0 ? 0 : Math.round((opt.votes / totalVotes) * 100);
-            const isVoted = post.userVote === i;
+            // Add 1 to the selected option's votes for local display accuracy
+            const adjustedVotes = isSelected ? opt.votes + 1 : opt.votes;
+            const adjustedTotal = hasVotedLocal ? totalVotes + (userVoteLocal === i || post.userVote === userVoteLocal ? 0 : 1) : totalVotes;
+            const percent = (hasVotedLocal && adjustedTotal > 0)
+              ? Math.round((adjustedVotes / (adjustedTotal + (post.userVote === null || post.userVote === undefined ? 1 : 0))) * 100)
+              : 0;
             return (
               <TouchableOpacity
                 key={i}
-                style={[s.pollOpt, { backgroundColor: themeColors.card2, borderColor: isVoted ? themeColors.ogi : themeColors.bdr }]}
+                style={[
+                  s.pollOpt,
+                  {
+                    backgroundColor: isSelected
+                      ? themeColors.ogi + '12'
+                      : themeColors.card2,
+                    borderColor: isSelected ? themeColors.ogi : themeColors.bdr,
+                    borderWidth: isSelected ? 1.5 : 1,
+                  },
+                ]}
                 onPress={() => handlePollVote(i)}
-                disabled={post.userVote !== null && post.userVote !== undefined}
+                disabled={hasVotedLocal}
+                activeOpacity={hasVotedLocal ? 1 : 0.7}
                 accessibilityRole="button"
                 accessibilityLabel={`Vote for ${opt.text}. ${percent}% votes so far.`}
               >
-                <View style={[s.pollProgress, { width: `${percent}%`, backgroundColor: isVoted ? themeColors.ogi + '20' : themeColors.bdr + '20' }]} />
-                <Text style={[s.pollOptTxt, { color: themeColors.txt }]}>{opt.text}</Text>
-                {(post.userVote !== null && post.userVote !== undefined) ? <Text style={[s.pollPercent, { color: themeColors.txt3 }]}>{percent}%</Text> : null}
+                {/* Progress fill — only after voting */}
+                {hasVotedLocal && (
+                  <View
+                    style={[
+                      s.pollProgress,
+                      {
+                        width: `${percent}%`,
+                        backgroundColor: isSelected
+                          ? themeColors.ogi + '25'
+                          : themeColors.bdr + '15',
+                      },
+                    ]}
+                  />
+                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, zIndex: 1 }}>
+                  {/* Checkmark on selected */}
+                  {isSelected && (
+                    <View style={[s.pollCheck, { backgroundColor: themeColors.ogi }]}>
+                      <Text style={{ fontSize: 8, color: '#fff', fontWeight: '900' }}>✓</Text>
+                    </View>
+                  )}
+                  <Text style={[
+                    s.pollOptTxt,
+                    { color: isSelected ? themeColors.ogi : themeColors.txt, fontWeight: isSelected ? '700' : '500' },
+                  ]}>
+                    {opt.text}
+                  </Text>
+                </View>
+                {/* Percentage shown after voting */}
+                {hasVotedLocal && (
+                  <Text style={[s.pollPercent, { color: isSelected ? themeColors.ogi : themeColors.txt3, zIndex: 1 }]}>
+                    {percent}%
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}
+          {/* Total votes count */}
+          {(userVoteLocal !== null && userVoteLocal !== undefined) && (
+            <Text style={{ color: themeColors.txt3, fontSize: 11, marginTop: 4, marginLeft: 2 }}>
+              {(post.pollOptions.reduce((a, b) => a + b.votes, 0) + (post.userVote === null || post.userVote === undefined ? 1 : 0)).toLocaleString()} votes
+            </Text>
+          )}
         </View>
       )}
 
@@ -253,7 +326,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
             onPress={handleVote} 
             activeOpacity={0.7}
           >
-            <Text style={s.actionIcon}>🥔</Text>
+            <Animated.Text style={[s.actionIcon, { transform: [{ scale: potatoScale }] }]}>🥔</Animated.Text>
             <Text style={[s.actionCount, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>
               {post.upvotes + (votedLocal === initialVoted ? 0 : votedLocal ? 1 : -1)}
             </Text>
@@ -311,6 +384,7 @@ const s = StyleSheet.create({
   pollOptTxt: { fontSize: 14, fontWeight: '600', zIndex: 1 },
   pollProgress: { position: 'absolute', left: 0, top: 0, bottom: 0 },
   pollPercent: { fontSize: 12, fontWeight: '800', zIndex: 1 },
+  pollCheck: { width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, marginTop: 4 },
   footerLeft: { flexDirection: 'row', gap: 24, alignItems: 'center' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },

@@ -26,6 +26,10 @@ export interface User {
   // Soft-delete grace period
   scheduledForDeletion?: boolean;
   deletionScheduledAt?: string;
+  dailyUpvotesCount?: number;
+  dailyPostsCount?: number;
+  questsCompletedToday?: boolean;
+  lastQuestResetDate?: string;
 }
 
 export interface Post {
@@ -147,5 +151,29 @@ export interface Message {
   senderType: 'me' | 'other';
   senderName?: string;
   senderAvatar?: string;
+  createdAt: string;
+}
+
+export type ShopCategory = 'books' | 'notes' | 'stationery' | 'electronics' | 'clothing' | 'other';
+export type ShopStatus = 'pending_payment' | 'available' | 'sold';
+
+export interface ShopItem {
+  _id: string;
+  title: string;
+  description: string;
+  price: number;          // in INR ₹
+  category: ShopCategory;
+  seller: {
+    _id: string;
+    name: string;
+    avatar: string;
+    campus: string;
+  };
+  campus: string;
+  status: ShopStatus;
+  sellerUpi: string;
+  sellerContact: string;
+  isFeatured: boolean;
+  listingFeePaid: boolean;
   createdAt: string;
 }

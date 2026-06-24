@@ -89,5 +89,6 @@ postSchema.index({ author: 1, createdAt: -1 });
 postSchema.index({ title: "text", body: "text" });
 postSchema.index({ campus: 1, hidden: 1, _id: -1 });
 postSchema.index({ hidden: 1, _id: -1 });
+postSchema.index({ campus: 1, hidden: 1, type: 1, _id: -1 }); // Tab switching
 
 export default mongoose.model("Post", postSchema);

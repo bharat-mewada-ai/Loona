@@ -59,8 +59,8 @@ export const useMe = () => {
   const query = useQuery({
     queryKey: ['me'],
     queryFn: authApi.me,
-    staleTime: 30_000, // 30s — background refetchInterval keeps it fresh
-    refetchInterval: 10_000, // Auto-sync user details and potato count in background every 10s
+    staleTime: 60_000,        // fresh for 60s
+    refetchInterval: 60_000,  // sync once per minute — enough for potato/rank updates
     // Only run when we actually have a token — prevents a race-condition
     // where the query fires before loadStoredAuth() finishes and causes a
     // spurious 401 → token-refresh-fail → logout() loop.
@@ -144,6 +144,7 @@ export const useBlockedUsers = () => {
   return useQuery({
     queryKey: ['blocked-users'],
     queryFn: authApi.getBlockedUsers,
+    staleTime: 60_000,
   });
 };
 
@@ -154,7 +155,7 @@ export const useUpdateLocation = () => {
   });
 };
 
-export const useNearby = () => {
+export const useNearby = (enabled = true) => {
   return useQuery({
     queryKey: ['nearby'],
     queryFn: authApi.getNearby,
@@ -162,6 +163,7 @@ export const useNearby = () => {
     gcTime: 0,             // Don't keep stale nearby data in memory at all
     refetchInterval: 30_000, // Auto-refresh every 30s
     refetchOnWindowFocus: false, // Prevent spurious refetches on app-foreground
+    enabled,
   });
 };
 
@@ -184,14 +186,8 @@ export const useWaveUser = () => {
       // Rollback/sync if it fails
       queryClient.invalidateQueries({ queryKey: ['me'] });
     },
-    onSuccess: async () => {
-      try {
-        const updatedUser = await authApi.me();
-        setUser(updatedUser);
-        queryClient.invalidateQueries({ queryKey: ['me'] });
-      } catch (err) {
-        console.error('Failed to sync user profile after wave:', err);
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
 };
