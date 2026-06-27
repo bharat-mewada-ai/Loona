@@ -99,6 +99,7 @@ export default function Feed() {
   const isDark = useUIStore(s => s.isDark);
   const toggleDark = useUIStore(s => s.toggleDark);
   const openComposeSheet = useUIStore(s => s.openComposeSheet);
+  const isSneaking = activeCampus === 'all' || activeCampus !== user?.campus;
 
   const themeColors = getColors(isDark);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -195,8 +196,9 @@ export default function Feed() {
       );
     }
 
-    // Show Discussions Section only in Discussion tab
+    // Show Discussions Section only in Discussion tab, and hide if sneaking
     if (activeTab === 'discussion') {
+      if (isSneaking) return null;
       return (
         <View style={{ marginBottom: 24 }}>
           <View style={s.sectionHeader}>
@@ -381,7 +383,7 @@ export default function Feed() {
                   (activeTab as string) === 'offers' ? 'offers' :
                   (activeTab as string) === 'place' ? 'place' : 'feed'
                 }
-                onAction={() => openComposeSheet(activeTab === 'all' ? 'discussion' : activeTab as any)}
+                onAction={isSneaking ? undefined : () => openComposeSheet(activeTab === 'all' ? 'discussion' : activeTab as any)}
               />
             )
           }
@@ -389,7 +391,7 @@ export default function Feed() {
       )}
 
       {/* FAB - Hide if sneaking */}
-      {(activeCampus === 'all' || activeCampus === user?.campus) && (
+      {!isSneaking && (
         <TouchableOpacity 
           style={[s.fab, { backgroundColor: themeColors.ogi }]} 
           onPress={() => {

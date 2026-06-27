@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator
 import { Image } from 'expo-image';
 import { useStories } from '../hooks/useStories';
 import { useUIStore } from '../store/uiStore';
+import { useAuthStore } from '../store/authStore';
 import { getColors } from '../theme/colors';
 
 export default function StoryRail() {
@@ -10,6 +11,9 @@ export default function StoryRail() {
   const isDark = useUIStore(s => s.isDark);
   const openStoryViewer = useUIStore(s => s.openStoryViewer);
   const openComposeSheet = useUIStore(s => s.openComposeSheet);
+  const activeCampus = useUIStore(s => s.activeCampus);
+  const { user } = useAuthStore();
+  const isSneaking = activeCampus === 'all' || activeCampus !== user?.campus;
   const themeColors = getColors(isDark);
 
   const stories = data?.pages.flatMap(p => p.posts) || [];
@@ -26,9 +30,11 @@ export default function StoryRail() {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={[s.title, { color: themeColors.txt }]}>CAMPUS STORIES</Text>
-        <TouchableOpacity onPress={() => openComposeSheet('stories')}>
-          <Text style={[s.viewAll, { color: themeColors.ogi }]}>Post Yours +</Text>
-        </TouchableOpacity>
+        {!isSneaking && (
+          <TouchableOpacity onPress={() => openComposeSheet('stories')}>
+            <Text style={[s.viewAll, { color: themeColors.ogi }]}>Post Yours +</Text>
+          </TouchableOpacity>
+        )}
       </View>
       
       <ScrollView 
@@ -36,15 +42,17 @@ export default function StoryRail() {
         showsHorizontalScrollIndicator={false} 
         contentContainerStyle={s.scroll}
       >
-        <TouchableOpacity 
-          style={[s.addCard, { borderColor: themeColors.bdr }]}
-          onPress={() => openComposeSheet('stories')}
-        >
-          <View style={[s.addIconWrap, { backgroundColor: themeColors.card2 }]}>
-            <Text style={{ fontSize: 24 }}>+</Text>
-          </View>
-          <Text style={[s.addLabel, { color: themeColors.txt2 }]}>Add Story</Text>
-        </TouchableOpacity>
+        {!isSneaking && (
+          <TouchableOpacity 
+            style={[s.addCard, { borderColor: themeColors.bdr }]}
+            onPress={() => openComposeSheet('stories')}
+          >
+            <View style={[s.addIconWrap, { backgroundColor: themeColors.card2 }]}>
+              <Text style={{ fontSize: 24 }}>+</Text>
+            </View>
+            <Text style={[s.addLabel, { color: themeColors.txt2 }]}>Add Story</Text>
+          </TouchableOpacity>
+        )}
 
         {stories.map((story) => {
           const colors = ['#5D5FEF', '#ED4899', '#8B5CF6', '#F59E0B', '#10B981'];
