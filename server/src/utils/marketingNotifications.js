@@ -9,6 +9,16 @@ const SPICY_MESSAGES = [
   { title: "🏆 Campus War Update", body: "Aapka college peeche reh raha hai! Karma badhao aur apne campus ko top par lao!" },
   { title: "🔥 Trending Now", body: "Ek post poore campus mein aag laga rahi hai. Miss mat karo!" },
   { title: "💔 Single? Ya Mingled?", body: "Relationship status par nayi debate shuru ho gayi hai. Aapka kya kehna hai?" },
+  { title: "🤫 Internal Secrets Leaked?", body: "Kuch aisi baatein jo class group mein nahi, sirf Loona par share ho sakti hain. Dekho kya chal raha hai!" },
+  { title: "☕ Canteen Chronicles", body: "Canteen ki chai aur doston ki bakchodi miss ho rahi hai? Check out what others are talking about right now." },
+  { title: "🚶‍♂️ Mass Bunk Plan?", body: "Kya aaj sach mein mass bunk ho raha hai? Apne batchmates se confirm karo aur trend check karo!" },
+  { title: "🎓 Placement & Exam Stress?", body: "Exam ki taiyari ya stress release? Loona par aao aur dekho baaki sab kaise jugad kar rahe hain." },
+  { title: "🔍 Crush Detection Mode: ON", body: "Kisi ne aapke campus se ek sweet confession post kiya hai. Kahin wo aapke liye toh nahi?" },
+  { title: "🎭 Backbenchers Unite!", body: "Last bench ki talks ab direct Loona par feed mein aa rahi hain. Read the most hilarious posts of today." },
+  { title: "🤔 Unpopular Opinion Alert", body: "Humare campus ka sabse overrated department kaunsa hai? Debate join karo aur apna opinion do!" },
+  { title: "🎒 Lost & Found: Dil?", body: "Ek cheez jo poore campus se gayab hai... acchi attendance! Aao thoda rona-dhona aur masti share karein." },
+  { title: "🍕 Treat Time!", body: "Bina kisi reason ke doston se treat maangni hai? Aise hi crazy ideas ke liye campus feed check karo." },
+  { title: "⭐ Secret Admirer Post", body: "Suno! Koi chupke se kisi ko admire kar raha hai campus mein. Aao guessing game shuru karein!" }
 ];
 
 /**
@@ -64,12 +74,13 @@ export const initMarketingBot = () => {
     logger.info("[Marketing Bot] Daily spicy notification sent.");
   });
 
-  // 2. Inactivity Check (Check every hour for users inactive for 24h)
-  // This is a placeholder - for 5k users, you'd want a more optimized query
+  // 2. Inactivity Check (Check every hour for users who became inactive exactly 24 hours ago)
   cron.schedule("0 * * * *", async () => {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const twentyFiveHoursAgo = new Date(Date.now() - 25 * 60 * 60 * 1000);
+    
     const inactiveUsers = await User.find({
-      lastPostDate: { $lt: twentyFourHoursAgo },
+      lastPostDate: { $gt: twentyFiveHoursAgo, $lt: twentyFourHoursAgo },
       expoPushToken: { $exists: true, $ne: "" }
     }).limit(50); // Small chunks to avoid spam
 

@@ -295,6 +295,7 @@ export default function ShopScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={s.catScroll}
+            style={s.catScrollWrapper}
           >
             {CATEGORIES.map(cat => {
               const isActive = activeCategory === cat.id;
@@ -627,9 +628,10 @@ const s = StyleSheet.create({
   toggleBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 12 },
   toggleTxt: { fontWeight: '700', fontSize: 14 },
 
-  catScroll: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
-  catBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  catBtnTxt: { fontWeight: '700', fontSize: 13 },
+  catScrollWrapper: { flexGrow: 0, height: 38, marginBottom: 12 },
+  catScroll: { paddingHorizontal: 16, gap: 6 },
+  catBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1 },
+  catBtnTxt: { fontWeight: '700', fontSize: 12 },
 
   itemCard: {
     flex: 1, borderRadius: 20, padding: 14, overflow: 'hidden',

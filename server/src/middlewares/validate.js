@@ -60,7 +60,6 @@ export const updateProfileRules = [
   body("name")
     .optional()
     .trim()
-    .escape()
     .isLength({ min: 2, max: 30 }).withMessage("Name must be 2–30 characters")
     .matches(/^[^<>{}[\]]*$/).withMessage("Name contains invalid characters"),
   body("avatar")
@@ -70,7 +69,6 @@ export const updateProfileRules = [
   body("bio")
     .optional()
     .trim()
-    .escape()
     .isLength({ max: 150 }).withMessage("Bio must be at most 150 characters"),
   body("isPrivate")
     .optional()
@@ -91,13 +89,11 @@ export const updateProfileRules = [
 export const createPostRules = [
   body("title")
     .trim()
-    .escape()
     .notEmpty().withMessage("Title is required")
     .isLength({ max: 120 }).withMessage("Title must be at most 120 characters"),
   body("body")
     .optional()
     .trim()
-    .escape()
     .isLength({ max: 5000 }).withMessage("Body must be at most 5000 characters"),
   body("campus")
     .optional()   // server uses req.user.campus — this field is accepted but ignored
@@ -184,7 +180,6 @@ export const addCommentRules = [
     .isMongoId().withMessage("Invalid post ID"),
   body("content")
     .trim()
-    .escape()
     .notEmpty().withMessage("Comment content is required")
     .isLength({ max: 500 }).withMessage("Comment must be at most 500 characters"),
   body("image")
