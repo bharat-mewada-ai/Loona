@@ -41,6 +41,10 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
 
   const isBhandara = post.type === 'bhandara';
 
+  React.useEffect(() => {
+    setVotedLocal(post.hasVoted);
+  }, [post.hasVoted]);
+
   const handleGoing = () => {
     triggerHaptic('impact');
     const newState = !goingLocal;
@@ -179,7 +183,7 @@ const EventCard = React.memo(({ post, onDelete }: Props) => {
       <View style={s.footer}>
         <View style={s.footerLeft}>
           <TouchableOpacity style={s.fBtn} onPress={handleVote}>
-            <Text style={[s.fTxt, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>🥔 {post.upvotes + (votedLocal ? 1 : 0)}</Text>
+            <Text style={[s.fTxt, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>🥔 {post.upvotes + (votedLocal === post.hasVoted ? 0 : votedLocal ? 1 : -1)}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.fBtn} onPress={() => openCommentSheet(post._id)}>
             <Text style={[s.fTxt, { color: themeColors.txt3 }]}>💬 {post.commentCount || 0}</Text>

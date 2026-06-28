@@ -48,11 +48,99 @@ export const useVote = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: postsApi.vote,
-    onSuccess: () => {
-      // Optimistic update in onMutate already updated the UI instantly.
-      // Only invalidate leaderboard as potato rankings change server-side.
+    onMutate: async (id: string) => {
+      // Cancel outgoing refetches so they don't overwrite our optimistic update
+      await qc.cancelQueries({ queryKey: ['posts'] });
+      await qc.cancelQueries({ queryKey: ['post', id] });
+      await qc.cancelQueries({ queryKey: ['myPosts'] });
+      await qc.cancelQueries({ queryKey: ['savedPosts'] });
+
+      // Optimistic updates for feed lists ('posts')
+      qc.setQueriesData({ queryKey: ['posts'] }, (old: any) => {
+        if (!old || !old.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((post: any) => {
+              if (post._id === id) {
+                const currentlyVoted = post.hasVoted;
+                return {
+                  ...post,
+                  hasVoted: !currentlyVoted,
+                  upvotes: Math.max(0, post.upvotes + (currentlyVoted ? -1 : 1)),
+                };
+              }
+              return post;
+            }),
+          })),
+        };
+      });
+
+      // Optimistic updates for single post detail query ('post', id)
+      qc.setQueryData(['post', id], (old: any) => {
+        if (!old) return old;
+        const currentlyVoted = old.hasVoted;
+        return {
+          ...old,
+          hasVoted: !currentlyVoted,
+          upvotes: Math.max(0, old.upvotes + (currentlyVoted ? -1 : 1)),
+        };
+      });
+
+      // Optimistic updates for 'myPosts' query
+      qc.setQueriesData({ queryKey: ['myPosts'] }, (old: any) => {
+        if (!old || !old.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((post: any) => {
+              if (post._id === id) {
+                const currentlyVoted = post.hasVoted;
+                return {
+                  ...post,
+                  hasVoted: !currentlyVoted,
+                  upvotes: Math.max(0, post.upvotes + (currentlyVoted ? -1 : 1)),
+                };
+              }
+              return post;
+            }),
+          })),
+        };
+      });
+
+      // Optimistic updates for 'savedPosts' query
+      qc.setQueryData(['savedPosts'], (old: any) => {
+        if (!old || !Array.isArray(old)) return old;
+        return old.map((post: any) => {
+          if (post._id === id) {
+            const currentlyVoted = post.hasVoted;
+            return {
+              ...post,
+              hasVoted: !currentlyVoted,
+              upvotes: Math.max(0, post.upvotes + (currentlyVoted ? -1 : 1)),
+            };
+          }
+          return post;
+        });
+      });
+    },
+    onError: (_err, id) => {
+      // In case of error, invalidating queries is the safest way to restore correctness
+      qc.invalidateQueries({ queryKey: ['posts'] });
+      qc.invalidateQueries({ queryKey: ['post', id] });
+      qc.invalidateQueries({ queryKey: ['myPosts'] });
+      qc.invalidateQueries({ queryKey: ['savedPosts'] });
+    },
+    onSuccess: (_data, id) => {
+      // Invalidate queries so that we fetch correct state from server
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
       qc.invalidateQueries({ queryKey: ['me'] });
+      qc.invalidateQueries({ queryKey: ['posts'] });
+      qc.invalidateQueries({ queryKey: ['post', id] });
+      qc.invalidateQueries({ queryKey: ['myPosts'] });
+      qc.invalidateQueries({ queryKey: ['savedPosts'] });
     },
   });
 };

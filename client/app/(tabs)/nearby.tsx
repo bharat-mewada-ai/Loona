@@ -328,8 +328,8 @@ export default function NearbyScreen() {
                         ? { backgroundColor: isDark ? 'rgba(200, 245, 58, 0.1)' : 'rgba(22, 163, 74, 0.08)' }
                         : { backgroundColor: isDark ? 'rgba(255, 107, 53, 0.08)' : 'rgba(234, 88, 12, 0.08)' }
                     ]}>
-                      <Text style={[s.zoneTxt, { color: isVeryClose ? (isDark ? LIME : '#15803d') : (isDark ? ORANGE : '#c2410c') }]}>
-                        {isVeryClose ? 'very close' : 'nearby'}
+                      <Text style={[s.zoneTxt, { color: isVeryClose ? (isDark ? LIME : '#15803d') : (isDark ? ORANGE : '#c2410c'), textTransform: 'none' }]}>
+                        {Math.round(item.distance)}m away
                       </Text>
                     </View>
                   </View>

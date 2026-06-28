@@ -61,7 +61,7 @@ export const getMyListings = async (req, res) => {
 // Temporarily saves listing data; listing goes live only after payment verification
 export const createListingOrder = async (req, res) => {
   try {
-    const { title, description, price, category, sellerUpi, sellerContact, wantFeatured } = req.body;
+    const { title, description, price, category, sellerUpi, sellerContact, wantFeatured, paymentMethod = 'razorpay' } = req.body;
 
     if (!title || !price || !category) {
       return res.status(400).json({ error: 'Title, price, and category are required' });
@@ -70,43 +70,94 @@ export const createListingOrder = async (req, res) => {
       return res.status(400).json({ error: 'Price cannot be negative' });
     }
 
-    const feeAmount = wantFeatured ? LISTING_FEE_INR + BOOST_FEE_INR : LISTING_FEE_INR;
+    if (paymentMethod === 'potato') {
+      const listingPotatoCost = 50;
+      const boostPotatoCost = 150;
+      const totalPotatoCost = wantFeatured ? listingPotatoCost + boostPotatoCost : listingPotatoCost;
 
-    // Create Razorpay order
-    const order = await razorpay.orders.create({
-      amount: feeAmount * 100, // paise
-      currency: 'INR',
-      receipt: `shop_list_${req.user._id}_${Date.now()}`,
-      notes: { type: 'shop_listing', userId: req.user._id.toString() },
-    });
+      // Find user to check latest potato balance
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
 
-    // Save a pending listing
-    const item = await ShopItem.create({
-      title,
-      description,
-      price,
-      category,
-      seller: req.user._id,
-      campus: req.user.campus,
-      sellerUpi: sellerUpi || '',
-      sellerContact: sellerContact || '',
-      isFeatured: !!wantFeatured,
-      listingFeeOrderId: order.id,
-      status: 'pending_payment',
-    });
+      if ((user.potato || 0) < totalPotatoCost) {
+        return res.status(400).json({ error: `You need at least ${totalPotatoCost} 🥔 Potatoes to list this item. You currently have ${user.potato || 0} 🥔.` });
+      }
 
-    res.json({
-      itemId: item._id,
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      key: process.env.RAZORPAY_KEY_ID,
-      feeBreakdown: {
-        listingFee: LISTING_FEE_INR,
-        boostFee: wantFeatured ? BOOST_FEE_INR : 0,
-        total: feeAmount,
-      },
-    });
+      // Deduct potatoes
+      user.potato = (user.potato || 0) - totalPotatoCost;
+      await user.save();
+
+      // Create live listing immediately
+      const item = await ShopItem.create({
+        title,
+        description,
+        price,
+        category,
+        seller: req.user._id,
+        campus: req.user.campus,
+        sellerUpi: sellerUpi || '',
+        sellerContact: sellerContact || '',
+        isFeatured: !!wantFeatured,
+        status: 'available',
+        listingFeePaid: true,
+        boostFeePaid: !!wantFeatured,
+      });
+
+      // Populate seller fields for client-side display
+      const populatedItem = await ShopItem.findById(item._id).populate('seller', 'name avatar campus').lean();
+
+      return res.json({
+        itemId: item._id,
+        item: populatedItem,
+        paymentMethod: 'potato',
+        feeBreakdown: {
+          listingFee: listingPotatoCost,
+          boostFee: wantFeatured ? boostPotatoCost : 0,
+          total: totalPotatoCost,
+        },
+      });
+    } else {
+      const feeAmount = wantFeatured ? LISTING_FEE_INR + BOOST_FEE_INR : LISTING_FEE_INR;
+
+      // Create Razorpay order
+      const order = await razorpay.orders.create({
+        amount: feeAmount * 100, // paise
+        currency: 'INR',
+        receipt: `shop_list_${req.user._id}_${Date.now()}`,
+        notes: { type: 'shop_listing', userId: req.user._id.toString() },
+      });
+
+      // Save a pending listing
+      const item = await ShopItem.create({
+        title,
+        description,
+        price,
+        category,
+        seller: req.user._id,
+        campus: req.user.campus,
+        sellerUpi: sellerUpi || '',
+        sellerContact: sellerContact || '',
+        isFeatured: !!wantFeatured,
+        listingFeeOrderId: order.id,
+        status: 'pending_payment',
+      });
+
+      return res.json({
+        itemId: item._id,
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        key: process.env.RAZORPAY_KEY_ID,
+        feeBreakdown: {
+          listingFee: LISTING_FEE_INR,
+          boostFee: wantFeatured ? BOOST_FEE_INR : 0,
+          total: feeAmount,
+        },
+        paymentMethod: 'razorpay',
+      });
+    }
   } catch (err) {
     logger.error('[Shop] createListingOrder error:', err.message);
     res.status(500).json({ error: 'Could not create listing order' });

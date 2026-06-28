@@ -70,6 +70,7 @@ export default function ShopScreen() {
   const [newContact,     setNewContact]     = useState('');
   const [newCategory,    setNewCategory]    = useState<ShopCategory>('books');
   const [wantFeatured,   setWantFeatured]   = useState(false);
+  const [paymentMethod,  setPaymentMethod]  = useState<'potato' | 'razorpay'>('potato');
 
   // Item detail modal state
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
@@ -78,6 +79,7 @@ export default function ShopScreen() {
     setNewTitle(''); setNewDesc(''); setNewPrice('');
     setNewUpi(''); setNewContact('');
     setNewCategory('books'); setWantFeatured(false);
+    setPaymentMethod('potato');
   };
 
   const handleCreateListing = async () => {
@@ -91,35 +93,78 @@ export default function ShopScreen() {
       return;
     }
 
-    const totalFee = wantFeatured ? LISTING_FEE + BOOST_FEE : LISTING_FEE;
-    Alert.alert(
-      'Pay Listing Fee',
-      `A fee of ₹${totalFee} will be charged:\n• ₹${LISTING_FEE} listing fee${wantFeatured ? `\n• ₹${BOOST_FEE} featured boost` : ''}\n\nProceed to payment?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: `Pay ₹${totalFee}`,
-          onPress: async () => {
-            try {
-              setShowCreate(false);
-              await createListing({
-                title: newTitle.trim(),
-                description: newDesc.trim(),
-                price: priceNum,
-                category: newCategory,
-                sellerUpi: newUpi.trim(),
-                sellerContact: newContact.trim(),
-                wantFeatured,
-              });
-              resetForm();
-              Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
-            } catch (e) {
-              // errors handled in hook
-            }
+    if (paymentMethod === 'potato') {
+      const potatoCost = wantFeatured ? 200 : 50;
+      const currentPotato = user?.potato ?? 0;
+      if (currentPotato < potatoCost) {
+        Alert.alert(
+          'Insufficient Potatoes',
+          `You need ${potatoCost} 🥔 Potatoes to list this item. You have ${currentPotato} 🥔.\n\nPlease choose UPI payment or earn more potatoes.`
+        );
+        return;
+      }
+
+      Alert.alert(
+        'Confirm Listing',
+        `Use ${potatoCost} 🥔 Potatoes to list this item?\n\nProceed to list?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: `List for ${potatoCost} 🥔`,
+            onPress: async () => {
+              try {
+                setShowCreate(false);
+                await createListing({
+                  title: newTitle.trim(),
+                  description: newDesc.trim(),
+                  price: priceNum,
+                  category: newCategory,
+                  sellerUpi: newUpi.trim(),
+                  sellerContact: newContact.trim(),
+                  wantFeatured,
+                  paymentMethod: 'potato',
+                });
+                resetForm();
+                Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
+              } catch (e) {
+                // errors handled in hook
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } else {
+      const totalFee = wantFeatured ? LISTING_FEE + BOOST_FEE : LISTING_FEE;
+      Alert.alert(
+        'Pay Listing Fee',
+        `A fee of ₹${totalFee} will be charged:\n• ₹${LISTING_FEE} listing fee${wantFeatured ? `\n• ₹${BOOST_FEE} featured boost` : ''}\n\nProceed to payment?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: `Pay ₹${totalFee}`,
+            onPress: async () => {
+              try {
+                setShowCreate(false);
+                await createListing({
+                  title: newTitle.trim(),
+                  description: newDesc.trim(),
+                  price: priceNum,
+                  category: newCategory,
+                  sellerUpi: newUpi.trim(),
+                  sellerContact: newContact.trim(),
+                  wantFeatured,
+                  paymentMethod: 'razorpay',
+                });
+                resetForm();
+                Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
+              } catch (e) {
+                // errors handled in hook
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleDeleteListing = (item: ShopItem) => {
@@ -560,12 +605,17 @@ export default function ShopScreen() {
                     {
                       backgroundColor: wantFeatured ? LIME + '15' : themeColors.card2,
                       borderColor: wantFeatured ? LIME : themeColors.bdr,
+                      borderWidth: 1,
+                      marginTop: 8,
+                      gap: 12
                     },
                   ]}
                   onPress={() => { triggerHaptic('selection'); setWantFeatured(v => !v); }}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: themeColors.txt, fontWeight: '800', fontSize: 14 }}>⭐ Featured Boost (+₹{BOOST_FEE})</Text>
+                    <Text style={{ color: themeColors.txt, fontWeight: '800', fontSize: 14 }}>
+                      ⭐ Featured Boost (+150 🥔)
+                    </Text>
                     <Text style={{ color: themeColors.txt3, fontSize: 12, marginTop: 2 }}>
                       Your item appears at the top of all listings
                     </Text>
@@ -579,8 +629,8 @@ export default function ShopScreen() {
                 <View style={[s.feeSummary, { backgroundColor: themeColors.card2 }]}>
                   <Ionicons name="information-circle-outline" size={16} color={themeColors.txt3} />
                   <Text style={{ color: themeColors.txt3, fontSize: 12, flex: 1, marginLeft: 8 }}>
-                    Listing fee: ₹{LISTING_FEE}{wantFeatured ? ` + ₹${BOOST_FEE} boost = ₹${LISTING_FEE + BOOST_FEE} total` : ''}
-                    {'\n'}Payment is collected by Loona via Razorpay.
+                    Listing fee: 50 🥔{wantFeatured ? ' + 150 🥔 boost = 200 🥔 total' : ''}
+                    {'\n'}Your potato balance: {user?.potato ?? 0} 🥔
                   </Text>
                 </View>
 
@@ -593,7 +643,7 @@ export default function ShopScreen() {
                     <ActivityIndicator color="#000" />
                   ) : (
                     <Text style={s.submitTxt}>
-                      Pay ₹{wantFeatured ? LISTING_FEE + BOOST_FEE : LISTING_FEE} & List Item
+                      List Item for {wantFeatured ? '200' : '50'} 🥔
                     </Text>
                   )}
                 </TouchableOpacity>

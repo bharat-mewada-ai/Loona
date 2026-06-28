@@ -34,18 +34,23 @@ export const useCreateListing = () => {
 
   return useMutation({
     mutationFn: async (payload: CreateListingOrderPayload) => {
-      // Step 1: Create Razorpay order for listing fee
+      // Step 1: Create order / list item
       const orderData = await shopApi.createListingOrder(payload);
 
+      // If paid via potato, listing goes live immediately
+      if (orderData.paymentMethod === 'potato') {
+        return (orderData as any).item;
+      }
+
+      // Step 2: Open Razorpay checkout for INR payment
       const feeLabel = payload.wantFeatured
         ? `₹${orderData.feeBreakdown.total} (₹5 listing + ₹15 featured boost)`
         : '₹5 listing fee';
 
-      // Step 2: Open Razorpay checkout
       const razorpayOptions = {
         description: `Loona Campus Shop — ${feeLabel}`,
         image: 'https://loona.app/logo.png',
-        currency: orderData.currency,
+        currency: orderData.currency || 'INR',
         key: orderData.key,
         amount: orderData.amount,
         name: 'Loona Campus Shop',
@@ -71,11 +76,11 @@ export const useCreateListing = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shop', 'listings'] });
       queryClient.invalidateQueries({ queryKey: ['shop', 'my'] });
+      queryClient.invalidateQueries({ queryKey: ['me'] });
     },
     onError: (err: any) => {
-      // Razorpay throws a specific error when user cancels
       if (err?.code === 'PAYMENT_CANCELLED') return;
-      Alert.alert('Payment Failed', err?.description || 'Could not complete listing payment. Try again.');
+      Alert.alert('Payment Failed', err?.description || err?.response?.data?.error || 'Could not complete listing payment. Try again.');
     },
   });
 };

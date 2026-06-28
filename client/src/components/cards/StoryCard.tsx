@@ -27,6 +27,10 @@ export default function StoryCard({ post, onDelete }: Props) {
 
   const [votedLocal, setVotedLocal] = useState(post.hasVoted);
 
+  React.useEffect(() => {
+    setVotedLocal(post.hasVoted);
+  }, [post.hasVoted]);
+
   const handleVote = () => {
     setVotedLocal((v) => !v);
     vote(post._id);
@@ -62,7 +66,7 @@ export default function StoryCard({ post, onDelete }: Props) {
 
       <View style={s.footer}>
         <TouchableOpacity style={s.stat} onPress={handleVote}>
-          <Text style={s.statTxt}>🥔 {post.upvotes + (votedLocal ? 1 : 0)}</Text>
+          <Text style={s.statTxt}>🥔 {post.upvotes + (votedLocal === post.hasVoted ? 0 : votedLocal ? 1 : -1)}</Text>
         </TouchableOpacity>
         <View style={s.stat}>
           <Ionicons name="chatbubble-outline" size={12} color="#FFF" />

@@ -38,7 +38,6 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const canReport = !isAuthor;
 
   const [votedLocal, setVotedLocal] = useState(post.hasVoted ?? false);
-  const initialVoted = post.hasVoted ?? false; // used for delta calculation only
   const isSavedFromServer = post.isSaved || user?.savedPosts?.some(id => id === post._id || (typeof id === 'object' && (id as any)._id === post._id));
   const [isSavedLocal, setIsSavedLocal] = useState(isSavedFromServer);
 
@@ -52,6 +51,11 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   React.useEffect(() => {
     setIsSavedLocal(isSavedFromServer);
   }, [isSavedFromServer]);
+
+  // Sync votedLocal when post.hasVoted changes (e.g. optimistic cache updates or refetches)
+  React.useEffect(() => {
+    setVotedLocal(post.hasVoted ?? false);
+  }, [post.hasVoted]);
 
   const handleVote = () => {
     triggerHaptic('selection');
@@ -328,7 +332,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           >
             <Animated.Text style={[s.actionIcon, { transform: [{ scale: potatoScale }] }]}>🥔</Animated.Text>
             <Text style={[s.actionCount, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>
-              {post.upvotes + (votedLocal === initialVoted ? 0 : votedLocal ? 1 : -1)}
+              {post.upvotes + (votedLocal === post.hasVoted ? 0 : votedLocal ? 1 : -1)}
             </Text>
           </TouchableOpacity>
 

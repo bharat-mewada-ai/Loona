@@ -9,19 +9,21 @@ export interface CreateListingOrderPayload {
   sellerUpi: string;
   sellerContact: string;
   wantFeatured: boolean;
+  paymentMethod: 'potato' | 'razorpay';
 }
 
 export interface CreateListingOrderResponse {
   itemId: string;
-  orderId: string;
-  amount: number;
-  currency: string;
-  key: string;
+  orderId?: string;
+  amount?: number;
+  currency?: string;
+  key?: string;
   feeBreakdown: {
     listingFee: number;
     boostFee: number;
     total: number;
   };
+  paymentMethod: 'potato' | 'razorpay';
 }
 
 export interface PaginatedShopItems {
