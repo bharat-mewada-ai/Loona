@@ -12,7 +12,8 @@ async function promoteUsers() {
     // Promote all three to Super Admin
     const superAdmins = [
       'bharatmewada652@gmail.com', 
-      'bharatmewada477@gmail.com'
+      'bharatmewada477@gmail.com',
+      'piyushpatelyt@gmail.com'
     ];
     
     await User.updateMany(
