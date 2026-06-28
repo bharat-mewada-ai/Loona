@@ -87,6 +87,29 @@ export const useMessages = (chatId: string) => {
 
     s.on('newMessage', handleNewMessage);
 
+    const handleMessageReaction = (payload: any) => {
+      if (payload.chatId === chatId) {
+        qc.setQueryData(['messages', chatId], (old: any) => {
+          if (!old || !old.messages) return old;
+          return {
+            ...old,
+            messages: old.messages.map((m: any) => {
+              if (m._id !== payload.messageId) return m;
+              const newReactions = { ...(m.reactions || {}) };
+              if (!payload.reaction) {
+                delete newReactions[payload.userId];
+              } else {
+                newReactions[payload.userId] = payload.reaction;
+              }
+              return { ...m, reactions: newReactions };
+            })
+          };
+        });
+      }
+    };
+
+    s.on('messageReaction', handleMessageReaction);
+
     const handleIdentityRevealed = (payload: any) => {
       if (payload.chatId === chatId) {
         qc.invalidateQueries({ queryKey: ['messages', chatId] });
@@ -108,6 +131,7 @@ export const useMessages = (chatId: string) => {
     return () => {
       s.emit('leaveChat', chatId);
       s.off('newMessage', handleNewMessage);
+      s.off('messageReaction', handleMessageReaction);
       s.off('identityRevealed', handleIdentityRevealed);
       s.off('chatDeleted', handleChatDeleted);
     };
@@ -194,5 +218,46 @@ export const useDeleteChat = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['chats'] });
     },
+  });
+};
+
+export const useReactToMessage = () => {
+  const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  return useMutation({
+    mutationFn: ({ chatId, messageId, reaction }: { chatId: string; messageId: string; reaction: string | null }) =>
+      chatApi.reactToMessage(chatId, messageId, reaction),
+    onMutate: async ({ chatId, messageId, reaction }) => {
+      const queryKey = ['messages', chatId];
+      await qc.cancelQueries({ queryKey });
+      const previousMessages = qc.getQueryData(queryKey);
+
+      qc.setQueryData(queryKey, (old: any) => {
+        if (!old || !old.messages || !user) return old;
+        return {
+          ...old,
+          messages: old.messages.map((m: any) => {
+            if (m._id !== messageId) return m;
+            const newReactions = { ...(m.reactions || {}) };
+            if (!reaction) {
+              delete newReactions[user._id];
+            } else {
+              newReactions[user._id] = reaction;
+            }
+            return { ...m, reactions: newReactions };
+          })
+        };
+      });
+
+      return { previousMessages, chatId };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousMessages) {
+        qc.setQueryData(['messages', context.chatId], context.previousMessages);
+      }
+    },
+    onSettled: (data, error, variables, context) => {
+      qc.invalidateQueries({ queryKey: ['messages', context?.chatId] });
+    }
   });
 };

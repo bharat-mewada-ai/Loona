@@ -470,3 +470,57 @@ export const reportChat = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// React to a message
+export const reactToMessage = async (req, res) => {
+  try {
+    const { chatId, messageId } = req.params;
+    const { reaction } = req.body; // e.g. "❤️", "👍", "😆", "😮", "😢", "🙏", or null/empty to remove
+    
+    const chat = await Chat.findOne({ _id: chatId, participants: req.user._id });
+    if (!chat) return res.status(404).json({ error: "Chat not found" });
+
+    const message = await Message.findOne({ _id: messageId, chatId });
+    if (!message) return res.status(404).json({ error: "Message not found" });
+
+    if (!message.reactions) {
+      message.reactions = new Map();
+    }
+
+    const userIdStr = req.user._id.toString();
+    if (!reaction) {
+      // Remove reaction if empty
+      message.reactions.delete(userIdStr);
+    } else {
+      // Set reaction
+      message.reactions.set(userIdStr, reaction);
+    }
+
+    await message.save();
+
+    // Emit via socket
+    const io = req.app.get("io");
+    if (io) {
+      io.to(chatId).emit("messageReaction", {
+        chatId,
+        messageId,
+        userId: req.user._id,
+        reaction
+      });
+    }
+
+    // Convert map to plain object for client response
+    const reactionsObj = {};
+    if (message.reactions instanceof Map) {
+      message.reactions.forEach((value, key) => {
+        reactionsObj[key] = value;
+      });
+    } else if (message.reactions) {
+      Object.assign(reactionsObj, message.reactions);
+    }
+
+    res.json({ success: true, reactions: reactionsObj });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

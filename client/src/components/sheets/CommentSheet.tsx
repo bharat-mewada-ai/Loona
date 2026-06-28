@@ -96,9 +96,10 @@ export default function CommentSheet() {
 
   return (
     <Modal visible={showCommentSheet} transparent animationType="slide" onRequestClose={closeCommentSheet}>
-      <Pressable style={s.overlay} onPress={closeCommentSheet}>
+      <View style={s.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeCommentSheet} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.keyboardView}>
-          <Pressable style={[s.sheet, { backgroundColor: themeColors.card }]} onPress={e => e.stopPropagation()}>
+          <View style={[s.sheet, { backgroundColor: themeColors.card }]}>
             <View style={s.handle} />
             <View style={s.sHeader}>
               <Text style={[s.title, { color: themeColors.txt }]}>Comments</Text>
@@ -244,9 +245,9 @@ export default function CommentSheet() {
                 </View>
               )}
             </View>
-          </Pressable>
+          </View>
         </KeyboardAvoidingView>
-      </Pressable>
+      </View>
     </Modal>
   );
 }

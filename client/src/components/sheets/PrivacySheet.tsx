@@ -11,8 +11,9 @@ export default function PrivacySheet() {
 
   return (
     <Modal visible={showPrivacySheet} transparent animationType="slide" onRequestClose={closePrivacySheet}>
-      <Pressable style={s.overlay} onPress={closePrivacySheet}>
-        <Pressable style={[s.sheet, { backgroundColor: themeColors.card }]} onPress={(e) => e.stopPropagation()}>
+      <View style={s.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={closePrivacySheet} />
+        <View style={[s.sheet, { backgroundColor: themeColors.card }]}>
           <View style={s.handle} />
           <View style={s.header}>
             <Text style={[s.title, { color: themeColors.txt }]}>Privacy & Terms 🛡️</Text>
@@ -120,8 +121,8 @@ export default function PrivacySheet() {
 
             <View style={{ height: 60 }} />
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

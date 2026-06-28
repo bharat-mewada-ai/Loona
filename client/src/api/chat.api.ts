@@ -37,4 +37,13 @@ export const chatApi = {
     const res = await client.delete<{ success: boolean; message: string }>(`/chats/${chatId}`);
     return res.data;
   },
+
+  // React to a message with an emoji
+  reactToMessage: async (chatId: string, messageId: string, reaction: string | null): Promise<any> => {
+    const res = await client.post<{ success: boolean; reactions: Record<string, string> }>(
+      `/chats/${chatId}/messages/${messageId}/react`,
+      { reaction }
+    );
+    return res.data;
+  },
 };

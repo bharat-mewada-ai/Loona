@@ -7,6 +7,11 @@ const messageSchema = new mongoose.Schema(
     content: { type: String },
     image: { type: String },
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    reactions: {
+      type: Map,
+      of: String,
+      default: {},
+    },
   },
   { timestamps: true }
 );

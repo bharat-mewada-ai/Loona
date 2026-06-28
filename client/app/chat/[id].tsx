@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Image, Alert, Modal, TouchableWithoutFeedback } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
-import { useMessages, useSendMessage, useRevealIdentity, useDeleteChat } from '../../src/hooks/useChat';
+import { useMessages, useSendMessage, useRevealIdentity, useDeleteChat, useReactToMessage } from '../../src/hooks/useChat';
 import { useBlockUser } from '../../src/hooks/useAuth';
 import { useAuthStore } from '../../src/store/authStore';
 import * as ImagePicker from 'expo-image-picker';
@@ -35,6 +35,18 @@ export default function ChatRoomScreen() {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isTypingRef = useRef(false);
   const token = useAuthStore(s => s.token);
+
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const isNearBottomRef = useRef(true);
+  const prevMessagesCountRef = useRef(0);
+
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    isNearBottomRef.current = distanceFromBottom < 150;
+  };
 
   const { data, isLoading, isError } = useMessages(id as string);
 
@@ -67,9 +79,43 @@ export default function ChatRoomScreen() {
   const { mutate: blockUser } = useBlockUser();
   const { mutate: reveal } = useRevealIdentity();
   const { mutate: deleteChat } = useDeleteChat();
+  const { mutate: reactToMessage } = useReactToMessage();
+
+  const [activeReactionMsg, setActiveReactionMsg] = useState<any | null>(null);
+  const REACTION_EMOJIS = ['❤️', '👍', '🔥', '😆', '😢', '🙏'];
+
+  const handleReact = (messageId: string, emoji: string) => {
+    const currentReaction = activeReactionMsg?.reactions?.[user?._id || ''];
+    const finalEmoji = currentReaction === emoji ? null : emoji;
+    reactToMessage({ chatId: id as string, messageId, reaction: finalEmoji });
+    setActiveReactionMsg(null);
+  };
 
   const messages = data?.messages || [];
   const chatInfo = data?.chat;
+
+  const filteredMessages = React.useMemo(() => {
+    if (!isSearching || !searchQuery.trim()) return messages;
+    return messages.filter((m: any) => 
+      m.content?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [messages, isSearching, searchQuery]);
+
+  const messagesCount = messages.length;
+  useEffect(() => {
+    if (messagesCount > 0) {
+      const lastMsg = messages[messagesCount - 1];
+      const isMe = lastMsg?.senderType === 'me';
+      const wasLoaded = prevMessagesCountRef.current === 0;
+      
+      if (wasLoaded || isMe || isNearBottomRef.current) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: !wasLoaded });
+        }, 100);
+      }
+    }
+    prevMessagesCountRef.current = messagesCount;
+  }, [messagesCount]);
 
   // Header Logic
   let otherName = (name as string) || "Anonymous";
@@ -278,36 +324,57 @@ export default function ChatRoomScreen() {
         keyboardVerticalOffset={Platform.select({ ios: 0, android: 10 })}
       >
         {/* Header */}
-        <View style={[s.header, { borderBottomColor: themeColors.bdr, backgroundColor: themeColors.bg }]}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-            <Ionicons name="chevron-back" size={28} color={themeColors.txt} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={s.headerCenter}
-            onPress={() => {
-              const otherId = chatInfo?.identities?.other?.id;
-              if (otherId) router.push(`/user/${otherId}`);
-            }}
-          >
-            <View style={[s.headerAvatar, { backgroundColor: themeColors.card2 }]}>
-              <Text style={{ fontSize: 18 }}>{otherAvatar}</Text>
-            </View>
-            <View>
-              <Text style={[s.headerName, { color: themeColors.txt }]}>{otherName}</Text>
-              <Text style={[s.statusTxt, { color: isOtherTyping ? themeColors.ogi : themeColors.txt3, fontWeight: isOtherTyping ? '700' : '400' }]}>
-                {isOtherTyping ? 'typing...' : 'Last seen recently'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-          <View style={s.headerRight}>
-            <TouchableOpacity onPress={handleBlock} style={{ marginRight: 14 }}>
-              <Ionicons name="shield-outline" size={20} color={themeColors.danger} style={{ opacity: 0.9 }} />
+        {isSearching ? (
+          <View style={[s.header, { borderBottomColor: themeColors.bdr, backgroundColor: themeColors.bg }]}>
+            <TouchableOpacity onPress={() => { setIsSearching(false); setSearchQuery(''); }} style={s.backBtn}>
+              <Ionicons name="close" size={24} color={themeColors.txt} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleDeleteChat}>
-              <Ionicons name="trash-outline" size={20} color={themeColors.danger} />
-            </TouchableOpacity>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <TextInput
+                style={[s.searchInput, { color: themeColors.txt, backgroundColor: themeColors.card2, borderRadius: 20, paddingHorizontal: 16, height: 38 }]}
+                placeholder="Search messages..."
+                placeholderTextColor={themeColors.txt3}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoFocus
+              />
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={[s.header, { borderBottomColor: themeColors.bdr, backgroundColor: themeColors.bg }]}>
+            <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+              <Ionicons name="chevron-back" size={28} color={themeColors.txt} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={s.headerCenter}
+              onPress={() => {
+                const otherId = chatInfo?.identities?.other?.id;
+                if (otherId) router.push(`/user/${otherId}`);
+              }}
+            >
+              <View style={[s.headerAvatar, { backgroundColor: themeColors.card2 }]}>
+                <Text style={{ fontSize: 18 }}>{otherAvatar}</Text>
+              </View>
+              <View>
+                <Text style={[s.headerName, { color: themeColors.txt }]}>{otherName}</Text>
+                <Text style={[s.statusTxt, { color: isOtherTyping ? themeColors.ogi : themeColors.txt3, fontWeight: isOtherTyping ? '700' : '400' }]}>
+                  {isOtherTyping ? 'typing...' : 'Last seen recently'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <View style={s.headerRight}>
+              <TouchableOpacity onPress={() => setIsSearching(true)} style={{ marginRight: 14 }}>
+                <Ionicons name="search-outline" size={20} color={themeColors.txt} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleBlock} style={{ marginRight: 14 }}>
+                <Ionicons name="shield-outline" size={20} color={themeColors.danger} style={{ opacity: 0.9 }} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDeleteChat}>
+                <Ionicons name="trash-outline" size={20} color={themeColors.danger} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Reveal Identity Banner */}
         {chatInfo?.isAnonymous && !chatInfo?.isRevealed && user?._id === chatInfo?.anonAuthorId && (
@@ -329,12 +396,11 @@ export default function ChatRoomScreen() {
         {/* Messages */}
         <FlashList
           ref={flatListRef}
-          data={messages}
+          data={filteredMessages}
           estimatedItemSize={80}
           keyExtractor={(item) => item._id}
           contentContainerStyle={s.listContent}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onScroll={handleScroll}
           removeClippedSubviews={Platform.OS !== 'web'}
           initialNumToRender={15}
           maxToRenderPerBatch={10}
@@ -344,12 +410,17 @@ export default function ChatRoomScreen() {
             const hasImage = !!item.image;
 
             return (
-              <View style={[s.msgWrapper, isMe ? s.msgRight : s.msgLeft]}>
-                <View style={[
-                  s.msgBubble, 
-                  isMe ? [s.myBubble, { backgroundColor: themeColors.ogi }] : [s.theirBubble, { backgroundColor: themeColors.card2 }],
-                  hasImage && { padding: 4 } // edge-to-edge style inside bubble for images
-                ]}>
+            return (
+              <View style={[s.msgWrapper, isMe ? s.msgRight : s.msgLeft, { position: 'relative', marginBottom: (item.reactions && Object.keys(item.reactions).length > 0) ? 20 : 12 }]}>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onLongPress={() => setActiveReactionMsg(item)}
+                  style={[
+                    s.msgBubble, 
+                    isMe ? [s.myBubble, { backgroundColor: themeColors.ogi }] : [s.theirBubble, { backgroundColor: themeColors.card2 }],
+                    hasImage && { padding: 4 } // edge-to-edge style inside bubble for images
+                  ]}
+                >
                   {hasImage && (
                     <TouchableOpacity onPress={() => setSelectedImage(item.image)}>
                       <Image 
@@ -386,7 +457,24 @@ export default function ChatRoomScreen() {
                     {renderTicks(item)}
                   </View>
 
-                </View>
+                  {/* Reactions Pill */}
+                  {item.reactions && Object.keys(item.reactions).length > 0 && (() => {
+                    const reactionList = Object.values(item.reactions);
+                    const uniqueEmojis = Array.from(new Set(reactionList)).slice(0, 3);
+                    return (
+                      <View style={[
+                        s.reactionPill, 
+                        isMe ? { left: 8 } : { right: 8 }, 
+                        { backgroundColor: themeColors.card, borderColor: themeColors.bdr }
+                      ]}>
+                        <Text style={[s.reactionText, { color: themeColors.txt }]}>
+                          {uniqueEmojis.join('')}{reactionList.length > 1 ? ` ${reactionList.length}` : ''}
+                        </Text>
+                      </View>
+                    );
+                  })()}
+
+                </TouchableOpacity>
               </View>
             );
           }}
@@ -490,6 +578,38 @@ export default function ChatRoomScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Reactions Picker Modal */}
+      <Modal
+        visible={activeReactionMsg !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveReactionMsg(null)}
+      >
+        <TouchableWithoutFeedback onPress={() => setActiveReactionMsg(null)}>
+          <View style={s.reactionModalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[s.reactionModalContainer, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
+                {REACTION_EMOJIS.map((emoji) => {
+                  const hasReacted = activeReactionMsg?.reactions?.[user?._id || ''] === emoji;
+                  return (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={[
+                        s.reactionEmojiBtn,
+                        hasReacted && { backgroundColor: themeColors.ogi + '25' }
+                      ]}
+                      onPress={() => handleReact(activeReactionMsg._id, emoji)}
+                    >
+                      <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       {/* Lightbox / Image Viewer Overlay */}
       {selectedImage && (
@@ -691,5 +811,55 @@ const s = StyleSheet.create({
   lightboxImage: {
     width: '100%',
     height: '100%',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_500Medium',
+  },
+  reactionModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionModalContainer: {
+    flexDirection: 'row',
+    padding: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  reactionEmojiBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionPill: {
+    position: 'absolute',
+    bottom: -10,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+    zIndex: 999,
+  },
+  reactionText: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
   },
 });
