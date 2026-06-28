@@ -410,7 +410,6 @@ export default function ChatRoomScreen() {
             const hasImage = !!item.image;
 
             return (
-            return (
               <View style={[s.msgWrapper, isMe ? s.msgRight : s.msgLeft, { position: 'relative', marginBottom: (item.reactions && Object.keys(item.reactions).length > 0) ? 20 : 12 }]}>
                 <TouchableOpacity
                   activeOpacity={0.9}
