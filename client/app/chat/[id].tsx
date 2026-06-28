@@ -402,6 +402,8 @@ export default function ChatRoomScreen() {
           contentContainerStyle={s.listContent}
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          showsVerticalScrollIndicator={true}
+          persistentScrollbar={true}
           removeClippedSubviews={Platform.OS !== 'web'}
           initialNumToRender={15}
           maxToRenderPerBatch={10}
