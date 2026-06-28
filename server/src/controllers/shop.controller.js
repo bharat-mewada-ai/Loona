@@ -61,7 +61,7 @@ export const getMyListings = async (req, res) => {
 // Temporarily saves listing data; listing goes live only after payment verification
 export const createListingOrder = async (req, res) => {
   try {
-    const { title, description, price, category, sellerUpi, sellerContact, wantFeatured, paymentMethod = 'razorpay' } = req.body;
+    const { title, description, price, category, sellerUpi, sellerContact, wantFeatured, paymentMethod = 'razorpay', image } = req.body;
 
     if (!title || !price || !category) {
       return res.status(400).json({ error: 'Title, price, and category are required' });
@@ -103,6 +103,7 @@ export const createListingOrder = async (req, res) => {
         status: 'available',
         listingFeePaid: true,
         boostFeePaid: !!wantFeatured,
+        image: image || null,
       });
 
       // Populate seller fields for client-side display
@@ -142,6 +143,7 @@ export const createListingOrder = async (req, res) => {
         isFeatured: !!wantFeatured,
         listingFeeOrderId: order.id,
         status: 'pending_payment',
+        image: image || null,
       });
 
       return res.json({

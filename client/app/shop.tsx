@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Modal, ActivityIndicator, Alert, Linking,
   Dimensions, FlatList, RefreshControl, KeyboardAvoidingView, Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +15,8 @@ import { useAuthStore } from '../src/store/authStore';
 import { useShopListings, useMyListings, useCreateListing, useDeleteListing } from '../src/hooks/useShop';
 import { ShopItem, ShopCategory } from '../src/types';
 import { triggerHaptic } from '../src/utils/haptics';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadToCloudinary } from '../src/utils/uploadToCloudinary';
 
 const { width } = Dimensions.get('window');
 const LIME = '#c8f53a';
@@ -71,6 +74,28 @@ export default function ShopScreen() {
   const [newCategory,    setNewCategory]    = useState<ShopCategory>('books');
   const [wantFeatured,   setWantFeatured]   = useState(false);
   const [paymentMethod,  setPaymentMethod]  = useState<'potato' | 'razorpay'>('potato');
+  const [image,          setImage]          = useState('');
+  const [isUploading,    setIsUploading]    = useState(false);
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setIsUploading(true);
+        const { url } = await uploadToCloudinary(result.assets[0].uri);
+        setImage(url);
+        setIsUploading(false);
+      }
+    } catch (err: any) {
+      setIsUploading(false);
+      Alert.alert('Upload Failed', err.message);
+    }
+  };
 
   // Item detail modal state
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
@@ -80,6 +105,7 @@ export default function ShopScreen() {
     setNewUpi(''); setNewContact('');
     setNewCategory('books'); setWantFeatured(false);
     setPaymentMethod('potato');
+    setImage('');
   };
 
   const handleCreateListing = async () => {
@@ -123,6 +149,7 @@ export default function ShopScreen() {
                   sellerContact: newContact.trim(),
                   wantFeatured,
                   paymentMethod: 'potato',
+                  image: image || undefined,
                 });
                 resetForm();
                 Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
@@ -154,6 +181,7 @@ export default function ShopScreen() {
                   sellerContact: newContact.trim(),
                   wantFeatured,
                   paymentMethod: 'razorpay',
+                  image: image || undefined,
                 });
                 resetForm();
                 Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
@@ -230,6 +258,10 @@ export default function ShopScreen() {
           </Text>
         </View>
 
+        {!!item.image && (
+          <Image source={{ uri: item.image }} style={s.itemImage} resizeMode="cover" />
+        )}
+
         <Text style={[s.itemTitle, { color: themeColors.txt }]} numberOfLines={2}>
           {item.title}
         </Text>
@@ -262,6 +294,9 @@ export default function ShopScreen() {
 
     return (
       <View style={[s.myCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
+        {!!item.image && (
+          <Image source={{ uri: item.image }} style={s.myImage} resizeMode="cover" />
+        )}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <View style={[s.catPill, { backgroundColor: catColor + '20' }]}>
@@ -450,6 +485,10 @@ export default function ShopScreen() {
                     </TouchableOpacity>
                   </View>
 
+                  {!!selectedItem.image && (
+                    <Image source={{ uri: selectedItem.image }} style={s.detailImage} resizeMode="cover" />
+                  )}
+
                   <Text style={[s.detailTitle, { color: themeColors.txt }]}>{selectedItem.title}</Text>
 
                   {!!selectedItem.description && (
@@ -524,6 +563,28 @@ export default function ShopScreen() {
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Product Image Selection */}
+                <TouchableOpacity 
+                  onPress={pickImage} 
+                  style={[s.imagePickerBox, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
+                >
+                  {isUploading ? (
+                    <ActivityIndicator color={LIME} />
+                  ) : image ? (
+                    <View style={{ width: '100%', height: '100%', position: 'relative' }}>
+                      <Image source={{ uri: image }} style={{ width: '100%', height: '100%', borderRadius: 14 }} resizeMode="cover" />
+                      <TouchableOpacity onPress={() => setImage('')} style={s.removeImageBtn}>
+                        <Ionicons name="close" size={16} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View style={{ alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="camera-outline" size={28} color={themeColors.txt3} />
+                      <Text style={{ color: themeColors.txt3, fontSize: 12, fontWeight: '700' }}>Add Product Photo</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
                 <Text style={s.inputLabel}>ITEM NAME *</Text>
                 <TextInput
                   style={[s.input, { backgroundColor: themeColors.card2, color: themeColors.txt }]}
@@ -736,4 +797,9 @@ const s = StyleSheet.create({
   feeSummary: { flexDirection: 'row', alignItems: 'flex-start', padding: 12, borderRadius: 12, marginTop: 14, gap: 8 },
   submitBtn: { paddingVertical: 16, borderRadius: 20, alignItems: 'center', marginTop: 20 },
   submitTxt: { fontWeight: '900', fontSize: 16, color: '#000' },
+  itemImage: { width: '100%', height: 110, borderRadius: 12, marginBottom: 8 },
+  myImage: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
+  detailImage: { width: '100%', height: 180, borderRadius: 16, marginBottom: 16 },
+  imagePickerBox: { height: 140, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginBottom: 12, overflow: 'hidden' },
+  removeImageBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
 });

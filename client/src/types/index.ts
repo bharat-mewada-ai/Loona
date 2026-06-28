@@ -175,5 +175,6 @@ export interface ShopItem {
   sellerContact: string;
   isFeatured: boolean;
   listingFeePaid: boolean;
+  image?: string;
   createdAt: string;
 }

@@ -24,6 +24,10 @@ const shopItemSchema = new mongoose.Schema(
       enum: ['books', 'notes', 'stationery', 'electronics', 'clothing', 'other'],
       required: true,
     },
+    image: {
+      type: String,
+      default: null,
+    },
     seller: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

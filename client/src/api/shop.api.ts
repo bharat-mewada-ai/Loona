@@ -10,6 +10,7 @@ export interface CreateListingOrderPayload {
   sellerContact: string;
   wantFeatured: boolean;
   paymentMethod: 'potato' | 'razorpay';
+  image?: string;
 }
 
 export interface CreateListingOrderResponse {
