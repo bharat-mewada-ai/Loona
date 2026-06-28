@@ -401,6 +401,7 @@ export default function ChatRoomScreen() {
           keyExtractor={(item) => item._id}
           contentContainerStyle={s.listContent}
           onScroll={handleScroll}
+          scrollEventThrottle={16}
           removeClippedSubviews={Platform.OS !== 'web'}
           initialNumToRender={15}
           maxToRenderPerBatch={10}
