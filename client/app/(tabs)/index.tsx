@@ -186,11 +186,38 @@ export default function Feed() {
   ), [activeTab, userLocation]);
 
   const renderHeader = () => {
-    // Show Story Rail in 'All' tab only
     if (activeTab === 'all') {
       return (
         <View style={{ gap: 16, marginBottom: 8 }}>
           <StoryRail />
+          
+          {/* Quick Utilities Row */}
+          <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 4, marginTop: 4 }}>
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: themeColors.card, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: themeColors.bdr, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+              onPress={() => router.push('/shop')}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 24 }}>🛍️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: themeColors.txt, fontWeight: '800', fontSize: 13 }}>Campus Shop</Text>
+                <Text style={{ color: themeColors.txt3, fontSize: 10, marginTop: 2 }}>P2P marketplace</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={{ flex: 1, backgroundColor: themeColors.card, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: themeColors.bdr, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+              onPress={() => router.push('/bus-locator')}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 24 }}>🚌</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: themeColors.txt, fontWeight: '800', fontSize: 13 }}>Bus Tracker</Text>
+                <Text style={{ color: themeColors.txt3, fontSize: 10, marginTop: 2 }}>Live parking spots</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
           <DailyPollWidget />
         </View>
       );
@@ -235,45 +262,46 @@ export default function Feed() {
           />
           <View>
             <Text style={[s.logoText, { color: themeColors.txt }]}>loona</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={s.subLogo}>CAMPUS FEED</Text>
-              {!!user?.campusRank && (
-                <TouchableOpacity 
-                  style={[s.rankPill, { backgroundColor: themeColors.ogi }]}
-                  onPress={() => router.push('/leaderboard')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.rankTxt}>#{user.campusRank}</Text>
-                  <Text style={[s.rankTxt, { fontSize: 7, marginLeft: 2 }]}>🏆</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <TouchableOpacity 
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: -2 }} 
+              onPress={() => setDropdownOpen(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[s.dot, { width: 6, height: 6, borderRadius: 3, backgroundColor: activeCampus === 'all' ? '#888' : (CAMPUSES.find(c => c.value === activeCampus)?.dotColor || '#888') }]} />
+              <Text style={{ fontSize: 11, fontWeight: '800', color: themeColors.txt2 }}>
+                {activeCampus === 'all' 
+                  ? 'Sneaking...' 
+                  : (activeCampus !== user?.campus 
+                      ? `${CAMPUSES.find(c => c.value === activeCampus)?.label || 'others'}`
+                      : CAMPUSES.find(c => c.value === activeCampus)?.label || 'CAMPUS'
+                    )
+                }
+              </Text>
+              <Text style={{ fontSize: 8, color: themeColors.txt3, opacity: 0.7 }}>▼</Text>
+            </TouchableOpacity>
           </View>
+          {!!user?.campusRank && (
+            <TouchableOpacity 
+              style={[s.rankPill, { backgroundColor: themeColors.ogi, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, marginLeft: 2 }]}
+              onPress={() => router.push('/leaderboard')}
+              activeOpacity={0.7}
+            >
+              <Text style={[s.rankTxt, { fontSize: 10, fontWeight: '900' }]}>#{user.campusRank} 🏆</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <View style={s.hActions}>
           <TouchableOpacity 
             style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
             onPress={() => router.push('/search')}
           >
-            <Ionicons name="search-outline" size={20} color={themeColors.txt} />
+            <Ionicons name="search-outline" size={18} color={themeColors.txt} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
             onPress={() => router.push('/notifications')}
           >
-            <Ionicons name="notifications-outline" size={20} color={themeColors.txt} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
-            onPress={() => router.push('/leaderboard')}
-          >
-            <Ionicons name="trophy-outline" size={20} color={themeColors.txt} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[s.iconBtn, { backgroundColor: themeColors.card3 || '#1A1A1A' }]}
-            onPress={toggleDark}
-          >
-            <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={20} color={themeColors.txt} />
+            <Ionicons name="notifications-outline" size={18} color={themeColors.txt} />
           </TouchableOpacity>
         </View>
       </View>
@@ -284,23 +312,6 @@ export default function Feed() {
           <Text style={s.offlineTxt}>📡 No Internet Connection. You're viewing cached posts.</Text>
         </View>
       )}
-
-      {/* Campus Selector - Top Dropdown */}
-      <View style={s.dropdownWrap}>
-        <TouchableOpacity style={[s.dropdownBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]} onPress={() => setDropdownOpen(true)}>
-          <View style={[s.dot, { backgroundColor: activeCampus === 'all' ? '#888' : (CAMPUSES.find(c => c.value === activeCampus)?.dotColor || '#888') }]} />
-          <Text style={[s.dropdownTxt, { color: themeColors.txt }]}>
-            {activeCampus === 'all' 
-              ? '👁️ Sneaking into others...' 
-              : (activeCampus !== user?.campus 
-                  ? `👁️ Sneaking into ${CAMPUSES.find(c => c.value === activeCampus)?.label || 'others'}...`
-                  : CAMPUSES.find(c => c.value === activeCampus)?.label || 'CAMPUS'
-                )
-            }
-          </Text>
-          <Text style={{ fontSize: 10, color: themeColors.txt3 }}>▼</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Dropdown Modal */}
       <Modal visible={dropdownOpen} transparent animationType="fade">
@@ -327,12 +338,24 @@ export default function Feed() {
           {POST_TYPES.map(t => (
             <TouchableOpacity 
               key={t.value} 
-              style={[s.filterPill, activeTab === t.value && { backgroundColor: themeColors.ogi }]}
+              style={[
+                s.filterPill, 
+                activeTab === t.value 
+                  ? { backgroundColor: themeColors.ogi } 
+                  : { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, borderWidth: 1 }
+              ]}
               onPress={() => setTab(t.value as TabFilter)}
             >
-              <Text style={[s.filterPillTxt, { color: activeTab === t.value ? '#FFF' : themeColors.txt2 }]}>
-                {t.icon + ' ' + t.label}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons 
+                  name={t.icon as any} 
+                  size={14} 
+                  color={activeTab === t.value ? '#FFF' : themeColors.txt2} 
+                />
+                <Text style={[s.filterPillTxt, { color: activeTab === t.value ? '#FFF' : themeColors.txt2 }]}>
+                  {t.label}
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -472,12 +495,9 @@ const s = StyleSheet.create({
   logoText: { fontSize: 22, fontFamily: 'Syne_700Bold', letterSpacing: -0.5 },
   subLogo: { fontSize: 9, color: '#888', fontWeight: '800', letterSpacing: 1, marginTop: -2 },
   hActions: { flexDirection: 'row', gap: 8 },
-  iconBtn: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  iconTxt: { fontSize: 18 },
-  dropdownWrap: { alignItems: 'center', marginBottom: 8 },
-  dropdownBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, gap: 8 },
+  iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  iconTxt: { fontSize: 16 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  dropdownTxt: { fontSize: 13, fontWeight: '700' },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: 240, borderRadius: 24, padding: 10 },
   modalItem: { paddingVertical: 14, paddingHorizontal: 16 },

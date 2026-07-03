@@ -74,21 +74,30 @@ export default function ShopScreen() {
   const [newCategory,    setNewCategory]    = useState<ShopCategory>('books');
   const [wantFeatured,   setWantFeatured]   = useState(false);
   const [paymentMethod,  setPaymentMethod]  = useState<'potato' | 'razorpay'>('potato');
-  const [image,          setImage]          = useState('');
+  const [images,         setImages]         = useState<string[]>([]);
   const [isUploading,    setIsUploading]    = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const pickImage = async () => {
+    const remainingLimit = 5 - images.length;
+    if (remainingLimit <= 0) {
+      Alert.alert('Limit Reached', 'You can upload up to 5 photos.');
+      return;
+    }
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsMultipleSelection: true,
+        selectionLimit: remainingLimit,
         quality: 0.7,
       });
 
       if (!result.canceled) {
         setIsUploading(true);
-        const { url } = await uploadToCloudinary(result.assets[0].uri);
-        setImage(url);
+        for (const asset of result.assets) {
+          const { url } = await uploadToCloudinary(asset.uri);
+          setImages(prev => [...prev, url]);
+        }
         setIsUploading(false);
       }
     } catch (err: any) {
@@ -105,7 +114,7 @@ export default function ShopScreen() {
     setNewUpi(''); setNewContact('');
     setNewCategory('books'); setWantFeatured(false);
     setPaymentMethod('potato');
-    setImage('');
+    setImages([]);
   };
 
   const handleCreateListing = async () => {
@@ -149,7 +158,8 @@ export default function ShopScreen() {
                   sellerContact: newContact.trim(),
                   wantFeatured,
                   paymentMethod: 'potato',
-                  image: image || undefined,
+                  image: images[0] || undefined,
+                  images: images,
                 });
                 resetForm();
                 Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
@@ -181,7 +191,8 @@ export default function ShopScreen() {
                   sellerContact: newContact.trim(),
                   wantFeatured,
                   paymentMethod: 'razorpay',
-                  image: image || undefined,
+                  image: images[0] || undefined,
+                  images: images,
                 });
                 resetForm();
                 Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
@@ -259,7 +270,7 @@ export default function ShopScreen() {
         </View>
 
         {!!item.image && (
-          <Image source={{ uri: item.image }} style={s.itemImage} resizeMode="cover" />
+          <Image source={{ uri: item.image }} style={[s.itemImage, { backgroundColor: '#111' }]} resizeMode="contain" />
         )}
 
         <Text style={[s.itemTitle, { color: themeColors.txt }]} numberOfLines={2}>
@@ -485,8 +496,49 @@ export default function ShopScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  {!!selectedItem.image && (
-                    <Image source={{ uri: selectedItem.image }} style={s.detailImage} resizeMode="cover" />
+                  {selectedItem.images && selectedItem.images.length > 1 ? (
+                    <View style={{ width: '100%', height: 180, borderRadius: 16, marginBottom: 16, overflow: 'hidden', backgroundColor: '#111', position: 'relative' }}>
+                      <ScrollView
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onScroll={(e) => {
+                          const slide = Math.round(e.nativeEvent.contentOffset.x / (width - 48));
+                          setActiveImageIndex(slide);
+                        }}
+                        scrollEventThrottle={16}
+                      >
+                        {selectedItem.images.map((img, index) => (
+                          <Image
+                            key={index}
+                            source={{ uri: img }}
+                            style={{ width: width - 48, height: 180 }}
+                            resizeMode="contain"
+                          />
+                        ))}
+                      </ScrollView>
+                      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, position: 'absolute', bottom: 12, left: 0, right: 0 }}>
+                        {selectedItem.images.map((_, index) => (
+                          <View
+                            key={index}
+                            style={{
+                              width: activeImageIndex === index ? 8 : 6,
+                              height: activeImageIndex === index ? 8 : 6,
+                              borderRadius: 4,
+                              backgroundColor: activeImageIndex === index ? themeColors.ogi : 'rgba(255,255,255,0.4)',
+                            }}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ) : (
+                    !!selectedItem.image && (
+                      <Image 
+                        source={{ uri: selectedItem.image }} 
+                        style={[s.detailImage, { backgroundColor: '#111' }]} 
+                        resizeMode="contain" 
+                      />
+                    )
                   )}
 
                   <Text style={[s.detailTitle, { color: themeColors.txt }]}>{selectedItem.title}</Text>
@@ -518,6 +570,18 @@ export default function ShopScreen() {
                       </Text>
                     </View>
                   </View>
+
+                  {isMine && (
+                    <TouchableOpacity
+                      style={[s.buyBtn, { backgroundColor: '#FF3B3015', borderWidth: 1, borderColor: '#FF3B30' }]}
+                      onPress={() => {
+                        setSelectedItem(null);
+                        setTimeout(() => handleDeleteListing(selectedItem), 400);
+                      }}
+                    >
+                      <Text style={[s.buyBtnTxt, { color: '#FF3B30' }]}>🗑️ Delete Listing</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {!isMine && (
                     <TouchableOpacity
@@ -564,26 +628,36 @@ export default function ShopScreen() {
 
               <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Product Image Selection */}
-                <TouchableOpacity 
-                  onPress={pickImage} 
-                  style={[s.imagePickerBox, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
-                >
-                  {isUploading ? (
-                    <ActivityIndicator color={LIME} />
-                  ) : image ? (
-                    <View style={{ width: '100%', height: '100%', position: 'relative' }}>
-                      <Image source={{ uri: image }} style={{ width: '100%', height: '100%', borderRadius: 14 }} resizeMode="cover" />
-                      <TouchableOpacity onPress={() => setImage('')} style={s.removeImageBtn}>
-                        <Ionicons name="close" size={16} color="#fff" />
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View style={{ alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="camera-outline" size={28} color={themeColors.txt3} />
-                      <Text style={{ color: themeColors.txt3, fontSize: 12, fontWeight: '700' }}>Add Product Photo</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                {/* Product Image Selection */}
+                <View style={{ marginBottom: 12 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                    <TouchableOpacity 
+                      onPress={pickImage} 
+                      style={[s.imagePickerBox, { width: 100, height: 100, marginBottom: 0, backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
+                    >
+                      <View style={{ alignItems: 'center', justifyContent: 'center', height: '100%', paddingHorizontal: 4 }}>
+                        <Ionicons name="camera-outline" size={24} color={themeColors.txt3} />
+                        <Text style={{ color: themeColors.txt3, fontSize: 10, fontWeight: '700', marginTop: 4, textAlign: 'center' }}>Add Photo</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {images.map((uri, idx) => (
+                      <View key={idx} style={{ width: 100, height: 100, borderRadius: 14, overflow: 'hidden', position: 'relative' }}>
+                        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <TouchableOpacity 
+                          style={s.removeImageBtn} 
+                          onPress={() => setImages(prev => prev.filter((_, i) => i !== idx))}
+                        >
+                          <Ionicons name="close" size={16} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {isUploading && (
+                      <View style={{ width: 100, height: 100, borderRadius: 14, backgroundColor: themeColors.card2, alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator color={LIME} />
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
 
                 <Text style={s.inputLabel}>ITEM NAME *</Text>
                 <TextInput

@@ -22,6 +22,7 @@ import errorRoutes from "./routes/error.routes.js";
 import dailyPollRoutes from "./routes/dailyPoll.routes.js";
 import campusStreakRoutes from "./routes/campusStreak.routes.js";
 import shopRoutes from "./routes/shop.routes.js";
+import busReportRoutes from "./routes/busReport.routes.js";
 import redis from "./utils/redis.js";
 import { optionalAuth } from "./middlewares/auth.js";
 import { startDeleteExpiredAccountsJob } from "./jobs/deleteExpiredAccounts.js";
@@ -152,6 +153,7 @@ app.use("/api/v1/errors", errorRoutes);
 app.use("/api/v1/polls", dailyPollRoutes);
 app.use("/api/v1/streaks", campusStreakRoutes);
 app.use("/api/v1/shop", shopRoutes);
+app.use("/api/v1/bus-reports", busReportRoutes);
 
 // ─── Start Cron Jobs ──────────────────────────────────────────────────────────
 startDeleteExpiredAccountsJob();

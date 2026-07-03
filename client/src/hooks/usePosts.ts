@@ -285,12 +285,41 @@ export const useDeletePost = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: postsApi.deletePost,
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['posts'] });
+      await qc.cancelQueries({ queryKey: ['myPosts'] });
+      
+      qc.setQueriesData({ queryKey: ['posts'] }, (old: any) => {
+        if (!old || !old.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.filter((post: any) => post._id !== id),
+          })),
+        };
+      });
+
+      qc.setQueriesData({ queryKey: ['myPosts'] }, (old: any) => {
+        if (!old || !old.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.filter((post: any) => post._id !== id),
+          })),
+        };
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['posts'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
+      qc.invalidateQueries({ queryKey: ['myPosts'] });
     },
     onError: (err: any) => {
+      qc.invalidateQueries({ queryKey: ['posts'] });
+      qc.invalidateQueries({ queryKey: ['myPosts'] });
       const msg = err.response?.data?.error || err.message || 'Could not delete post';
       Alert.alert('Delete Failed', msg);
     }

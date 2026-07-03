@@ -59,11 +59,11 @@ export interface PostType {
 }
 
 export const POST_TYPES: PostType[] = [
-  { value: 'all', label: 'Feed', icon: '✦' },
-  { value: 'discussion', label: 'Discussions', icon: '🗣️' },
-  { value: 'confess', label: 'Confessions', icon: '🕳️' },
-  { value: 'events',  label: 'Events',      icon: '📅' },
-  { value: 'bhandara',label: 'Bhandara',    icon: '🍛' },
+  { value: 'all', label: 'Feed', icon: 'sparkles-outline' },
+  { value: 'discussion', label: 'Discussions', icon: 'chatbubble-ellipses-outline' },
+  { value: 'confess', label: 'Confessions', icon: 'eye-off-outline' },
+  { value: 'events',  label: 'Events',      icon: 'calendar-outline' },
+  { value: 'bhandara',label: 'Bhandara',    icon: 'restaurant-outline' },
 ];
 
 

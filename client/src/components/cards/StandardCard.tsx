@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Share, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../../types';
 import { POST_TYPES } from '../../constants';
@@ -43,6 +44,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
   // Poll local vote state — updates instantly on tap without waiting for server refetch
   const [userVoteLocal, setUserVoteLocal] = useState<number | null | undefined>(post.userVote);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   // Potato animation
   const potatoScale = useRef(new Animated.Value(post.hasVoted ? 1.35 : 1.0)).current;
@@ -141,9 +143,14 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   return (
     <View style={[s.card, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
       {isAllTab && (
-        <View style={[s.sectionTag, { backgroundColor: themeColors.card2 }]}>
-          <Text style={[s.sectionTagTxt, { color: themeColors.txt3 }]}>
-            {(POST_TYPES.find(t => t.value === post.type)?.icon || '💬') + ' ' + (POST_TYPES.find(t => t.value === post.type)?.label || 'Thought')}
+        <View style={[s.sectionTag, { backgroundColor: themeColors.card2, flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8, marginLeft: 16, marginTop: 8 }]}>
+          <Ionicons 
+            name={(POST_TYPES.find(t => t.value === post.type)?.icon as any) || 'chatbubble-outline'} 
+            size={11} 
+            color={themeColors.txt3} 
+          />
+          <Text style={[s.sectionTagTxt, { color: themeColors.txt3, margin: 0 }]}>
+            {POST_TYPES.find(t => t.value === post.type)?.label || 'Thought'}
           </Text>
         </View>
       )}
@@ -221,15 +228,53 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
         </View>
       </View>
 
-      {!!post.image && (
-        <View style={s.mediaContainer}>
-          <Image 
-            source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }} 
-            style={[s.mediaImg, { backgroundColor: '#111' }]} 
-            contentFit="cover"
-            accessibilityLabel="Attached post image"
-          />
+      {post.images && post.images.length > 1 ? (
+        <View style={[s.mediaContainer, { position: 'relative', backgroundColor: '#111' }]}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(e) => {
+              const slide = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 32));
+              setActiveIndex(slide);
+            }}
+            scrollEventThrottle={16}
+          >
+            {post.images.map((img, index) => (
+              <Image
+                key={index}
+                source={{ uri: getOptimizedCloudinaryUrl(img, 800) }}
+                style={{ width: SCREEN_WIDTH - 32, height: 300 }}
+                contentFit="contain"
+                accessibilityLabel={`Attached post image ${index + 1}`}
+              />
+            ))}
+          </ScrollView>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, position: 'absolute', bottom: 12, left: 0, right: 0 }}>
+            {post.images.map((_, index) => (
+              <View
+                key={index}
+                style={{
+                  width: activeIndex === index ? 8 : 6,
+                  height: activeIndex === index ? 8 : 6,
+                  borderRadius: 4,
+                  backgroundColor: activeIndex === index ? themeColors.ogi : 'rgba(255,255,255,0.4)',
+                }}
+              />
+            ))}
+          </View>
         </View>
+      ) : (
+        !!post.image && (
+          <View style={[s.mediaContainer, { backgroundColor: '#111' }]}>
+            <Image 
+              source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }} 
+              style={s.mediaImg} 
+              contentFit="contain"
+              accessibilityLabel="Attached post image"
+            />
+          </View>
+        )
       )}
 
       <View style={s.contentArea}>

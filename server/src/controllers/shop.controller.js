@@ -61,7 +61,7 @@ export const getMyListings = async (req, res) => {
 // Temporarily saves listing data; listing goes live only after payment verification
 export const createListingOrder = async (req, res) => {
   try {
-    const { title, description, price, category, sellerUpi, sellerContact, wantFeatured, paymentMethod = 'razorpay', image } = req.body;
+    const { title, description, price, category, sellerUpi, sellerContact, wantFeatured, paymentMethod = 'razorpay', image, images } = req.body;
 
     if (!title || !price || !category) {
       return res.status(400).json({ error: 'Title, price, and category are required' });
@@ -69,6 +69,18 @@ export const createListingOrder = async (req, res) => {
     if (price < 0) {
       return res.status(400).json({ error: 'Price cannot be negative' });
     }
+    if (image && image.startsWith("data:")) {
+      return res.status(400).json({ error: "Base64 images are not accepted." });
+    }
+    if (images && Array.isArray(images)) {
+      for (const img of images) {
+        if (img && img.startsWith("data:")) {
+          return res.status(400).json({ error: "Base64 images are not accepted." });
+        }
+      }
+    }
+
+    const cleanImages = images || (image ? [image] : []);
 
     if (paymentMethod === 'potato') {
       const listingPotatoCost = 50;
@@ -103,7 +115,8 @@ export const createListingOrder = async (req, res) => {
         status: 'available',
         listingFeePaid: true,
         boostFeePaid: !!wantFeatured,
-        image: image || null,
+        image: image || (cleanImages.length > 0 ? cleanImages[0] : null),
+        images: cleanImages,
       });
 
       // Populate seller fields for client-side display
@@ -143,7 +156,8 @@ export const createListingOrder = async (req, res) => {
         isFeatured: !!wantFeatured,
         listingFeeOrderId: order.id,
         status: 'pending_payment',
-        image: image || null,
+        image: image || (cleanImages.length > 0 ? cleanImages[0] : null),
+        images: cleanImages,
       });
 
       return res.json({

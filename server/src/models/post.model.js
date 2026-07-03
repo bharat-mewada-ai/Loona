@@ -9,6 +9,7 @@ const postSchema = new mongoose.Schema({
   anonName: String,
   anonAvatar: String,
   image: String,
+  images: { type: [String], default: [] },
   eventDate: Date,
   eventLocation: String,
   offerBrand: String,

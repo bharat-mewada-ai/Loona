@@ -29,7 +29,7 @@ const updatePostScore = (post) => {
 /* ---------------- CREATE POST ---------------- */
 export const createPost = async (req, res) => {
   const {
-    title, body, type, burnAfter24h, image,
+    title, body, type, burnAfter24h, image, images,
     eventDate, eventLocation, offerBrand, offerDiscount, externalLink, isExclusive,
     isPoll, pollOptions
   } = req.body;
@@ -38,7 +38,8 @@ export const createPost = async (req, res) => {
   // This prevents 403 campus-mismatch errors caused by stale client state.
   const campus = req.user.campus;
 
-  const isPhotoStory = type === 'stories' && !!image;
+  const hasAnyImage = !!image || (images && images.length > 0);
+  const isPhotoStory = type === 'stories' && hasAnyImage;
   if (!title && !isPhotoStory) return res.status(400).json({ error: "Title is required" });
   const safeTitle = title || '';
 
@@ -66,6 +67,19 @@ export const createPost = async (req, res) => {
       code: "UNTRUSTED_IMAGE_SOURCE"
     });
   }
+  if (images && Array.isArray(images)) {
+    for (const img of images) {
+      if (img && img.startsWith("data:")) {
+        return res.status(400).json({ error: "Base64 images are not accepted. Upload to Cloudinary and send the URL.", code: "BASE64_REJECTED" });
+      }
+      if (img && !isCloudinaryUrl(img)) {
+        return res.status(400).json({
+          error: "Untrusted image source. Only Cloudinary images are allowed.",
+          code: "UNTRUSTED_IMAGE_SOURCE"
+        });
+      }
+    }
+  }
 
   const moderation = checkContent(`${safeTitle} ${body || ""}`);
   if (moderation.level === "bad") return res.status(400).json({ error: moderation.reason });
@@ -80,12 +94,15 @@ export const createPost = async (req, res) => {
     anonAvatar = "🕳️";
   }
 
+  const cleanImages = images || (image ? [image] : []);
   const postData = {
     title: safeTitle, body, campus, type: type || "all",
     author: req.user._id,
     anonName,
     anonAvatar,
-    image, eventDate, eventLocation,
+    image: image || (cleanImages.length > 0 ? cleanImages[0] : undefined),
+    images: cleanImages,
+    eventDate, eventLocation,
     offerBrand, offerDiscount, externalLink, isExclusive,
     burnAfter24h: burnAfter24h || false,
     burnAt: burnAfter24h ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
@@ -188,8 +205,8 @@ export const createPost = async (req, res) => {
         }
       }
 
-      invalidateCache("/api/posts");
-      invalidateCache("/api/auth/leaderboard");
+      invalidateCache("/api/v1/posts");
+      invalidateCache("/api/v1/auth/leaderboard");
 
       const io = req.app.get("io");
       if (io) io.emit("leaderboardUpdate");
@@ -362,19 +379,36 @@ export const votePost = async (req, res) => {
   const multiplier = await getCampusMultiplier(post.campus);
   const potatoChange = existingVote ? -(3 * multiplier) : (3 * multiplier);
 
-  const postAuthor = await User.findByIdAndUpdate(
-    post.author,
-    { $inc: { potato: potatoChange, upvotesReceived: existingVote ? -1 : 1 } },
-    { new: true }
-  );
+  let postAuthor;
+  if (post.author.toString() === req.user._id.toString()) {
+    // If the voter is the author themselves, update req.user directly to avoid stale document writes
+    req.user.potato = (req.user.potato || 0) + potatoChange;
+    req.user.upvotesReceived = (req.user.upvotesReceived || 0) + (existingVote ? -1 : 1);
+    postAuthor = req.user;
 
-  if (postAuthor) {
-    await checkAndAwardBadges(postAuthor);
-    await postAuthor.save();
-    try {
-      await redis.del(`campusRank:${post.author}`);
-    } catch (err) {
-      logger.error("Rank invalidation failed in votePost:", err.message);
+    const badgeAwarded = await checkAndAwardBadges(postAuthor);
+    // Save here if it's an unvote (since voter quest logic at the end won't save it) or if a badge was awarded.
+    if (existingVote || badgeAwarded) {
+      await req.user.save();
+    }
+  } else {
+    // If different users, update the author in the DB
+    postAuthor = await User.findByIdAndUpdate(
+      post.author,
+      { $inc: { potato: potatoChange, upvotesReceived: existingVote ? -1 : 1 } },
+      { new: true }
+    );
+
+    if (postAuthor) {
+      const badgeAwarded = await checkAndAwardBadges(postAuthor);
+      if (badgeAwarded) {
+        await postAuthor.save();
+      }
+      try {
+        await redis.del(`campusRank:${post.author}`);
+      } catch (err) {
+        logger.error("Rank invalidation failed in votePost:", err.message);
+      }
     }
   }
 
@@ -434,8 +468,8 @@ export const votePost = async (req, res) => {
     });
   }
 
-  invalidateCache("/api/posts");
-  invalidateCache("/api/auth/leaderboard");
+  invalidateCache("/api/v1/posts");
+  invalidateCache("/api/v1/auth/leaderboard");
   const io = req.app.get("io");
   if (io) {
     io.emit("leaderboardUpdate");
@@ -485,7 +519,7 @@ export const votePoll = async (req, res) => {
       return res.status(400).json({ error: "Voting failed (maybe you already voted?)" });
     }
 
-    invalidateCache("/api/posts");
+    invalidateCache("/api/v1/posts");
     res.json({ pollOptions: updatedPost.pollOptions, userVote: optionIndex });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -728,7 +762,7 @@ export const addComment = async (req, res) => {
     });
   }
 
-  invalidateCache("/api/auth/leaderboard");
+  invalidateCache("/api/v1/auth/leaderboard");
   const io = req.app.get("io");
   if (io) io.emit("leaderboardUpdate");
 
@@ -810,7 +844,7 @@ export const reactPost = async (req, res) => {
     });
   }
 
-  invalidateCache("/api/posts");
+  invalidateCache("/api/v1/posts");
   try {
     await redis.del(`campusRank:${post.author}`);
   } catch (err) {
@@ -925,7 +959,7 @@ export const deletePost = async (req, res) => {
       }
     }
 
-    invalidateCache("/api/posts");
+    invalidateCache("/api/v1/posts");
     res.json({ message: "Deleted" });
   } catch (error) {
     res.status(500).json({ error: error.message });

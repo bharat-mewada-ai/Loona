@@ -7,6 +7,8 @@ const redisStore = process.env.REDIS_URL ? new RedisStore({
   sendCommand: (...args) => redis.call(...args),
 }) : null;
 
+import jwt from "jsonwebtoken";
+
 const memoryStore = new MemoryStore();
 
 const createDynamicStore = (prefix) => ({
@@ -42,11 +44,23 @@ const createDynamicStore = (prefix) => ({
 
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'development' ? 2000 : 1000,
+  max: process.env.NODE_ENV === 'development' ? 5000 : 3000,
   message: { error: "Too many requests from this IP, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
   store: createDynamicStore('global'),
+  keyGenerator: (req) => {
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      try {
+        const token = req.headers.authorization.split(" ")[1];
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.id) {
+          return `user:${decoded.id}`;
+        }
+      } catch (e) {}
+    }
+    return req.ip;
+  },
 });
 
 export const authLimiter = rateLimit({

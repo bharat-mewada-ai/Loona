@@ -15,16 +15,17 @@ import { CAMPUSES_LIST, checkContent, POST_TYPES } from '../../constants';
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 import type { Campus } from '../../types';
 import { requestLocation } from '../../hooks/useLocation';
+import { Ionicons } from '@expo/vector-icons';
 
 const COMPOSE_TITLES: Record<string, string> = {
-  all: 'Start a discussion 💬',
-  thought: 'Start a discussion 💬',
-  discussion: 'Open a topic 🗣️',
-  confess: 'Anonymous confession 🕳️',
-  events:  'Post an event 📅',
-  offers:  'Post an offer 💳',
-  bhandara: 'Post a bhandara 🍛',
-  stories: 'Tell a story 📖',
+  all: 'Start a discussion',
+  thought: 'Start a discussion',
+  discussion: 'Open a topic',
+  confess: 'Anonymous confession',
+  events:  'Post an event',
+  offers:  'Post an offer',
+  bhandara: 'Post a bhandara',
+  stories: 'Tell a story',
 };
 
 type VibeStyleResult = { label: string; color: string; bg: string } | null;
@@ -33,13 +34,11 @@ export default function ComposeSheet() {
   const { showComposeSheet, closeComposeSheet, composeType, setComposeType, isDark } = useUIStore();
   const themeColors = getColors(isDark);
   const { user } = useAuthStore();
-  const { mutate: createPost, isPending } = useCreatePost();
-
-  const [title, setTitle] = useState('');
+  const { mutate: createPost, isPending } = useCreatePost();  const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  // Local URI for immediate preview; cdnUrl is what we send to the backend
-  const [imageUri, setImageUri] = useState('');      // device local path
-  const [cdnUrl, setCdnUrl] = useState('');          // cloudinary https URL
+  // Support multiple images
+  const [imageUris, setImageUris] = useState<string[]>([]);
+  const [cdnUrls, setCdnUrls] = useState<string[]>([]);
   const [imageUploading, setImageUploading] = useState(false); // upload in progress
 
   // Date & Time states
@@ -62,6 +61,14 @@ export default function ComposeSheet() {
   const [externalLink, setExternalLink] = useState(''); // for tickets or offers
   const [isExclusive, setIsExclusive] = useState(false);
 
+  // Auto-set burn status for stories
+  useEffect(() => {
+    if (composeType === 'stories') {
+      setBurn(true);
+    } else {
+      setBurn(false);
+    }
+  }, [composeType]);
 
   useEffect(() => {
     if (showComposeSheet) {
@@ -80,31 +87,60 @@ export default function ComposeSheet() {
 
   const confirmImage = async () => {
     const localUri = tempImageUri;
-    setImageUri(localUri);
-    setCdnUrl('');
+    if (imageUris.length >= 5) {
+      Alert.alert('Limit Reached', 'You can upload up to 5 photos.');
+      setShowConfirmModal(false);
+      return;
+    }
+    setImageUris(prev => [...prev, localUri]);
     setImageUploading(true);
     setShowConfirmModal(false);
     try {
       const { url } = await uploadToCloudinary(localUri);
-      setCdnUrl(url);
+      setCdnUrls(prev => [...prev, url]);
     } catch (err: any) {
       Alert.alert('Upload Failed', 'Could not upload image.');
-      setImageUri('');
+      setImageUris(prev => prev.filter(u => u !== localUri));
     } finally {
       setImageUploading(false);
     }
   };
 
   const pickImage = async () => {
+    const remainingLimit = 5 - imageUris.length;
+    if (remainingLimit <= 0) {
+      Alert.alert('Limit Reached', 'You can upload up to 5 photos.');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
+      allowsMultipleSelection: true,
+      selectionLimit: remainingLimit,
       quality: 0.5,
     });
-    if (!result.canceled) handleImageSelected(result.assets[0].uri);
+    if (!result.canceled) {
+      setImageUploading(true);
+      const assets = result.assets;
+      try {
+        for (const asset of assets) {
+          const localUri = asset.uri;
+          setImageUris(prev => [...prev, localUri]);
+          const { url } = await uploadToCloudinary(localUri);
+          setCdnUrls(prev => [...prev, url]);
+        }
+      } catch (err) {
+        Alert.alert('Upload Error', 'Failed to upload some images.');
+      } finally {
+        setImageUploading(false);
+      }
+    }
   };
 
   const takePhoto = async () => {
+    if (imageUris.length >= 5) {
+      Alert.alert('Limit Reached', 'You can upload up to 5 photos.');
+      return;
+    }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission Denied', 'Camera access is required.');
@@ -137,7 +173,7 @@ export default function ComposeSheet() {
       if (address && address[0]) {
         const item = address[0];
         const addrStr = `${item.name || ''}, ${item.street || ''}, ${item.district || item.city || ''}`
-          .replace(/^, |, $/g, '')
+          .replace(/^, /, '')
           .replace(/, ,/g, ',');
         setEventLocation(addrStr);
       } else {
@@ -163,7 +199,6 @@ export default function ComposeSheet() {
         nextDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
         setEventDate(nextDate);
         if (Platform.OS === 'android') {
-          // Small delay before opening time picker on Android
           setTimeout(() => setShowPicker('time'), 150);
         } else {
           setShowPicker('time');
@@ -189,7 +224,7 @@ export default function ComposeSheet() {
   const guard = checkContent(combined);
 
   const handleSubmit = useCallback(() => {
-    const isPhotoStory = composeType === 'stories' && !!cdnUrl;
+    const isPhotoStory = composeType === 'stories' && cdnUrls.length > 0;
     if (!title.trim() && !isPhotoStory) {
       Alert.alert('Wait!', 'Please enter a title or upload a photo.');
       return;
@@ -199,13 +234,11 @@ export default function ComposeSheet() {
       return;
     }
 
-    // Guard: campus must be set (race condition edge case)
     if (!user?.campus) {
       Alert.alert('Error', 'Campus not set. Please log out and log in again.');
       return;
     }
 
-    // Guard: normalize 'all' or unknown types to 'discussion'
     const postType = (composeType === 'all' || !composeType) ? 'discussion' : composeType;
 
     const cleanOptions = isPoll ? pollOptions.map(o => o.trim()).filter(o => o.length > 0) : [];
@@ -221,7 +254,8 @@ export default function ComposeSheet() {
       {
         title: title.trim(),
         body: body.trim() || undefined,
-        image: cdnUrl || undefined,
+        image: cdnUrls[0] || undefined,
+        images: cdnUrls,
         eventDate: isEvent && dateSet ? eventDate.toISOString() : undefined,
         eventLocation: isEvent ? eventLocation.trim() || undefined : undefined,
         offerBrand: composeType === 'offers' ? offerBrand.trim() || undefined : undefined,
@@ -237,7 +271,7 @@ export default function ComposeSheet() {
       },
       {
         onSuccess: () => {
-          setTitle(''); setBody(''); setImageUri(''); setCdnUrl(''); setDateSet(false); setBurn(false); setIsPoll(false); setPollOptions(['', '']);
+          setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false); setPollOptions(['', '']);
           setEventLocation('');
           closeComposeSheet();
         },
@@ -248,14 +282,13 @@ export default function ComposeSheet() {
         }
       }
     );
-  }, [title, body, cdnUrl, composeType, dateSet, eventDate, eventLocation, user, burn, isPoll, pollOptions, createPost, closeComposeSheet, userLocation, guard.level]);
+  }, [title, body, cdnUrls, composeType, dateSet, eventDate, eventLocation, user, burn, isPoll, pollOptions, createPost, closeComposeSheet, userLocation, guard.level]);
 
   const handleClose = () => {
-    setTitle(''); setBody(''); setImageUri(''); setCdnUrl(''); setDateSet(false); setBurn(false); setIsPoll(false);
+    setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false);
     setOfferBrand(''); setOfferDiscount(''); setExternalLink(''); setIsExclusive(false);
     closeComposeSheet();
   };
-
   return (
     <Modal visible={showComposeSheet} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={s.overlay} onPress={handleClose}>
@@ -277,12 +310,12 @@ export default function ComposeSheet() {
               </View>
               
               <TouchableOpacity 
-                style={[s.topPostBtn, { backgroundColor: themeColors.ogi }, (isPending || !title.trim()) && { opacity: 0.6 }]} 
+                style={[s.topPostBtn, { backgroundColor: themeColors.ogi }, (isPending || (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0))) && { opacity: 0.6 }]} 
                 onPress={handleSubmit} 
-                disabled={isPending || !title.trim()}
+                disabled={isPending || (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0))}
                 accessibilityRole="button"
                 accessibilityLabel="Post your content"
-                accessibilityState={{ disabled: isPending || !title.trim() }}
+                accessibilityState={{ disabled: isPending || (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)) }}
               >
                 {isPending ? (
                   <ActivityIndicator size="small" color="#FFF" />
@@ -312,7 +345,7 @@ export default function ComposeSheet() {
                     accessibilityLabel="Select event date and time"
                   >
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: themeColors.card3 || '#1A1A1A', alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 20 }}>📅</Text>
+                      <Ionicons name="calendar-outline" size={20} color={themeColors.txt} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: themeColors.txt3, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' }}>Event Timing</Text>
@@ -348,7 +381,7 @@ export default function ComposeSheet() {
                   )}
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                     <View style={[s.eInp, { flex: 1, borderColor: themeColors.bdr }]}>
-                      <Text style={{ fontSize: 16 }}>📍</Text>
+                      <Ionicons name="location-outline" size={16} color={themeColors.txt3} />
                       <TextInput 
                         style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
                         placeholder="Location" 
@@ -359,13 +392,13 @@ export default function ComposeSheet() {
                       />
                     </View>
                     <TouchableOpacity style={[s.locBtn, { borderColor: themeColors.bdr }]} onPress={handleGetLocation}>
-                      {locationLoading ? <ActivityIndicator size="small" color={themeColors.ogi} /> : <Text style={{ fontSize: 18 }}>🎯</Text>}
+                      {locationLoading ? <ActivityIndicator size="small" color={themeColors.ogi} /> : <Ionicons name="locate-outline" size={18} color={themeColors.txt} />}
                     </TouchableOpacity>
                   </View>
                   
                   {composeType === 'events' && (
                     <View style={[s.eInp, { marginTop: 10, borderColor: themeColors.bdr }]}>
-                      <Text style={{ fontSize: 16 }}>🔗</Text>
+                      <Ionicons name="link-outline" size={16} color={themeColors.txt3} />
                       <TextInput 
                         style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
                         placeholder="Registration / Ticket Link (Optional)" 
@@ -381,7 +414,7 @@ export default function ComposeSheet() {
               {composeType === 'offers' && (
                 <View style={[s.eventFields, { backgroundColor: themeColors.card2, padding: 12, borderRadius: 16, marginBottom: 16 }]}>
                   <View style={[s.eInp, { borderColor: themeColors.bdr }]}>
-                    <Text style={{ fontSize: 16 }}>🏢</Text>
+                    <Ionicons name="business-outline" size={16} color={themeColors.txt3} />
                     <TextInput 
                       style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
                       placeholder="Brand Name (e.g. Chai Sutta Bar)" 
@@ -392,7 +425,7 @@ export default function ComposeSheet() {
                   </View>
                   <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                     <View style={[s.eInp, { flex: 1, borderColor: themeColors.bdr }]}>
-                      <Text style={{ fontSize: 16 }}>🏷️</Text>
+                      <Ionicons name="pricetag-outline" size={16} color={themeColors.txt3} />
                       <TextInput 
                         style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
                         placeholder="Discount (e.g. 20% OFF)" 
@@ -402,7 +435,7 @@ export default function ComposeSheet() {
                       />
                     </View>
                     <View style={[s.eInp, { flex: 1, borderColor: themeColors.bdr }]}>
-                      <Text style={{ fontSize: 16 }}>🔗</Text>
+                      <Ionicons name="link-outline" size={16} color={themeColors.txt3} />
                       <TextInput 
                         style={{ flex: 1, color: themeColors.txt, padding: 0 }} 
                         placeholder="Offer Link (Optional)" 
@@ -426,7 +459,7 @@ export default function ComposeSheet() {
               <TextInput
                 style={[s.ta, { color: themeColors.txt, fontWeight: composeType === 'stories' ? '800' : '400' }]}
                 placeholder={
-                  composeType === 'confess' ? "Something on your mind? Confess anonymously... 🕳️" :
+                  composeType === 'confess' ? "Something on your mind? Confess anonymously..." :
                   composeType === 'stories' ? "Story Title (e.g., Late night library secret...)" :
                   composeType === 'discussion' ? "What's the topic? (e.g., Is coding dying?)" :
                   isPoll ? "Ask a question for your poll..." : "Write your post here..."
@@ -461,11 +494,35 @@ export default function ComposeSheet() {
                 </>
               )}
 
-              {imageUri && (
-                <View style={s.previewContainer}>
-                  <Image source={{ uri: imageUri }} style={s.preview} />
-                  {imageUploading && <View style={s.upOverlay}><ActivityIndicator color="#fff" /></View>}
-                  <TouchableOpacity style={s.removeBtn} onPress={() => setImageUri('')}><Text style={{ color: '#fff' }}>✕</Text></TouchableOpacity>
+              {imageUris.length > 0 && (
+                <View style={{ marginVertical: 12 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                    {imageUris.map((uri, idx) => (
+                      <View key={idx} style={{ width: 100, height: 100, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+                        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <TouchableOpacity 
+                          style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }}
+                          onPress={() => {
+                            setImageUris(prev => prev.filter((_, i) => i !== idx));
+                            setCdnUrls(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                        >
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {imageUploading && (
+                      <View style={{ width: 100, height: 100, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator color={themeColors.ogi} />
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+              )}
+
+              {imageUris.length === 0 && imageUploading && (
+                <View style={{ width: 100, height: 100, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.1)', alignItems: 'center', justifyContent: 'center', marginVertical: 12 }}>
+                  <ActivityIndicator color={themeColors.ogi} />
                 </View>
               )}
 
@@ -509,33 +566,68 @@ export default function ComposeSheet() {
                 </View>
               )}
 
+              {/* 24 Hours Auto-Delete Switch */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, paddingVertical: 12, borderTopWidth: 1, borderTopColor: themeColors.bdr, borderBottomWidth: 1, borderBottomColor: themeColors.bdr }}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }}>Delete after 24 hours</Text>
+                  <Text style={{ color: themeColors.txt3, fontSize: 11, marginTop: 2 }}>
+                    This post/story will be deleted automatically in 24 hours
+                  </Text>
+                </View>
+                <Switch
+                  value={burn}
+                  onValueChange={setBurn}
+                  trackColor={{ false: themeColors.bdr, true: themeColors.ogi }}
+                  thumbColor={Platform.OS === 'android' ? (burn ? themeColors.ogi : '#f4f3f4') : undefined}
+                />
+              </View>
+
               <View style={s.chipRow}>
                 {POST_TYPES.map(t => (
                   <TouchableOpacity 
                     key={t.value}
-                    style={[s.chip, { backgroundColor: composeType === t.value ? themeColors.ogi : themeColors.card2 }]} 
+                    style={[
+                      s.chip, 
+                      { 
+                        backgroundColor: composeType === t.value ? themeColors.ogi : themeColors.card2,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6
+                      }
+                    ]} 
                     onPress={() => setComposeType(t.value as any)}
                     accessibilityRole="button"
                     accessibilityLabel={`Select post type: ${t.label}`}
                     accessibilityState={{ selected: composeType === t.value }}
                   >
-                    <Text style={[s.chipTxt, { color: composeType === t.value ? '#FFF' : themeColors.txt }]}>{t.icon} {t.label}</Text>
+                    <Ionicons 
+                      name={t.icon as any} 
+                      size={14} 
+                      color={composeType === t.value ? '#FFF' : themeColors.txt} 
+                    />
+                    <Text style={[s.chipTxt, { color: composeType === t.value ? '#FFF' : themeColors.txt }]}>
+                      {t.label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
               <View style={s.actionRow}>
-                <TouchableOpacity style={s.aBtn} onPress={pickImage}><Text style={s.aIcon}>🖼️</Text></TouchableOpacity>
-                <TouchableOpacity style={s.aBtn} onPress={takePhoto}><Text style={s.aIcon}>📸</Text></TouchableOpacity>
+                <TouchableOpacity style={s.aBtn} onPress={pickImage}>
+                  <Ionicons name="image-outline" size={22} color={themeColors.txt2} />
+                </TouchableOpacity>
+                <TouchableOpacity style={s.aBtn} onPress={takePhoto}>
+                  <Ionicons name="camera-outline" size={22} color={themeColors.txt2} />
+                </TouchableOpacity>
                 <TouchableOpacity style={s.aBtn} onPress={() => setBurn(!burn)}>
-                  <Text style={[s.aIcon, burn && { color: themeColors.ogi }]}>{burn ? '🔥' : '♾️'}</Text>
+                  <Ionicons name={burn ? "flame" : "flame-outline"} size={22} color={burn ? themeColors.ogi : themeColors.txt2} />
                 </TouchableOpacity>
                 <TouchableOpacity style={s.aBtn} onPress={() => {
                   const newState = !isPoll;
                   setIsPoll(newState);
                   if (!newState) setPollOptions(['', '']);
                 }}>
-                  <Text style={[s.aIcon, isPoll && { color: themeColors.ogi }]}>📊</Text>
+                  <Ionicons name={isPoll ? "bar-chart" : "bar-chart-outline"} size={22} color={isPoll ? themeColors.ogi : themeColors.txt2} />
                 </TouchableOpacity>
               </View>
               <View style={{ height: 40 }} />

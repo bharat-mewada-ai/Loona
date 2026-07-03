@@ -77,6 +77,7 @@ export default function LoginScreen() {
     iosClientId: GOOGLE_AUTH.IOS_CLIENT_ID,
     responseType: Platform.OS === 'web' ? 'token' : 'id_token',
     redirectUri,
+    prompt: AuthSession.Prompt.SelectAccount,
   });
 
   useEffect(() => {
@@ -123,6 +124,11 @@ export default function LoginScreen() {
       }
 
       await GoogleSignin.hasPlayServices();
+      try {
+        await GoogleSignin.signOut();
+      } catch (e) {
+        // Safe to ignore if not already signed in
+      }
       const response = await GoogleSignin.signIn();
 
       if (response.type === 'success') {

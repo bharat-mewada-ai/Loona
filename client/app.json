@@ -33,12 +33,10 @@
         "backgroundColor": "#FF6B35"
       },
       "package": "com.loona.app",
-      "versionCode": 31,
+      "versionCode": 33,
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.CAMERA",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
