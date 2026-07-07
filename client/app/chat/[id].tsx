@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Image, Alert, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, ActivityIndicator, Image, Alert, Modal, TouchableWithoutFeedback, AppState, AppStateStatus, PanResponder, Animated } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -13,7 +13,80 @@ import { uploadToCloudinary } from '../../src/utils/uploadToCloudinary';
 import { Ionicons } from '@expo/vector-icons';
 import { formatMessageTime } from '../../src/utils/time';
 import { useAnalytics } from '../../src/hooks/useAnalytics';
-import { getSocket } from '../../src/utils/socket';
+import { getSocket, reconnectSocket } from '../../src/utils/socket';
+import * as Haptics from 'expo-haptics';
+
+interface SwipeableMessageProps {
+  children: React.ReactNode;
+  onSwipeReply: () => void;
+}
+
+const SwipeableMessage: React.FC<SwipeableMessageProps> = ({ children, onSwipeReply }) => {
+  const pan = useRef(new Animated.ValueXY()).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        // Only trigger horizontal swipe right gesture
+        return Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 8 && gestureState.dx > 0;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        if (gestureState.dx > 0) {
+          pan.setValue({ x: Math.min(gestureState.dx, 50), y: 0 });
+        }
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx >= 40) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          onSwipeReply();
+        }
+        Animated.spring(pan, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: true,
+          tension: 50,
+          friction: 6,
+        }).start();
+      },
+    })
+  ).current;
+
+  return (
+    <View style={{ position: 'relative', width: '100%' }}>
+      <Animated.View
+        style={{
+          position: 'absolute',
+          left: 10,
+          top: '30%',
+          opacity: pan.x.interpolate({
+            inputRange: [0, 40],
+            outputRange: [0, 1],
+            extrapolate: 'clamp',
+          }),
+          transform: [
+            {
+              scale: pan.x.interpolate({
+                inputRange: [0, 40],
+                outputRange: [0.7, 1.1],
+                extrapolate: 'clamp',
+              }),
+            },
+          ],
+        }}
+      >
+        <Ionicons name="arrow-undo-outline" size={20} color="#FF453A" />
+      </Animated.View>
+
+      <Animated.View
+        style={{
+          transform: [{ translateX: pan.x }],
+        }}
+        {...panResponder.panHandlers}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
+};
 
 export default function ChatRoomScreen() {
   const { id, name, isGroup } = useLocalSearchParams();
@@ -29,6 +102,7 @@ export default function ChatRoomScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [showAttachment, setShowAttachment] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<any | null>(null);
   const flatListRef = useRef<FlashList<any>>(null);
 
   const [isOtherTyping, setIsOtherTyping] = useState(false);
@@ -48,7 +122,25 @@ export default function ChatRoomScreen() {
     isNearBottomRef.current = distanceFromBottom < 150;
   };
 
-  const { data, isLoading, isError } = useMessages(id as string);
+  const { data, isLoading, isError, refetch } = useMessages(id as string);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        console.log('[Chat] App returned to active foreground: refetching and sync socket');
+        refetch();
+        if (token && id) {
+          const s = reconnectSocket(token);
+          s.emit('joinChat', id);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, [id, token, refetch]);
 
   useEffect(() => {
     if (!id || !token) return;
@@ -85,6 +177,7 @@ export default function ChatRoomScreen() {
   const REACTION_EMOJIS = ['❤️', '👍', '🔥', '😆', '😢', '🙏'];
 
   const handleReact = (messageId: string, emoji: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const currentReaction = activeReactionMsg?.reactions?.[user?._id || ''];
     const finalEmoji = currentReaction === emoji ? null : emoji;
     reactToMessage({ chatId: id as string, messageId, reaction: finalEmoji });
@@ -173,6 +266,8 @@ export default function ChatRoomScreen() {
   const handleSend = () => {
     if (!inputText.trim() && !image) return;
     
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    
     // Stop typing status instantly on send
     if (isTypingRef.current && token && id) {
       isTypingRef.current = false;
@@ -180,9 +275,16 @@ export default function ChatRoomScreen() {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
     
-    sendMessage({ chatId: id as string, content: inputText, image: image || undefined });
+    let textToSend = inputText;
+    if (replyingTo) {
+      const snippet = replyingTo.content ? replyingTo.content.replace(/\n/g, ' ').slice(0, 45) : (replyingTo.image ? '📷 Image' : '');
+      textToSend = `💬 Replying to: ${snippet}\n\n${inputText}`;
+    }
+    
+    sendMessage({ chatId: id as string, content: textToSend, image: image || undefined });
     setInputText('');
     setImage('');
+    setReplyingTo(null);
     setShowAttachment(false);
   };
   
@@ -410,73 +512,100 @@ export default function ChatRoomScreen() {
           windowSize={11}
           renderItem={({ item }) => {
             const isMe = item.senderType === 'me';
-            const hasImage = !!item.image;
-
-            return (
+                 return (
               <View style={[s.msgWrapper, isMe ? s.msgRight : s.msgLeft, { position: 'relative', marginBottom: (item.reactions && Object.keys(item.reactions).length > 0) ? 20 : 12 }]}>
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onLongPress={() => setActiveReactionMsg(item)}
-                  style={[
-                    s.msgBubble, 
-                    isMe ? [s.myBubble, { backgroundColor: themeColors.ogi }] : [s.theirBubble, { backgroundColor: themeColors.card2 }],
-                    hasImage && { padding: 4 } // edge-to-edge style inside bubble for images
-                  ]}
-                >
-                  {hasImage && (
-                    <TouchableOpacity onPress={() => setSelectedImage(item.image)}>
-                      <Image 
-                        source={{ uri: item.image }} 
-                        style={[
-                          s.msgImg,
-                          {
-                            borderTopLeftRadius: 14,
-                            borderTopRightRadius: 14,
-                            borderBottomLeftRadius: item.content ? 0 : 14,
-                            borderBottomRightRadius: item.content ? 0 : 14,
-                          }
-                        ]} 
-                        resizeMode="cover" 
-                      />
-                    </TouchableOpacity>
-                  )}
-                  
-                  {!!item.content && (
-                    <View style={[s.captionContainer, hasImage && { paddingHorizontal: 8, paddingTop: 6, paddingBottom: 4 }]}>
-                      <Text style={[s.msgText, { color: isMe ? '#FFF' : themeColors.txt }]}>{item.content}</Text>
-                    </View>
-                  )}
-
-                  {/* Time + Ticks overlay (inside the bubble) */}
-                  <View style={[s.msgBubbleMeta, hasImage && !item.content && s.msgMetaOverlay]}>
-                    <Text style={[
-                      s.msgTime, 
-                      { color: isMe ? 'rgba(255,255,255,0.7)' : themeColors.txt3 },
-                      hasImage && !item.content && { color: '#FFF', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 }
-                    ]}>
-                      {formatMessageTime(item.createdAt)}
-                    </Text>
-                    {renderTicks(item)}
-                  </View>
-
-                  {/* Reactions Pill */}
-                  {item.reactions && Object.keys(item.reactions).length > 0 && (() => {
-                    const reactionList = Object.values(item.reactions);
-                    const uniqueEmojis = Array.from(new Set(reactionList)).slice(0, 3);
-                    return (
-                      <View style={[
-                        s.reactionPill, 
-                        isMe ? { left: 8 } : { right: 8 }, 
-                        { backgroundColor: themeColors.card, borderColor: themeColors.bdr }
-                      ]}>
-                        <Text style={[s.reactionText, { color: themeColors.txt }]}>
-                          {uniqueEmojis.join('')}{reactionList.length > 1 ? ` ${reactionList.length}` : ''}
-                        </Text>
+                <SwipeableMessage onSwipeReply={() => setReplyingTo(item)}>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onLongPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                      setActiveReactionMsg(item);
+                    }}
+                    style={[
+                      s.msgBubble, 
+                      isMe ? [s.myBubble, { backgroundColor: themeColors.ogi }] : [s.theirBubble, { backgroundColor: themeColors.card2 }],
+                      hasImage && { padding: 4 } // edge-to-edge style inside bubble for images
+                    ]}
+                  >
+                    {hasImage && (
+                      <TouchableOpacity onPress={() => setSelectedImage(item.image)}>
+                        <Image 
+                          source={{ uri: item.image }} 
+                          style={[
+                            s.msgImg,
+                            {
+                              borderTopLeftRadius: 14,
+                              borderTopRightRadius: 14,
+                              borderBottomLeftRadius: item.content ? 0 : 14,
+                              borderBottomRightRadius: item.content ? 0 : 14,
+                            }
+                          ]} 
+                          resizeMode="cover" 
+                        />
+                      </TouchableOpacity>
+                    )}
+                    
+                    {!!item.content && (
+                      <View style={[s.captionContainer, hasImage && { paddingHorizontal: 8, paddingTop: 6, paddingBottom: 4 }]}>
+                        {item.content.startsWith("💬 Replying to: ") ? (() => {
+                          const parts = item.content.split('\n\n');
+                          const quotePart = parts[0];
+                          const replyText = parts.slice(1).join('\n\n');
+                          return (
+                            <View>
+                              <View style={{
+                                backgroundColor: isMe ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.06)',
+                                borderLeftWidth: 3,
+                                borderLeftColor: isMe ? '#FFF' : themeColors.ogi,
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                marginBottom: 6,
+                              }}>
+                                <Text style={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.85)' : themeColors.txt2 }} numberOfLines={1}>
+                                  {quotePart}
+                                </Text>
+                              </View>
+                              <Text style={[s.msgText, { color: isMe ? '#FFF' : themeColors.txt }]}>{replyText}</Text>
+                            </View>
+                          );
+                        })() : (
+                          <Text style={[s.msgText, { color: isMe ? '#FFF' : themeColors.txt }]}>{item.content}</Text>
+                        )}
                       </View>
-                    );
-                  })()}
+                    )}
 
-                </TouchableOpacity>
+                    {/* Time + Ticks overlay (inside the bubble) */}
+                    <View style={[s.msgBubbleMeta, hasImage && !item.content && s.msgMetaOverlay]}>
+                      <Text style={[
+                        s.msgTime, 
+                        { color: isMe ? 'rgba(255,255,255,0.7)' : themeColors.txt3 },
+                        hasImage && !item.content && { color: '#FFF', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 3 }
+                      ]}>
+                        {formatMessageTime(item.createdAt)}
+                      </Text>
+                      {renderTicks(item)}
+                    </View>
+
+                    {/* Reactions Pill */}
+                    {item.reactions && Object.keys(item.reactions).length > 0 && (() => {
+                      const reactionList = Object.values(item.reactions);
+                      const uniqueEmojis = Array.from(new Set(reactionList)).slice(0, 3);
+                      return (
+                        <View style={[
+                          s.reactionPill, 
+                          isMe ? { left: 8 } : { right: 8 }, 
+                          { backgroundColor: themeColors.card, borderColor: themeColors.bdr }
+                        ]}>
+                          <Text style={[s.reactionText, { color: themeColors.txt }]}>
+                            {uniqueEmojis.join('')}{reactionList.length > 1 ? ` ${reactionList.length}` : ''}
+                          </Text>
+                        </View>
+                      );
+                    })()}
+
+                  </TouchableOpacity>
+                </SwipeableMessage>
               </View>
             );
           }}
@@ -493,6 +622,33 @@ export default function ChatRoomScreen() {
 
         {/* Input */}
         <View style={[s.inputWrap, { borderTopColor: themeColors.bdr, backgroundColor: themeColors.card }]}>
+          {replyingTo && (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: themeColors.card2,
+              borderLeftWidth: 4,
+              borderLeftColor: themeColors.ogi,
+              padding: 10,
+              borderRadius: 12,
+              marginBottom: 10,
+              gap: 12,
+            }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: themeColors.ogi, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Replying to {replyingTo.senderType === 'me' ? 'Myself' : otherName}
+                </Text>
+                <Text style={{ fontSize: 13, color: themeColors.txt2, marginTop: 2 }} numberOfLines={1}>
+                  {replyingTo.content?.startsWith("💬 Replying to: ") 
+                    ? replyingTo.content.split('\n\n').slice(1).join('\n\n')
+                    : replyingTo.content || (replyingTo.image ? '📷 Photo' : '')}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setReplyingTo(null)} style={{ padding: 4 }}>
+                <Ionicons name="close-circle" size={20} color={themeColors.txt3} />
+              </TouchableOpacity>
+            </View>
+          )}
           {image && (
             <View style={s.previewWrap}>
               <Image source={{ uri: image }} style={s.preview} resizeMode="contain" />
