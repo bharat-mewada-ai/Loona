@@ -67,7 +67,11 @@ router.post("/broadcast", requireAuth, requireAdmin, asyncHandler(async (req, re
     if (typeof target === 'string' && ['ogi', 'lnct', 'oriental'].includes(target)) {
        query.campus = target;
     } else if (target.userId) {
-       query._id = target.userId;
+       if (mongoose.isValidObjectId(target.userId)) {
+          query._id = target.userId;
+       } else {
+          query.name = target.userId;
+       }
     } else if (target.email) {
        query.email = target.email;
     } else if (target === 'all') {
