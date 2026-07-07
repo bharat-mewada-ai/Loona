@@ -19,6 +19,7 @@ const UserManagement = () => {
       try {
         const res = await api.get(`/admin/users/search?q=${searchTerm}`);
         setResults(res.data);
+        setSelectedUser(null); // Reset user detail view to show new search results
       } catch (err) {
         console.error('Search failed', err);
       } finally {
