@@ -9,6 +9,7 @@ import { OAuth2Client } from "google-auth-library";
 import { checkContent } from "../utils/moderation.js";
 import logger from "../utils/logger.js";
 import redis from "../utils/redis.js";
+import mongoose from "mongoose";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -571,7 +572,21 @@ export const registerPushToken = async (req, res) => {
 // --- GET PUBLIC PROFILE ------------------------------------------------------
 export const getPublicProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select("name avatar potato streak bio tags campus isPrivate postCount").lean();
+    const { userId } = req.params;
+    
+    // Fallback: If it's a name (string) instead of a 24-character hex ObjectId, search by name
+    if (!mongoose.isValidObjectId(userId)) {
+      const userByName = await User.findOne({ name: userId })
+        .select("name avatar potato streak bio tags campus isPrivate postCount")
+        .lean();
+      
+      if (!userByName) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      return res.json(userByName);
+    }
+
+    const user = await User.findById(userId).select("name avatar potato streak bio tags campus isPrivate postCount").lean();
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json(user);
   } catch (err) {
