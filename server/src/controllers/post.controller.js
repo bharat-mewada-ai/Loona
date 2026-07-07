@@ -47,13 +47,15 @@ export const createPost = async (req, res) => {
 
   // ─── Double-Post Lock (Idempotency) ──────────────────────────────────────────
   const lockKey = `lock:post:${req.user._id}`;
-  try {
-    const existing = await redis.set(lockKey, '1', 'EX', 5, 'NX');
-    if (!existing) {
-      return res.status(429).json({ error: 'Please wait a moment before posting again.' });
+  if (redis && redis.status === "ready") {
+    try {
+      const existing = await redis.set(lockKey, '1', 'EX', 5, 'NX');
+      if (!existing) {
+        return res.status(429).json({ error: 'Please wait a moment before posting again.' });
+      }
+    } catch (err) {
+      // If Redis fails, still allow the post
     }
-  } catch (err) {
-    // If Redis fails, still allow the post
   }
 
   // Reject base64 images — clients must upload to Cloudinary first and send the CDN URL
@@ -176,10 +178,12 @@ export const createPost = async (req, res) => {
           });
         }
 
-        try {
-          await redis.del(`campusRank:${user._id}`);
-        } catch (err) {
-          logger.error("Rank invalidation failed in createPost:", err.message);
+        if (redis && redis.status === "ready") {
+          try {
+            await redis.del(`campusRank:${user._id}`);
+          } catch (err) {
+            logger.error("Rank invalidation failed in createPost:", err.message);
+          }
         }
       }
 
@@ -236,7 +240,14 @@ export const getPosts = async (req, res) => {
     try {
       const blockKey = `blocks:${req.user._id}`;
       let blockedIds;
-      const cachedBlocks = await redis.get(blockKey);
+      let cachedBlocks = null;
+      if (redis && redis.status === "ready") {
+        try {
+          cachedBlocks = await redis.get(blockKey);
+        } catch (err) {
+          logger.error('Error fetching blocks from Redis:', err.message);
+        }
+      }
       
       if (cachedBlocks) {
         blockedIds = JSON.parse(cachedBlocks);
@@ -244,7 +255,13 @@ export const getPosts = async (req, res) => {
         const { default: Block } = await import("../models/block.model.js");
         const blocks = await Block.find({ blocker: req.user._id }).select('blocked').lean();
         blockedIds = blocks.map(b => b.blocked);
-        await redis.set(blockKey, JSON.stringify(blockedIds), 'EX', 300);
+        if (redis && redis.status === "ready") {
+          try {
+            await redis.set(blockKey, JSON.stringify(blockedIds), 'EX', 300);
+          } catch (err) {
+            logger.error('Error setting blocks in Redis:', err.message);
+          }
+        }
       }
 
       if (blockedIds.length > 0) {
@@ -267,13 +284,19 @@ export const getPosts = async (req, res) => {
   let topUserIds = [];
   try {
     const topKey = `top3:${filter.campus || 'all'}`;
-    const cachedTop = await redis.get(topKey);
-    if (cachedTop) topUserIds = JSON.parse(cachedTop);
-    else {
+    let cachedTop = null;
+    if (redis && redis.status === "ready") {
+      cachedTop = await redis.get(topKey);
+    }
+    if (cachedTop) {
+      topUserIds = JSON.parse(cachedTop);
+    } else {
       const topUsersQuery = filter.campus ? { campus: filter.campus } : {};
       const topUsers = await User.find(topUsersQuery).sort({ potato: -1 }).limit(3).select("_id").lean();
       topUserIds = topUsers.map(u => u._id.toString());
-      await redis.set(topKey, JSON.stringify(topUserIds), 'EX', 3600); // cache 1 hour
+      if (redis && redis.status === "ready") {
+        await redis.set(topKey, JSON.stringify(topUserIds), 'EX', 3600); // cache 1 hour
+      }
     }
   } catch(e) {}
 
@@ -404,10 +427,12 @@ export const votePost = async (req, res) => {
       if (badgeAwarded) {
         await postAuthor.save();
       }
-      try {
-        await redis.del(`campusRank:${post.author}`);
-      } catch (err) {
-        logger.error("Rank invalidation failed in votePost:", err.message);
+      if (redis && redis.status === "ready") {
+        try {
+          await redis.del(`campusRank:${post.author}`);
+        } catch (err) {
+          logger.error("Rank invalidation failed in votePost:", err.message);
+        }
       }
     }
   }
@@ -735,10 +760,12 @@ export const addComment = async (req, res) => {
 
   await checkAndAwardBadges(req.user);
   await req.user.save();
-  try {
-    await redis.del(`campusRank:${req.user._id}`);
-  } catch (err) {
-    logger.error("Rank invalidation failed in addComment:", err.message);
+  if (redis && redis.status === "ready") {
+    try {
+      await redis.del(`campusRank:${req.user._id}`);
+    } catch (err) {
+      logger.error("Rank invalidation failed in addComment:", err.message);
+    }
   }
 
   // ─── Trigger Notification (High-Dopamine Randomization) ──────────────────────────────────────────────────
@@ -845,10 +872,12 @@ export const reactPost = async (req, res) => {
   }
 
   invalidateCache("/api/v1/posts");
-  try {
-    await redis.del(`campusRank:${post.author}`);
-  } catch (err) {
-    logger.error("Rank invalidation failed in reactPost:", err.message);
+  if (redis && redis.status === "ready") {
+    try {
+      await redis.del(`campusRank:${post.author}`);
+    } catch (err) {
+      logger.error("Rank invalidation failed in reactPost:", err.message);
+    }
   }
   res.json({ reactions: post.reactions, userReaction: post.reactedBy.get(userId) ?? null });
 };

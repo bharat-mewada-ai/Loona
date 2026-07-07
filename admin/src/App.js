@@ -8,6 +8,7 @@ import Criminals from './pages/Criminals';
 import Developer from './pages/Developer';
 import Login from './pages/Login';
 import ReportedChats from './pages/ReportedChats';
+import Feedback from './pages/Feedback';
 import Sidebar from './components/Sidebar';
 import { isStaff as checkIsStaff, clearAuthToken } from './utils/auth';
 
@@ -39,6 +40,7 @@ function App() {
             <Route path="/reports" element={<ReportedPosts />} />
             <Route path="/reported-chats" element={<ReportedChats />} />
             <Route path="/users" element={<UserManagement />} />
+            <Route path="/feedback" element={<Feedback />} />
             <Route path="/broadcast" element={<Broadcast />} />
             <Route path="/criminals" element={<Criminals />} />
             <Route path="/developer" element={<Developer />} />
