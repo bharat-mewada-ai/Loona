@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, AlertCircle, Users, LogOut, Megaphone, Terminal, Gavel, MessageSquare, Inbox } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, Users, LogOut, Megaphone, Terminal, Gavel, MessageSquare, Inbox, EyeOff } from 'lucide-react';
 import { isSuperAdmin, isStaff } from '../utils/auth';
 
 const Sidebar = ({ onLogout }) => {
@@ -31,6 +31,7 @@ const Sidebar = ({ onLogout }) => {
         {isStaff() && <SidebarItem to="/" icon={<LayoutDashboard size={20} />} label="Dashboard" />}
         <SidebarItem to="/reports" icon={<AlertCircle size={20} />} label="Reports" />
         <SidebarItem to="/reported-chats" icon={<MessageSquare size={20} />} label="Reported Chats" />
+        {isStaff() && <SidebarItem to="/confessions" icon={<EyeOff size={20} />} label="Confessions" />}
         {isSuperAdmin() && <SidebarItem to="/users" icon={<Users size={20} />} label="Users" />}
         {isSuperAdmin() && <SidebarItem to="/feedback" icon={<Inbox size={20} />} label="Feedback" />}
         {isSuperAdmin() && <SidebarItem to="/criminals" icon={<Gavel size={20} />} label="Criminals" />}

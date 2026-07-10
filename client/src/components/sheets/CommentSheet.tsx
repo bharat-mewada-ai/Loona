@@ -122,13 +122,13 @@ export default function CommentSheet() {
                         <Text style={[
                           s.cName, 
                           { 
-                            color: post && (post.author?._id || post.author)?.toString() === item.author?.toString()
+                            color: post && post.type !== 'confess' && (post.author?._id || post.author)?.toString() === item.author?.toString()
                               ? themeColors.ogi 
                               : themeColors.txt 
                           }
                         ]}>
                           {item.anonName}
-                          {post && (post.author?._id || post.author)?.toString() === item.author?.toString() && ' [OP]'}
+                          {post && post.type !== 'confess' && (post.author?._id || post.author)?.toString() === item.author?.toString() && ' [OP]'}
                         </Text>
                         {item.authorIsVerified && (
                           <Ionicons name="checkmark-circle" size={14} color="#3897f0" />
@@ -175,7 +175,7 @@ export default function CommentSheet() {
                       </View>
                       <View>
                         <Text style={[s.postAuthorName, { color: themeColors.txt }]}>
-                          {post.type === 'confess' ? `${post.anonName} [OP]` : post.anonName}
+                          {post.anonName}
                         </Text>
                         <Text style={[s.postTime, { color: themeColors.txt3 }]}>{formatDistanceToNow(post.createdAt)}</Text>
                       </View>

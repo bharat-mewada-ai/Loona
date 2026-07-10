@@ -270,6 +270,42 @@ const UserManagement = () => {
              </p>
           </div>
 
+          <div style={{ marginTop: '40px', marginBottom: '40px' }}>
+             <h4 style={{ color: '#FFF', marginBottom: '16px' }}>USER POSTS & CONFESSIONS</h4>
+             {!selectedUser.posts || selectedUser.posts.length === 0 ? (
+               <p style={{ color: '#71717A' }}>No posts or confessions found for this user.</p>
+             ) : (
+               <div style={{ background: '#0A0A0A', borderRadius: '16px', border: '1px solid #222', overflow: 'hidden' }}>
+                 {selectedUser.posts.map(post => (
+                   <div key={post._id} style={{ padding: '16px 20px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <div style={{ flex: 1, paddingRight: '16px' }}>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                         <span style={{ 
+                           padding: '2px 6px', 
+                           borderRadius: '4px', 
+                           fontSize: '10px', 
+                           fontWeight: '700', 
+                           textTransform: 'uppercase',
+                           background: post.type === 'confess' ? '#EF444420' : '#0A84FF20',
+                           color: post.type === 'confess' ? '#EF4444' : '#0A84FF' 
+                         }}>
+                           {post.type}
+                         </span>
+                         <span style={{ color: '#71717A', fontSize: '11px' }}>{new Date(post.createdAt).toLocaleDateString()}</span>
+                       </div>
+                       <div style={{ color: '#FFF', fontWeight: '600', fontSize: '14px' }}>{post.title}</div>
+                       {post.body && <div style={{ color: '#71717A', fontSize: '12px', marginTop: '4px' }}>{post.body.substring(0, 100)}{post.body.length > 100 ? '...' : ''}</div>}
+                     </div>
+                     <div style={{ display: 'flex', gap: '16px', color: '#71717A', fontSize: '12px', fontWeight: 'bold' }}>
+                       <span>🥔 {post.upvotes}</span>
+                       <span>💬 {post.commentCount}</span>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             )}
+          </div>
+
           <div style={{ marginTop: '40px' }}>
              <h4 style={{ color: '#FFF', marginBottom: '16px' }}>MODERATION LOGS (Audit)</h4>
              {selectedUser.logs.length === 0 ? (

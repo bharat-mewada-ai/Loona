@@ -16,7 +16,8 @@ import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from "expo-location";
 import NetInfo from '@react-native-community/netinfo';
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useQueryClient } from '@tanstack/react-query';
 import { triggerHaptic } from "../../src/utils/haptics";
 import { usePosts, useCreatePost } from "../../src/hooks/usePosts";
 import { requestLocation } from "../../src/hooks/useLocation";
@@ -41,11 +42,27 @@ import { BlurView } from "expo-blur";
 export default function Feed() {
   useAnalytics('home');
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const activeCampus = useUIStore(s => s.activeCampus);
+  const activeTab = useUIStore(s => s.activeTab);
+  const setCampus = useUIStore(s => s.setCampus);
+  const setTab = useUIStore(s => s.setTab);
+  const isDark = useUIStore(s => s.isDark);
+  const toggleDark = useUIStore(s => s.toggleDark);
+  const openComposeSheet = useUIStore(s => s.openComposeSheet);
+  const { user } = useAuthStore();
+  const isSneaking = activeCampus === 'all' || activeCampus !== user?.campus;
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading, refetch } = usePosts();
   const { mutate: deletePost } = useDeletePost();
   const { data: leaderboardData } = useLeaderboard();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    }, [refetch, queryClient])
+  );
   
-  const { user } = useAuthStore();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const { data: poll, isLoading: pollLoading } = useTodayPoll();
@@ -92,14 +109,7 @@ export default function Feed() {
     console.log("[Accelerometer] Disabled to prevent startup crash on this build version.");
   }, [user, shakeModalVisible, shakeLoading]);
 
-  const activeCampus = useUIStore(s => s.activeCampus);
-  const activeTab = useUIStore(s => s.activeTab);
-  const setCampus = useUIStore(s => s.setCampus);
-  const setTab = useUIStore(s => s.setTab);
-  const isDark = useUIStore(s => s.isDark);
-  const toggleDark = useUIStore(s => s.toggleDark);
-  const openComposeSheet = useUIStore(s => s.openComposeSheet);
-  const isSneaking = activeCampus === 'all' || activeCampus !== user?.campus;
+
 
   const themeColors = getColors(isDark);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -124,8 +134,8 @@ export default function Feed() {
   };
 
   const DailyPollWidget = () => {
-    if (pollLoading || !poll) return null;
-    const totalVotes = poll.options.reduce((acc, opt) => acc + opt.votes, 0);
+    if (pollLoading || !poll || !Array.isArray(poll.options)) return null;
+    const totalVotes = poll.options.reduce((acc, opt) => acc + (opt.votes || 0), 0);
 
     return (
       <View style={[s.pollCard, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>

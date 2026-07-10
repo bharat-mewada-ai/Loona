@@ -323,8 +323,12 @@ export const getPosts = async (req, res) => {
     // Cleanup internal maps before sending to client
     const { pollVoters, reactedBy, reports, goingBy, ...rest } = p;
     
+    if (p.type === 'confess') {
+      rest.author = null;
+    }
+
     const authorId = rest.author?._id?.toString();
-    const isTopContributor = topUserIds.includes(authorId);
+    const isTopContributor = p.type !== 'confess' && topUserIds.includes(authorId);
     if (rest.author) {
       rest.author.isTopContributor = isTopContributor;
     }
@@ -335,7 +339,7 @@ export const getPosts = async (req, res) => {
       userVote,
       isSaved,
       hasGone,
-      isTopContributor
+      isTopContributor: p.type !== 'confess' ? isTopContributor : false
     };
   });
 
@@ -362,6 +366,10 @@ export const getPostById = async (req, res) => {
 
   // Cleanup - Keep author to allow profile navigation
   const { pollVoters, reactedBy, reports, ...rest } = post;
+
+  if (rest.type === 'confess') {
+    rest.author = null;
+  }
 
   res.json({ ...rest, hasVoted, userVote, isSaved });
 };
@@ -493,8 +501,8 @@ export const votePost = async (req, res) => {
     });
   }
 
-  invalidateCache("/api/v1/posts");
-  invalidateCache("/api/v1/auth/leaderboard");
+  await invalidateCache("/api/v1/posts");
+  await invalidateCache("/api/v1/auth/leaderboard");
   const io = req.app.get("io");
   if (io) {
     io.emit("leaderboardUpdate");
@@ -544,7 +552,7 @@ export const votePoll = async (req, res) => {
       return res.status(400).json({ error: "Voting failed (maybe you already voted?)" });
     }
 
-    invalidateCache("/api/v1/posts");
+    await invalidateCache("/api/v1/posts");
     res.json({ pollOptions: updatedPost.pollOptions, userVote: optionIndex });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -649,7 +657,7 @@ export const getDetailedStats = async (req, res) => {
     Post.find({ createdAt: { $gte: sevenDaysAgo }, hidden: false })
       .sort({ upvotes: -1, commentCount: -1 })
       .limit(5)
-      .select("title upvotes commentCount campus type")
+      .populate("author", "name email avatar")
       .lean(),
 
     // Activity by hour for last 24 hours
@@ -699,7 +707,14 @@ export const getSavedPosts = async (req, res) => {
     });
 
     // Sort by latest first (reverse order of array if needed, or we can just return)
-    const posts = user.savedPosts.reverse();
+    const posts = user.savedPosts.reverse().map(p => {
+      if (p && p.type === 'confess') {
+        const postObj = p.toObject ? p.toObject() : p;
+        postObj.author = null;
+        return postObj;
+      }
+      return p;
+    });
     res.json(posts);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -789,7 +804,8 @@ export const addComment = async (req, res) => {
     });
   }
 
-  invalidateCache("/api/v1/auth/leaderboard");
+  await invalidateCache("/api/v1/posts");
+  await invalidateCache("/api/v1/auth/leaderboard");
   const io = req.app.get("io");
   if (io) io.emit("leaderboardUpdate");
 
@@ -871,7 +887,7 @@ export const reactPost = async (req, res) => {
     });
   }
 
-  invalidateCache("/api/v1/posts");
+  await invalidateCache("/api/v1/posts");
   if (redis && redis.status === "ready") {
     try {
       await redis.del(`campusRank:${post.author}`);
@@ -988,7 +1004,7 @@ export const deletePost = async (req, res) => {
       }
     }
 
-    invalidateCache("/api/v1/posts");
+    await invalidateCache("/api/v1/posts");
     res.json({ message: "Deleted" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1033,7 +1049,14 @@ export const searchPosts = async (req, res) => {
       .limit(20)
       .lean();
 
-    res.json(posts);
+    const formattedPosts = posts.map(p => {
+      if (p.type === 'confess') {
+        p.author = null;
+      }
+      return p;
+    });
+
+    res.json(formattedPosts);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

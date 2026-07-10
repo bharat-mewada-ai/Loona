@@ -22,4 +22,10 @@ persistQueryClient({
   queryClient,
   persister: asyncStoragePersister,
   maxAge: 1000 * 60 * 60 * 24, // 24 hours
+  dehydrateOptions: {
+    shouldDehydrateQuery: (query) => {
+      const excludeKeys = ['me', 'posts', 'leaderboard'];
+      return !excludeKeys.includes(query.queryKey[0] as string);
+    },
+  },
 });

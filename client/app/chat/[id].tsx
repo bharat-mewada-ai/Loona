@@ -103,7 +103,7 @@ export default function ChatRoomScreen() {
   const [showAttachment, setShowAttachment] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<any | null>(null);
-  const flatListRef = useRef<FlashList<any>>(null);
+  const flatListRef = useRef<any>(null);
 
   const [isOtherTyping, setIsOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -512,7 +512,8 @@ export default function ChatRoomScreen() {
           windowSize={11}
           renderItem={({ item }) => {
             const isMe = item.senderType === 'me';
-                 return (
+            const hasImage = !!item.image;
+            return (
               <View style={[s.msgWrapper, isMe ? s.msgRight : s.msgLeft, { position: 'relative', marginBottom: (item.reactions && Object.keys(item.reactions).length > 0) ? 20 : 12 }]}>
                 <SwipeableMessage onSwipeReply={() => setReplyingTo(item)}>
                   <TouchableOpacity
@@ -528,7 +529,7 @@ export default function ChatRoomScreen() {
                     ]}
                   >
                     {hasImage && (
-                      <TouchableOpacity onPress={() => setSelectedImage(item.image)}>
+                      <TouchableOpacity onPress={() => setSelectedImage(item.image || null)}>
                         <Image 
                           source={{ uri: item.image }} 
                           style={[

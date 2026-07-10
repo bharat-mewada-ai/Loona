@@ -79,8 +79,8 @@ export const postsApi = {
   },
 
   // ── Vote ────────────────────────────────────────────────────────────────────
-  vote: async (id: string): Promise<{ upvotes: number }> => {
-    const { data } = await client.post<{ upvotes: number }>(`/posts/${id}/vote`);
+  vote: async (id: string): Promise<{ upvotes: number; hasVoted: boolean; score: number }> => {
+    const { data } = await client.post<{ upvotes: number; hasVoted: boolean; score: number }>(`/posts/${id}/vote`);
     return data;
   },
   voteBhandara: async (id: string, vote: 'yes' | 'no'): Promise<any> => {

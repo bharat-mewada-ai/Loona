@@ -151,6 +151,7 @@ export interface Message {
   senderType: 'me' | 'other';
   senderName?: string;
   senderAvatar?: string;
+  reactions?: Record<string, string>;
   createdAt: string;
 }
 

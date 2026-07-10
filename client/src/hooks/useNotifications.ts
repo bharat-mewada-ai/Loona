@@ -63,6 +63,17 @@ export const useNotifications = () => {
     
     s.on('newNotification', handleNewNotification);
 
+    // Direct potato_update socket event — server emits { potato } when vote changes balance.
+    // This gives instant potato count feedback without waiting for the 60s polling interval.
+    const handlePotatoUpdate = (data: { potato: number }) => {
+      const setUser = useAuthStore.getState().setUser;
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser && typeof data?.potato === 'number') {
+        setUser({ ...currentUser, potato: data.potato });
+      }
+    };
+    s.on('potato_update', handlePotatoUpdate);
+
     // Handle notifications in foreground & deep-linking
     if (Platform.OS !== 'web') {
       // Invalidate query when user receives potato-related notifications in foreground
@@ -90,6 +101,7 @@ export const useNotifications = () => {
 
     return () => {
       s.off('newNotification', handleNewNotification);
+      s.off('potato_update', handlePotatoUpdate);
       if (notificationListener.current) {
         notificationListener.current.remove();
       }

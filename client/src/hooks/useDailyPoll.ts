@@ -20,13 +20,13 @@ export const useVoteTodayPoll = () => {
       await qc.cancelQueries({ queryKey: ['todayPoll'] });
       const previousPoll = qc.getQueryData<DailyPoll>(['todayPoll']);
 
-      if (previousPoll) {
+      if (previousPoll && Array.isArray(previousPoll.options)) {
         // Optimistically increment local votes count
         const updatedOptions = [...previousPoll.options];
         if (updatedOptions[optionIndex]) {
           updatedOptions[optionIndex] = {
             ...updatedOptions[optionIndex],
-            votes: updatedOptions[optionIndex].votes + 1,
+            votes: (updatedOptions[optionIndex].votes || 0) + 1,
           };
         }
         qc.setQueryData(['todayPoll'], {

@@ -113,6 +113,7 @@ const Dashboard = () => {
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', textAlign: 'left' }}>
                 <th style={thStyle}>Post Title</th>
+                <th style={thStyle}>Author</th>
                 <th style={thStyle}>Type</th>
                 <th style={thStyle}>Campus</th>
                 <th style={thStyle}>Votes</th>
@@ -123,6 +124,16 @@ const Dashboard = () => {
               {detailedStats.topPosts.map((post, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
                   <td style={tdStyle}>{post.title}</td>
+                  <td style={tdStyle}>
+                    {post.author ? (
+                      <div>
+                        <div style={{ fontWeight: '600' }}>{post.author.name}</div>
+                        <div style={{ fontSize: '11px', color: '#71717A' }}>{post.author.email}</div>
+                      </div>
+                    ) : (
+                      <span style={{ color: '#71717A' }}>Unknown</span>
+                    )}
+                  </td>
                   <td style={tdStyle}><span style={badgeStyle(post.type)}>{post.type}</span></td>
                   <td style={tdStyle}>{post.campus.toUpperCase()}</td>
                   <td style={tdStyle}>🥔 {post.upvotes}</td>

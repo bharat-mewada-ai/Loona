@@ -39,6 +39,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const canReport = !isAuthor;
 
   const [votedLocal, setVotedLocal] = useState(post.hasVoted ?? false);
+  // Separate local upvote count — avoids the brittle inline formula that caused flickers
+  const [upvoteCountLocal, setUpvoteCountLocal] = useState(post.upvotes ?? 0);
   const isSavedFromServer = post.isSaved || user?.savedPosts?.some(id => id === post._id || (typeof id === 'object' && (id as any)._id === post._id));
   const [isSavedLocal, setIsSavedLocal] = useState(isSavedFromServer);
 
@@ -46,23 +48,29 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const [userVoteLocal, setUserVoteLocal] = useState<number | null | undefined>(post.userVote);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Potato animation
+  // Potato animation — start at correct scale
   const potatoScale = useRef(new Animated.Value(post.hasVoted ? 1.35 : 1.0)).current;
 
-  // Sync when server data updates
+  // Sync when server data updates (after onSuccess patches cache)
   React.useEffect(() => {
     setIsSavedLocal(isSavedFromServer);
   }, [isSavedFromServer]);
 
-  // Sync votedLocal when post.hasVoted changes (e.g. optimistic cache updates or refetches)
+  // Sync votedLocal + upvoteCountLocal when server data comes in
   React.useEffect(() => {
     setVotedLocal(post.hasVoted ?? false);
-  }, [post.hasVoted]);
+    setUpvoteCountLocal(post.upvotes ?? 0);
+    // Also sync animation scale without triggering the spring
+    potatoScale.setValue(post.hasVoted ? 1.35 : 1.0);
+  }, [post.hasVoted, post.upvotes]);
 
   const handleVote = () => {
     triggerHaptic('selection');
     const newVoted = !votedLocal;
+    const newCount = Math.max(0, upvoteCountLocal + (newVoted ? 1 : -1));
+    // Optimistic local update — instant feedback
     setVotedLocal(newVoted);
+    setUpvoteCountLocal(newCount);
     // Spring animation — pop up on vote, shrink back on unvote
     Animated.spring(potatoScale, {
       toValue: newVoted ? 1.5 : 1.0,
@@ -174,7 +182,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               <Text style={[s.authorName, { color: themeColors.txt }]}>
                 {post.type === 'confess' ? 'Confession' : post.anonName}
               </Text>
-              {post.author?.isTopContributor && (
+              {post.author?.isTopContributor && post.type !== 'confess' && (
                 <View style={{ backgroundColor: '#FFD70020', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10 }}>
                   <Text style={{ fontSize: 10, color: '#FFD700', fontWeight: '800' }}>🌟 Top</Text>
                 </View>
@@ -377,7 +385,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           >
             <Animated.Text style={[s.actionIcon, { transform: [{ scale: potatoScale }] }]}>🥔</Animated.Text>
             <Text style={[s.actionCount, { color: votedLocal ? themeColors.ogi : themeColors.txt3 }]}>
-              {post.upvotes + (votedLocal === post.hasVoted ? 0 : votedLocal ? 1 : -1)}
+              {upvoteCountLocal}
             </Text>
           </TouchableOpacity>
 

@@ -55,57 +55,49 @@ export const useVote = () => {
       await qc.cancelQueries({ queryKey: ['myPosts'] });
       await qc.cancelQueries({ queryKey: ['savedPosts'] });
 
+      // Snapshot previous values for rollback
+      const prevPosts = qc.getQueriesData({ queryKey: ['posts'] });
+      const prevPost = qc.getQueryData(['post', id]);
+      const prevMyPosts = qc.getQueriesData({ queryKey: ['myPosts'] });
+      const prevSaved = qc.getQueryData(['savedPosts']);
+
+      // Helper: toggle a single post object
+      const toggle = (post: any) => {
+        if (post._id !== id) return post;
+        const wasVoted = post.hasVoted;
+        return {
+          ...post,
+          hasVoted: !wasVoted,
+          upvotes: Math.max(0, post.upvotes + (wasVoted ? -1 : 1)),
+        };
+      };
+
       // Optimistic updates for feed lists ('posts')
       qc.setQueriesData({ queryKey: ['posts'] }, (old: any) => {
-        if (!old || !old.pages) return old;
+        if (!old?.pages) return old;
         return {
           ...old,
           pages: old.pages.map((page: any) => ({
             ...page,
-            posts: page.posts.map((post: any) => {
-              if (post._id === id) {
-                const currentlyVoted = post.hasVoted;
-                return {
-                  ...post,
-                  hasVoted: !currentlyVoted,
-                  upvotes: Math.max(0, post.upvotes + (currentlyVoted ? -1 : 1)),
-                };
-              }
-              return post;
-            }),
+            posts: page.posts.map(toggle),
           })),
         };
       });
 
-      // Optimistic updates for single post detail query ('post', id)
+      // Optimistic update for single post detail query ('post', id)
       qc.setQueryData(['post', id], (old: any) => {
         if (!old) return old;
-        const currentlyVoted = old.hasVoted;
-        return {
-          ...old,
-          hasVoted: !currentlyVoted,
-          upvotes: Math.max(0, old.upvotes + (currentlyVoted ? -1 : 1)),
-        };
+        return toggle(old);
       });
 
       // Optimistic updates for 'myPosts' query
       qc.setQueriesData({ queryKey: ['myPosts'] }, (old: any) => {
-        if (!old || !old.pages) return old;
+        if (!old?.pages) return old;
         return {
           ...old,
           pages: old.pages.map((page: any) => ({
             ...page,
-            posts: page.posts.map((post: any) => {
-              if (post._id === id) {
-                const currentlyVoted = post.hasVoted;
-                return {
-                  ...post,
-                  hasVoted: !currentlyVoted,
-                  upvotes: Math.max(0, post.upvotes + (currentlyVoted ? -1 : 1)),
-                };
-              }
-              return post;
-            }),
+            posts: page.posts.map(toggle),
           })),
         };
       });
@@ -113,34 +105,69 @@ export const useVote = () => {
       // Optimistic updates for 'savedPosts' query
       qc.setQueryData(['savedPosts'], (old: any) => {
         if (!old || !Array.isArray(old)) return old;
-        return old.map((post: any) => {
-          if (post._id === id) {
-            const currentlyVoted = post.hasVoted;
-            return {
-              ...post,
-              hasVoted: !currentlyVoted,
-              upvotes: Math.max(0, post.upvotes + (currentlyVoted ? -1 : 1)),
-            };
-          }
-          return post;
-        });
+        return old.map(toggle);
       });
+
+      return { prevPosts, prevPost, prevMyPosts, prevSaved };
     },
-    onError: (_err, id) => {
-      // In case of error, invalidating queries is the safest way to restore correctness
-      qc.invalidateQueries({ queryKey: ['posts'] });
-      qc.invalidateQueries({ queryKey: ['post', id] });
-      qc.invalidateQueries({ queryKey: ['myPosts'] });
-      qc.invalidateQueries({ queryKey: ['savedPosts'] });
+    onError: (_err, id, context: any) => {
+      // Rollback to snapshot
+      if (context?.prevPosts) {
+        context.prevPosts.forEach(([queryKey, data]: [any, any]) => {
+          qc.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.prevPost) qc.setQueryData(['post', id], context.prevPost);
+      if (context?.prevMyPosts) {
+        context.prevMyPosts.forEach(([queryKey, data]: [any, any]) => {
+          qc.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.prevSaved) qc.setQueryData(['savedPosts'], context.prevSaved);
     },
-    onSuccess: (_data, id) => {
-      // Invalidate queries so that we fetch correct state from server
+    onSuccess: (data: { upvotes: number; score: number; hasVoted: boolean }, id: string) => {
+      // Write the server-authoritative upvote count directly into cache — NO re-fetch
+      // This prevents stale-cache issues where a refetch returns old data before Redis clears
+      const patch = (post: any) => {
+        if (post._id !== id) return post;
+        return { ...post, upvotes: data.upvotes, hasVoted: data.hasVoted, score: data.score };
+      };
+
+      qc.setQueriesData({ queryKey: ['posts'] }, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map(patch),
+          })),
+        };
+      });
+
+      qc.setQueryData(['post', id], (old: any) => {
+        if (!old) return old;
+        return patch(old);
+      });
+
+      qc.setQueriesData({ queryKey: ['myPosts'] }, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map(patch),
+          })),
+        };
+      });
+
+      qc.setQueryData(['savedPosts'], (old: any) => {
+        if (!old || !Array.isArray(old)) return old;
+        return old.map(patch);
+      });
+
+      // Only refresh leaderboard and user profile (potato balance may have changed)
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
       qc.invalidateQueries({ queryKey: ['me'] });
-      qc.invalidateQueries({ queryKey: ['posts'] });
-      qc.invalidateQueries({ queryKey: ['post', id] });
-      qc.invalidateQueries({ queryKey: ['myPosts'] });
-      qc.invalidateQueries({ queryKey: ['savedPosts'] });
     },
   });
 };

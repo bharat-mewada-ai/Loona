@@ -187,10 +187,11 @@ router.get("/users/search", requireAuth, requireStaff, asyncHandler(async (req, 
 }));
 
 router.get("/users/:userId/details", requireAuth, requireStaff, asyncHandler(async (req, res) => {
-  const [user, chatsCount, auditLogs] = await Promise.all([
+  const [user, chatsCount, auditLogs, posts] = await Promise.all([
     User.findById(req.params.userId).lean(),
     Chat.countDocuments({ participants: req.params.userId }),
-    AuditLog.find({ targetId: req.params.userId }).populate("performedBy", "name").sort({ createdAt: -1 }).lean()
+    AuditLog.find({ targetId: req.params.userId }).populate("performedBy", "name").sort({ createdAt: -1 }).lean(),
+    Post.find({ author: req.params.userId }).sort({ createdAt: -1 }).lean()
   ]);
 
   if (!user) return res.status(404).json({ error: "User not found" });
@@ -198,7 +199,8 @@ router.get("/users/:userId/details", requireAuth, requireStaff, asyncHandler(asy
   res.json({
     user,
     stats: { chatsCount },
-    logs: auditLogs
+    logs: auditLogs,
+    posts
   });
 }));
 
@@ -525,6 +527,17 @@ router.post("/reported-chats/:reportId/dismiss", requireAuth, requireStaff, asyn
   });
 
   res.json({ message: "Report dismissed", report });
+}));
+
+/**
+ * GET ALL CONFESSIONS (Staff Access)
+ */
+router.get("/confessions", requireAuth, requireStaff, asyncHandler(async (req, res) => {
+  const confessions = await Post.find({ type: "confess" })
+    .populate("author", "name email avatar")
+    .sort({ createdAt: -1 })
+    .lean();
+  res.json(confessions);
 }));
 
 export default router;
