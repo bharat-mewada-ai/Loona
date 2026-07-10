@@ -122,7 +122,7 @@ export default function ChatRoomScreen() {
     isNearBottomRef.current = distanceFromBottom < 150;
   };
 
-  const { data, isLoading, isError, refetch } = useMessages(id as string);
+  const { data, isLoading, isFetching, isError, refetch } = useMessages(id as string);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -202,9 +202,10 @@ export default function ChatRoomScreen() {
       const wasLoaded = prevMessagesCountRef.current === 0;
       
       if (wasLoaded || isMe || isNearBottomRef.current) {
+        // 50ms is enough for FlashList to measure — keeps scroll feeling snappy
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: !wasLoaded });
-        }, 100);
+        }, 50);
       }
     }
     prevMessagesCountRef.current = messagesCount;
@@ -391,7 +392,9 @@ export default function ChatRoomScreen() {
     }
   };
 
-  if (isLoading) {
+  // Show full-screen spinner only on FIRST load (no data at all yet)
+  // If we have any cached data, show it immediately — fresh data loads in background
+  if (isLoading && !data) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator color={themeColors.ogi} />
@@ -420,6 +423,10 @@ export default function ChatRoomScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
+      {/* Thin sync indicator — shows when background-refetching without blocking UI */}
+      {isFetching && !!data && (
+        <View style={{ height: 2, backgroundColor: themeColors.ogi, opacity: 0.7, width: '100%' }} />
+      )}
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

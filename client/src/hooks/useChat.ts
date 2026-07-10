@@ -69,19 +69,20 @@ export const useMessages = (chatId: string) => {
         const exists = old.messages.some((m: any) => m._id === msg._id);
         if (exists) return old;
 
+        // senderId is always present — compare it directly to current user
         const formattedMsg = {
           ...msg,
-          senderType: msg.senderId === undefined ? 'other' : (msg.senderId === user?._id ? 'me' : 'other'),
-          senderId: undefined
+          senderType: msg.senderId === user?._id ? 'me' : 'other',
+          senderId: undefined,
         };
 
         return {
           ...old,
-          messages: [...old.messages, formattedMsg]
+          messages: [...old.messages, formattedMsg],
         };
       });
       
-      // Still invalidate chats to update preview/unread count in the list
+      // Update chat list preview/unread count
       qc.invalidateQueries({ queryKey: ['chats'] });
     };
 
@@ -141,8 +142,14 @@ export const useMessages = (chatId: string) => {
     queryKey: ['messages', chatId],
     queryFn: () => chatApi.getMessages(chatId),
     enabled: !!chatId,
-    // Fallback polling — still catches messages if socket drops
-    refetchInterval: 10_000,
+    // Always fetch fresh on mount — critical for notification → chat navigation
+    staleTime: 0,
+    // Don't persist stale messages to async storage
+    gcTime: 0,
+    // Socket handles real-time; polling is a fallback if socket drops
+    refetchInterval: 30_000,
+    // Always refetch when screen comes to focus
+    refetchOnMount: true,
   });
 };
 
@@ -186,15 +193,22 @@ export const useSendMessage = () => {
       }
     },
     onSuccess: (newMsg, variables, context) => {
+      // Replace optimistic message with server-confirmed message
+      // Must attach senderType since server response doesn't include it
       qc.setQueryData(['messages', context.chatId], (old: any) => {
         if (!old || !old.messages) return old;
         return {
           ...old,
-          messages: old.messages.map((m: any) => m._id === context.tempId ? newMsg : m)
+          messages: old.messages.map((m: any) =>
+            m._id === context.tempId
+              ? { ...newMsg, senderType: 'me', isOptimistic: false, status: 'sent' }
+              : m
+          ),
         };
       });
     },
-    onSettled: (data, error, variables, context) => {
+    onSettled: (_data, _error, _variables, context) => {
+      // Only update chat list preview — don't re-fetch messages (socket handles it)
       qc.invalidateQueries({ queryKey: ['chats'] });
     },
   });
@@ -251,13 +265,12 @@ export const useReactToMessage = () => {
 
       return { previousMessages, chatId };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
+      // Rollback reaction on error
       if (context?.previousMessages) {
         qc.setQueryData(['messages', context.chatId], context.previousMessages);
       }
     },
-    onSettled: (data, error, variables, context) => {
-      qc.invalidateQueries({ queryKey: ['messages', context?.chatId] });
-    }
+    // No onSettled invalidation — reaction already patched optimistically via socket + onMutate
   });
 };
