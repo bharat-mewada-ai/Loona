@@ -88,6 +88,7 @@ export const updateProfileRules = [
 /** POST /api/posts */
 export const createPostRules = [
   body("title")
+    .if((value, { req }) => req.body.type !== 'stories' && req.body.type !== 'confess')
     .trim()
     .notEmpty().withMessage("Title is required")
     .isLength({ max: 120 }).withMessage("Title must be at most 120 characters"),
