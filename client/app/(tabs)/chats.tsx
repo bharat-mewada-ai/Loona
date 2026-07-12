@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { Colors, getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
@@ -17,6 +18,7 @@ export default function ChatsScreen() {
   const router = useRouter();
   const { data: chats, isLoading } = useChats();
   const [searchQuery, setSearchQuery] = React.useState('');
+  const insets = useSafeAreaInsets();
   
   useAnalytics('chats');
   
@@ -38,8 +40,13 @@ export default function ChatsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg }}>
-      <View style={s.header}>
+    <View style={{ flex: 1, backgroundColor: themeColors.bg }}>
+      {/* Floating Glass Header */}
+      <BlurView 
+        intensity={80} 
+        tint={isDark ? 'dark' : 'light'} 
+        style={[s.floatingHeader, { paddingTop: insets.top + 10 }]}
+      >
         <View style={s.headerTop}>
           <Text style={[s.logo, { color: themeColors.txt }]}>
             🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>chats</Text>
@@ -51,41 +58,23 @@ export default function ChatsScreen() {
             <Ionicons name="search-outline" size={20} color={themeColors.txt} />
           </TouchableOpacity>
         </View>
-      </View>
+      </BlurView>
 
       <FlashList
         data={filteredChats}
         keyExtractor={i => i._id}
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, { paddingTop: insets.top + 70 }]}
         estimatedItemSize={75}
         ListHeaderComponent={
-          <View>
-            <View style={{ marginBottom: 20 }}>
-              <Text style={[s.sectionLabel, { color: themeColors.txt3 }]}>Active Now</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
-                {filteredChats.slice(0, 8).map((chat, idx) => (
-                  <TouchableOpacity key={chat._id + idx} style={{ alignItems: 'center', gap: 6 }} onPress={() => router.push(`/chat/${chat._id}`)}>
-                    <View style={[s.activeBubble, { backgroundColor: themeColors.card2 }]}>
-                      <Text style={{ fontSize: 24 }}>{chat.avatar ?? '👤'}</Text>
-                      <View style={[s.onlineDot, { backgroundColor: '#22C55E', borderColor: themeColors.bg, borderWidth: 2 }]} />
-                    </View>
-                    <Text style={{ color: themeColors.txt, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>
-                      {chat.name?.split(' ')[0] ?? 'Anon'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-            <View style={[s.searchBox, { backgroundColor: themeColors.card2 }]}>
-              <Ionicons name="search-outline" size={18} color={themeColors.txt3} style={{ marginRight: 10 }} />
-              <TextInput
-                style={{ color: themeColors.txt, flex: 1, fontSize: 15, padding: 0 }}
-                placeholder="Search messages..."
-                placeholderTextColor={themeColors.txt3}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
+          <View style={[s.searchBox, { backgroundColor: themeColors.card2 }]}>
+            <Ionicons name="search-outline" size={18} color={themeColors.txt3} style={{ marginRight: 10 }} />
+            <TextInput
+              style={{ color: themeColors.txt, flex: 1, fontSize: 15, padding: 0 }}
+              placeholder="Search messages..."
+              placeholderTextColor={themeColors.txt3}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
           </View>
         }
         renderItem={({ item }) => (
@@ -137,20 +126,18 @@ export default function ChatsScreen() {
         )}
         ItemSeparatorComponent={() => <View style={[s.sep, { backgroundColor: themeColors.bdr }]} />}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  header: { paddingHorizontal: 20, paddingTop: 15 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  floatingHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   logo: { fontSize: 28, fontFamily: 'Syne_400Regular' },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 28, fontFamily: 'Syne_700Bold' },
   scroll: { paddingBottom: 100 },
   searchBox: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 20, padding: 12, borderRadius: 16 },
-  sectionLabel: { fontSize: 12, fontWeight: '800', marginLeft: 20, marginBottom: 12, letterSpacing: 0.5 },
-  activeBubble: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#22C55E' },
   item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 },
   avWrap: { position: 'relative' },
   chatAv: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },

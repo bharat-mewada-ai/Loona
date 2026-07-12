@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { Colors, getColors } from '../../src/theme/colors';
 import { useAuthStore } from '../../src/store/authStore';
@@ -175,8 +176,13 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg }}>
-      <View style={s.header}>
+    <View style={{ flex: 1, backgroundColor: themeColors.bg }}>
+      {/* Floating Glass Header */}
+      <BlurView 
+        intensity={80} 
+        tint={isDark ? 'dark' : 'light'} 
+        style={[s.floatingHeader, { paddingTop: insets.top + 10 }]}
+      >
         <Text style={[s.logo, { color: themeColors.txt }]}>
           🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>profile</Text>
         </Text>
@@ -191,9 +197,9 @@ export default function ProfileScreen() {
             <Ionicons name="settings-sharp" size={20} color={themeColors.txt} />
           </TouchableOpacity>
         </View>
-      </View>
+      </BlurView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingTop: insets.top + 70 }]}>
         
         {/* Dynamic Gradient Background */}
         <View style={s.headerBgWrapper}>
@@ -701,12 +707,12 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
+  floatingHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.05)' },
   logo: { fontSize: 24, fontFamily: 'Syne_400Regular' },
   gearBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingBottom: 40 },
