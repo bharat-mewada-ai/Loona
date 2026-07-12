@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -12,15 +12,28 @@ import EmptyState from '../../src/components/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
 import { useAnalytics } from '../../src/hooks/useAnalytics';
 
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
+
 export default function ChatsScreen() {
   const { isDark } = useUIStore();
   const themeColors = getColors(isDark);
   const router = useRouter();
   const { data: chats, isLoading } = useChats();
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [isSearching, setIsSearching] = React.useState(false);
   const insets = useSafeAreaInsets();
   
   useAnalytics('chats');
+  
+  const toggleSearch = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsSearching(!isSearching);
+    if (isSearching) setSearchQuery('');
+  };
   
   const filteredChats = React.useMemo(() => {
     if (!chats) return [];
@@ -48,15 +61,47 @@ export default function ChatsScreen() {
         style={[s.floatingHeader, { paddingTop: insets.top + 10 }]}
       >
         <View style={s.headerTop}>
-          <Text style={[s.logo, { color: themeColors.txt }]}>
-            🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>chats</Text>
-          </Text>
-          <TouchableOpacity 
-            style={[s.iconBtn, { backgroundColor: themeColors.card2 }]}
-            onPress={() => router.push('/search')}
-          >
-            <Ionicons name="search-outline" size={20} color={themeColors.txt} />
-          </TouchableOpacity>
+          {!isSearching ? (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[s.titleText, { color: themeColors.txt }]}>Messages</Text>
+                {/* Glowing Unread Dot */}
+                <View style={[s.unreadDot, { backgroundColor: '#EF4444', shadowColor: '#EF4444' }]} />
+              </View>
+              
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity 
+                  style={[s.iconBtn, { backgroundColor: themeColors.card2 }]}
+                  onPress={toggleSearch}
+                >
+                  <Ionicons name="search-outline" size={20} color={themeColors.txt} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[s.iconBtn, { backgroundColor: themeColors.card2 }]}
+                  onPress={() => router.push('/search')}
+                >
+                  <Ionicons name="create-outline" size={20} color={themeColors.txt} />
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+              <View style={[s.inlineSearch, { backgroundColor: themeColors.card2 }]}>
+                <Ionicons name="search" size={18} color={themeColors.txt3} />
+                <TextInput
+                  style={{ color: themeColors.txt, flex: 1, fontSize: 15, padding: 0, marginLeft: 8 }}
+                  placeholder="Search messages..."
+                  placeholderTextColor={themeColors.txt3}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                />
+              </View>
+              <TouchableOpacity onPress={toggleSearch}>
+                <Text style={{ color: themeColors.txt, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </BlurView>
 
@@ -65,18 +110,6 @@ export default function ChatsScreen() {
         keyExtractor={i => i._id}
         contentContainerStyle={[s.scroll, { paddingTop: insets.top + 70 }]}
         estimatedItemSize={75}
-        ListHeaderComponent={
-          <View style={[s.searchBox, { backgroundColor: themeColors.card2 }]}>
-            <Ionicons name="search-outline" size={18} color={themeColors.txt3} style={{ marginRight: 10 }} />
-            <TextInput
-              style={{ color: themeColors.txt, flex: 1, fontSize: 15, padding: 0 }}
-              placeholder="Search messages..."
-              placeholderTextColor={themeColors.txt3}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-        }
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={s.item} 
@@ -131,13 +164,13 @@ export default function ChatsScreen() {
 }
 
 const s = StyleSheet.create({
-  floatingHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  floatingHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.05)', minHeight: 60, justifyContent: 'flex-end' },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  logo: { fontSize: 28, fontFamily: 'Syne_400Regular' },
+  titleText: { fontSize: 26, fontFamily: 'Syne_700Bold', letterSpacing: -0.5 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 6 },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 28, fontFamily: 'Syne_700Bold' },
+  inlineSearch: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 16 },
   scroll: { paddingBottom: 100 },
-  searchBox: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 20, padding: 12, borderRadius: 16 },
   item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 },
   avWrap: { position: 'relative' },
   chatAv: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
