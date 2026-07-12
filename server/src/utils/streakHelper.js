@@ -1,6 +1,16 @@
 import User from "../models/user.model.js";
 import mongoose from "mongoose";
 
+// Lazy-import redis to avoid circular deps — streakHelper is used by post.controller which already imports redis
+let _redis = null;
+const getRedis = async () => {
+  if (!_redis) {
+    const mod = await import("./redis.js");
+    _redis = mod.default;
+  }
+  return _redis;
+};
+
 const dailyWinnerSchema = new mongoose.Schema({
   date: { type: String, unique: true }, // YYYY-MM-DD
   winner: { type: String }
@@ -9,8 +19,24 @@ const dailyWinnerSchema = new mongoose.Schema({
 // Avoid duplicate model compilation errors in Express hot reload
 const DailyWinner = mongoose.models.DailyWinner || mongoose.model("DailyWinner", dailyWinnerSchema);
 
+// ── getCampusMultiplier ──────────────────────────────────────────────────────
+// Redis-cached (1 h TTL). Previously ran a full User.aggregate on every single
+// vote/comment — under load that was N aggregates/second. Now hits cache first.
 export const getCampusMultiplier = async (campus) => {
   try {
+    const redis = await getRedis();
+    const cacheKey = `multiplier:${campus}`;
+
+    // Try Redis cache first
+    if (redis && redis.status === "ready") {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached !== null) return parseInt(cached, 10);
+      } catch (_) { /* Redis unavailable, fall through to DB */ }
+    }
+
+    // Compute multiplier from DB
+    let multiplier = 1;
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const yesterdayStr = yesterday.toISOString().split("T")[0];
 
@@ -36,12 +62,20 @@ export const getCampusMultiplier = async (campus) => {
         if (w.winner === currentLeader) streak++;
         else break;
       }
-      
       // If the campus is the leader and streak is at least 3, they get double potatoes!
       if (streak >= 3 && currentLeader === campus) {
-        return 2;
+        multiplier = 2;
       }
     }
+
+    // Store in Redis for 1 hour — multiplier only changes daily
+    if (redis && redis.status === "ready") {
+      try {
+        await redis.set(cacheKey, String(multiplier), "EX", 3600);
+      } catch (_) { /* ignore Redis write failure */ }
+    }
+
+    return multiplier;
   } catch (err) {
     console.error("Streak multiplier check failed, fallback to 1:", err.message);
   }

@@ -40,7 +40,10 @@ export const createPost = async (req, res) => {
 
   const hasAnyImage = !!image || (images && images.length > 0);
   const isPhotoStory = type === 'stories' && hasAnyImage;
-  if (!title && !isPhotoStory) return res.status(400).json({ error: "Title is required" });
+  const isConfession = type === 'confess';
+  // Confessions are body-only — no title required
+  if (!title && !isPhotoStory && !isConfession) return res.status(400).json({ error: "Title is required" });
+  if (isConfession && !body) return res.status(400).json({ error: "Confession body is required" });
   const safeTitle = title || '';
 
   if (!campus) return res.status(400).json({ error: "Your account has no campus set. Please log out and log in again." });
@@ -417,13 +420,11 @@ export const votePost = async (req, res) => {
     req.user.upvotesReceived = (req.user.upvotesReceived || 0) + (existingVote ? -1 : 1);
     postAuthor = req.user;
 
-    const badgeAwarded = await checkAndAwardBadges(postAuthor);
-    // Save here if it's an unvote (since voter quest logic at the end won't save it) or if a badge was awarded.
-    if (existingVote || badgeAwarded) {
-      await req.user.save();
-    }
+    await checkAndAwardBadges(postAuthor);
+    // Always save — previously this was conditional and skipped new upvotes with no badge
+    await req.user.save();
   } else {
-    // If different users, update the author in the DB
+    // If different users, update the author in the DB atomically
     postAuthor = await User.findByIdAndUpdate(
       post.author,
       { $inc: { potato: potatoChange, upvotesReceived: existingVote ? -1 : 1 } },
@@ -466,6 +467,8 @@ export const votePost = async (req, res) => {
       voterQuestCompletedJustNow = true;
     }
 
+    // Save voter — applies upvotesGiven, dailyUpvotesCount, and any quest potato bonus.
+    // For self-voters this also persists changes made in the author block above.
     await req.user.save();
 
     if (voterQuestCompletedJustNow) {
@@ -506,12 +509,19 @@ export const votePost = async (req, res) => {
   const io = req.app.get("io");
   if (io) {
     io.emit("leaderboardUpdate");
+    // Emit to post author so their balance updates in real-time
     if (postAuthor) {
       io.to(`user:${post.author}`).emit("potato_update", { potato: postAuthor.potato });
     }
+    // Also emit to the voter so their own balance pill updates instantly.
+    // (Only emit separately if voter is NOT the author — author event already sent above)
+    if (post.author.toString() !== req.user._id.toString()) {
+      io.to(`user:${req.user._id}`).emit("potato_update", { potato: req.user.potato });
+    }
   }
 
-  res.json({ upvotes: post.upvotes, score: post.score, hasVoted: !existingVote });
+  // Return voterPotato so client can patch authStore.user.potato immediately
+  res.json({ upvotes: post.upvotes, score: post.score, hasVoted: !existingVote, voterPotato: req.user.potato });
 };
 
 /* ---------------- VOTE POLL (Atomic) ---------------- */
