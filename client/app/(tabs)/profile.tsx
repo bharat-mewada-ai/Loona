@@ -46,6 +46,8 @@ export default function ProfileScreen() {
   const [campusPickerVisible, setCampusPickerVisible] = useState(false);
   const [potatoGuideVisible, setPotatoGuideVisible] = useState(false);
   const [activeView, setActiveView] = useState<'main' | 'posts' | 'saved'>('main');
+  
+  const scrollY = React.useRef(new Animated.Value(0)).current;
 
   const [newName, setNewName] = useState(user?.name || '');
   const [newBio, setNewBio] = useState(user?.bio || '');
@@ -183,9 +185,31 @@ export default function ProfileScreen() {
         tint={isDark ? 'dark' : 'light'} 
         style={[s.floatingHeader, { paddingTop: insets.top + 10 }]}
       >
-        <Text style={[s.logo, { color: themeColors.txt }]}>
-          🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>profile</Text>
-        </Text>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 40 }}>
+          {/* Default Title - Fades out */}
+          <Animated.View style={{ 
+            opacity: scrollY.interpolate({ inputRange: [0, 50], outputRange: [1, 0], extrapolate: 'clamp' }),
+            position: 'absolute'
+          }}>
+            <Text style={[s.logo, { color: themeColors.txt }]}>
+              🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>profile</Text>
+            </Text>
+          </Animated.View>
+
+          {/* Dynamic Greeting - Fades in */}
+          <Animated.View style={{ 
+            flexDirection: 'row', alignItems: 'center',
+            opacity: scrollY.interpolate({ inputRange: [50, 100], outputRange: [0, 1], extrapolate: 'clamp' })
+          }}>
+            <View style={[s.miniAvatar, { backgroundColor: themeColors.card2 }]}>
+              <Text style={{ fontSize: 18 }}>{user?.avatar || '👤'}</Text>
+            </View>
+            <Text style={{ marginLeft: 8, fontSize: 16, fontWeight: '800', color: themeColors.txt }}>
+              Hi, {user?.name?.split(' ')[0] || 'Anon'} 👋
+            </Text>
+          </Animated.View>
+        </View>
+
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity 
             onPress={() => router.push('/shop' as any)} 
@@ -199,7 +223,15 @@ export default function ProfileScreen() {
         </View>
       </BlurView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.scroll, { paddingTop: insets.top + 70 }]}>
+      <Animated.ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={[s.scroll, { paddingTop: insets.top + 70 }]}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
         
         {/* Dynamic Gradient Background */}
         <View style={s.headerBgWrapper}>
@@ -404,7 +436,7 @@ export default function ProfileScreen() {
         })()}
 
         <View style={{ height: 100 }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Settings Modal */}
       <Modal visible={settingsVisible} animationType="slide" transparent onRequestClose={() => setSettingsVisible(false)}>
@@ -714,6 +746,7 @@ export default function ProfileScreen() {
 const s = StyleSheet.create({
   floatingHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.05)' },
   logo: { fontSize: 24, fontFamily: 'Syne_400Regular' },
+  miniAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   gearBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingBottom: 40 },
   headerBgWrapper: { position: 'absolute', top: -100, left: 0, right: 0, height: 350, opacity: 0.8 },
