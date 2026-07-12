@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { getColors } from '../src/theme/colors';
 import { useUIStore } from '../src/store/uiStore';
 import { useAuthStore } from '../src/store/authStore';
-import { useShopListings, useMyListings, useCreateListing, useDeleteListing } from '../src/hooks/useShop';
+import { useShopListings, useMyListings, useCreateListing, useDeleteListing, useCreateBargain } from '../src/hooks/useShop';
 import { ShopItem, ShopCategory } from '../src/types';
 import { triggerHaptic } from '../src/utils/haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -78,6 +78,12 @@ export default function ShopScreen() {
   const [isUploading,    setIsUploading]    = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
+  // Bargain state
+  const { mutateAsync: createBargain, isPending: creatingBargain } = useCreateBargain();
+  const [showBargain, setShowBargain] = useState(false);
+  const [bargainPrice, setBargainPrice] = useState('');
+  const [bargainMessage, setBargainMessage] = useState('');
+
   const pickImage = async () => {
     const remainingLimit = 5 - images.length;
     if (remainingLimit <= 0) {
@@ -129,7 +135,7 @@ export default function ShopScreen() {
     }
 
     if (paymentMethod === 'potato') {
-      const potatoCost = wantFeatured ? 200 : 50;
+      const potatoCost = wantFeatured ? 300 : 150;
       const currentPotato = user?.potato ?? 0;
       if (currentPotato < potatoCost) {
         Alert.alert(
@@ -354,13 +360,21 @@ export default function ShopScreen() {
           <Text style={[s.headerTitle, { color: themeColors.txt }]}>Campus Shop</Text>
           <Text style={[s.headerSub, { color: themeColors.txt3 }]}>Buy & sell within campus</Text>
         </View>
-        <TouchableOpacity
-          style={[s.sellBtn, { backgroundColor: LIME }]}
-          onPress={() => { triggerHaptic(); setShowCreate(true); }}
-        >
-          <Ionicons name="add" size={20} color="#000" />
-          <Text style={s.sellBtnTxt}>Sell</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity
+            style={[s.sellBtn, { backgroundColor: themeColors.card2 }]}
+            onPress={() => router.push('/bargains')}
+          >
+            <Ionicons name="swap-horizontal" size={20} color={themeColors.txt} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.sellBtn, { backgroundColor: LIME }]}
+            onPress={() => { triggerHaptic(); setShowCreate(true); }}
+          >
+            <Ionicons name="add" size={20} color="#000" />
+            <Text style={s.sellBtnTxt}>Sell</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Toggle Browse / My Listings */}
@@ -584,15 +598,27 @@ export default function ShopScreen() {
                   )}
 
                   {!isMine && (
-                    <TouchableOpacity
-                      style={[s.buyBtn, { backgroundColor: LIME }]}
-                      onPress={() => {
-                        setSelectedItem(null);
-                        setTimeout(() => handleContactSeller(selectedItem), 400);
-                      }}
-                    >
-                      <Text style={s.buyBtnTxt}>💳 Pay ₹{selectedItem.price} · Contact Seller</Text>
-                    </TouchableOpacity>
+                    <View style={{ gap: 12 }}>
+                      <TouchableOpacity
+                        style={[s.buyBtn, { backgroundColor: LIME }]}
+                        onPress={() => {
+                          setSelectedItem(null);
+                          setTimeout(() => handleContactSeller(selectedItem), 400);
+                        }}
+                      >
+                        <Text style={s.buyBtnTxt}>💳 Pay ₹{selectedItem.price} · Contact Seller</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[s.buyBtn, { backgroundColor: themeColors.card2, borderWidth: 1, borderColor: LIME }]}
+                        onPress={() => {
+                          setBargainPrice(selectedItem.price.toString());
+                          setShowBargain(true);
+                        }}
+                      >
+                        <Text style={[s.buyBtnTxt, { color: LIME }]}>🤝 Make an Offer / Bargain</Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
 
                   <Text style={[s.payNote, { color: themeColors.txt3 }]}>
@@ -764,7 +790,7 @@ export default function ShopScreen() {
                 <View style={[s.feeSummary, { backgroundColor: themeColors.card2 }]}>
                   <Ionicons name="information-circle-outline" size={16} color={themeColors.txt3} />
                   <Text style={{ color: themeColors.txt3, fontSize: 12, flex: 1, marginLeft: 8 }}>
-                    Listing fee: 50 🥔{wantFeatured ? ' + 150 🥔 boost = 200 🥔 total' : ''}
+                    Listing fee: 150 🥔{wantFeatured ? ' + 150 🥔 boost = 300 🥔 total' : ''}
                     {'\n'}Your potato balance: {user?.potato ?? 0} 🥔
                   </Text>
                 </View>
@@ -778,13 +804,77 @@ export default function ShopScreen() {
                     <ActivityIndicator color="#000" />
                   ) : (
                     <Text style={s.submitTxt}>
-                      List Item for {wantFeatured ? '200' : '50'} 🥔
+                      List Item for {wantFeatured ? '300' : '150'} 🥔
                     </Text>
                   )}
                 </TouchableOpacity>
 
                 <View style={{ height: 40 }} />
               </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Bargain Bottom Sheet ───────────────────────────── */}
+      <Modal
+        visible={showBargain}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowBargain(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={s.modalOverlay}>
+            <View style={[s.createSheet, { backgroundColor: themeColors.bg, height: '70%' }]}>
+              <View style={s.sheetHandle} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <Text style={[s.sheetTitle, { color: themeColors.txt }]}>Make an Offer</Text>
+                <TouchableOpacity onPress={() => setShowBargain(false)} style={s.closeX}>
+                  <Ionicons name="close" size={22} color={themeColors.txt} />
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={s.inputLabel}>YOUR PRICE (₹) *</Text>
+              <TextInput
+                style={[s.input, { backgroundColor: themeColors.card2, color: themeColors.txt }]}
+                placeholder="e.g., 100"
+                placeholderTextColor={themeColors.txt3}
+                value={bargainPrice}
+                onChangeText={setBargainPrice}
+                keyboardType="numeric"
+              />
+              
+              <Text style={s.inputLabel}>MESSAGE (optional)</Text>
+              <TextInput
+                style={[s.input, s.textArea, { backgroundColor: themeColors.card2, color: themeColors.txt }]}
+                placeholder="e.g., Let's chat and meet in canteen."
+                placeholderTextColor={themeColors.txt3}
+                value={bargainMessage}
+                onChangeText={setBargainMessage}
+                multiline
+              />
+              
+              <TouchableOpacity
+                style={[s.submitBtn, { backgroundColor: LIME, marginTop: 24 }, creatingBargain && { opacity: 0.6 }]}
+                onPress={async () => {
+                   const num = parseFloat(bargainPrice);
+                   if(isNaN(num) || num <= 0) return Alert.alert('Invalid price');
+                   try {
+                     await createBargain({ itemId: selectedItem!._id, price: num, message: bargainMessage.trim() });
+                     setShowBargain(false);
+                   } catch(e) {}
+                }}
+                disabled={creatingBargain}
+              >
+                {creatingBargain ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={s.submitTxt}>Send Offer</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>

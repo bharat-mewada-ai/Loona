@@ -7,6 +7,9 @@ import {
   createListingOrder,
   verifyListingPayment,
   deleteListing,
+  createBargain,
+  getBargains,
+  respondToBargain,
 } from '../controllers/shop.controller.js';
 
 const router = express.Router();
@@ -28,5 +31,14 @@ router.post('/:id/verify-listing', asyncHandler(verifyListingPayment));
 
 // Delete listing
 router.delete('/:id', asyncHandler(deleteListing));
+
+// Get sent or received bargains
+router.get('/bargains', asyncHandler(getBargains));
+
+// Respond to a bargain (accept/reject)
+router.post('/bargains/:id/respond', asyncHandler(respondToBargain));
+
+// Create a bargain for an item
+router.post('/:id/bargain', asyncHandler(createBargain));
 
 export default router;

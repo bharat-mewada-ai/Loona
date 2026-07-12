@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -48,6 +48,11 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   const [userVoteLocal, setUserVoteLocal] = useState<number | null | undefined>(post.userVote);
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // ── In-flight lock — prevents rapid-tap glitch (duplicate votes / flicker) ──
+  // Only one vote request allowed at a time. Additional taps are silently dropped
+  // while a request is in-flight. Lock is cleared in onSettled (success OR error).
+  const isVotingRef = useRef(false);
+
   // Potato animation — start at correct scale
   const potatoScale = useRef(new Animated.Value(post.hasVoted ? 1.35 : 1.0)).current;
 
@@ -64,7 +69,11 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
     potatoScale.setValue(post.hasVoted ? 1.35 : 1.0);
   }, [post.hasVoted, post.upvotes]);
 
-  const handleVote = () => {
+  const handleVote = useCallback(() => {
+    // Drop tap if a vote request is already in-flight (Instagram-style lock)
+    if (isVotingRef.current) return;
+    isVotingRef.current = true;
+
     triggerHaptic('selection');
     const newVoted = !votedLocal;
     const newCount = Math.max(0, upvoteCountLocal + (newVoted ? 1 : -1));
@@ -78,8 +87,13 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
       speed: 40,
       bounciness: 18,
     }).start();
-    vote(post._id);
-  };
+    vote(post._id, {
+      onSettled: () => {
+        // Always release the lock, whether success or error
+        isVotingRef.current = false;
+      },
+    });
+  }, [votedLocal, upvoteCountLocal, post._id, vote, potatoScale]);
 
   const handleSave = () => {
     triggerHaptic('selection');

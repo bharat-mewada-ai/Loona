@@ -1,6 +1,8 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import ShopItem from '../models/shopItem.model.js';
+import Bargain from '../models/bargain.model.js';
+import Chat from '../models/chat.model.js';
 import User from '../models/user.model.js';
 import logger from '../utils/logger.js';
 import { createNotification } from '../utils/notificationService.js';
@@ -83,7 +85,7 @@ export const createListingOrder = async (req, res) => {
     const cleanImages = images || (image ? [image] : []);
 
     if (paymentMethod === 'potato') {
-      const listingPotatoCost = 50;
+      const listingPotatoCost = 150;
       const boostPotatoCost = 150;
       const totalPotatoCost = wantFeatured ? listingPotatoCost + boostPotatoCost : listingPotatoCost;
 
@@ -228,14 +230,159 @@ export const deleteListing = async (req, res) => {
     if (item.seller.toString() !== req.user._id.toString()) {
       return res.status(403).json({ error: 'You can only delete your own listings' });
     }
-    if (item.status === 'sold') {
-      return res.status(400).json({ error: 'Cannot delete a sold item' });
+    const shopItem = await ShopItem.findByIdAndDelete(req.params.id);
+    if (!shopItem) {
+      return res.status(404).json({ error: 'Item not found' });
     }
-
-    await item.deleteOne();
-    res.json({ success: true });
+    res.json({ message: 'Deleted successfully' });
   } catch (err) {
     logger.error('[Shop] deleteListing error:', err.message);
     res.status(500).json({ error: 'Could not delete listing' });
+  }
+};
+
+// ─── POST /shop/:id/bargain ────────────────────────────────────────────────
+// Submit a bargain request
+export const createBargain = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { price, message } = req.body;
+    const buyerId = req.user._id;
+
+    if (!price || price <= 0) return res.status(400).json({ error: 'Valid price is required' });
+
+    const item = await ShopItem.findById(id);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+    if (item.status !== 'available') return res.status(400).json({ error: 'Item is not available' });
+    if (item.seller.toString() === buyerId.toString()) return res.status(400).json({ error: 'Cannot bargain on your own item' });
+
+    // Check if there's already a pending bargain from this buyer
+    const existing = await Bargain.findOne({ shopItemId: id, buyerId, status: 'pending' });
+    if (existing) return res.status(400).json({ error: 'You already have a pending bargain for this item' });
+
+    const bargain = await Bargain.create({
+      shopItemId: item._id,
+      buyerId,
+      sellerId: item.seller,
+      price,
+      message: message || '',
+    });
+
+    // Notify seller
+    const buyerInfo = await User.findById(buyerId).select('name');
+    await createNotification({
+      recipient: item.seller,
+      sender: buyerId,
+      type: 'bargain_request',
+      title: '🤝 New Bargain Offer',
+      body: `${buyerInfo?.name || 'Someone'} offered ₹${price} for "${item.title}".`,
+      data: { shopItemId: item._id, bargainId: bargain._id },
+    });
+
+    res.json(bargain);
+  } catch (err) {
+    logger.error('[Shop] createBargain error:', err.message);
+    res.status(500).json({ error: 'Could not submit bargain' });
+  }
+};
+
+// ─── GET /shop/bargains ────────────────────────────────────────────────────
+// Get bargains for the current user (either sent or received)
+export const getBargains = async (req, res) => {
+  try {
+    const { type } = req.query; // 'sent' or 'received'
+    const userId = req.user._id;
+
+    const filter = type === 'sent' ? { buyerId: userId } : { sellerId: userId };
+
+    const bargains = await Bargain.find(filter)
+      .populate('shopItemId', 'title price image status')
+      .populate('buyerId', 'name avatar')
+      .populate('sellerId', 'name avatar')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json(bargains);
+  } catch (err) {
+    logger.error('[Shop] getBargains error:', err.message);
+    res.status(500).json({ error: 'Could not fetch bargains' });
+  }
+};
+
+// ─── POST /shop/bargains/:id/respond ───────────────────────────────────────
+// Seller accepts or rejects a bargain
+export const respondToBargain = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'accept' or 'reject'
+    const sellerId = req.user._id;
+
+    if (!['accept', 'reject'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    const bargain = await Bargain.findById(id).populate('shopItemId');
+    if (!bargain) return res.status(404).json({ error: 'Bargain not found' });
+    if (bargain.sellerId.toString() !== sellerId.toString()) return res.status(403).json({ error: 'Forbidden' });
+    if (bargain.status !== 'pending') return res.status(400).json({ error: 'Bargain is already ' + bargain.status });
+
+    bargain.status = action === 'accept' ? 'accepted' : 'rejected';
+
+    let chatId = null;
+    if (action === 'accept') {
+      // Create a chat between buyer and seller if it doesn't exist
+      // Since it's a real name chat, isAnonymous = false
+      let chat = await Chat.findOne({
+        participants: { $all: [bargain.buyerId, bargain.sellerId] },
+        isAnonymous: false
+      });
+      
+      if (!chat) {
+        chat = await Chat.create({
+          participants: [bargain.buyerId, bargain.sellerId],
+          isAnonymous: false,
+          unreadCounts: {
+            [bargain.buyerId.toString()]: 1, // Will have one system message
+            [bargain.sellerId.toString()]: 0
+          }
+        });
+      }
+      bargain.chatId = chat._id;
+      chatId = chat._id;
+
+      // Add a system message to the chat
+      const Message = (await import('../models/message.model.js')).default;
+      await Message.create({
+        chatId: chat._id,
+        sender: bargain.sellerId,
+        content: `🤝 Bargain Accepted! I agreed to sell "${bargain.shopItemId.title}" for ₹${bargain.price}. Let's coordinate!`,
+        isSystem: true
+      });
+      
+      chat.lastMessageAt = new Date();
+      await chat.save();
+    }
+
+    await bargain.save();
+
+    // Notify buyer
+    const title = action === 'accept' ? '🎉 Bargain Accepted!' : '❌ Bargain Rejected';
+    const body = action === 'accept' 
+      ? `Your offer of ₹${bargain.price} for "${bargain.shopItemId.title}" was accepted! Tap to chat.` 
+      : `Your offer of ₹${bargain.price} for "${bargain.shopItemId.title}" was rejected.`;
+      
+    await createNotification({
+      recipient: bargain.buyerId,
+      sender: sellerId,
+      type: action === 'accept' ? 'bargain_accepted' : 'bargain_rejected',
+      title,
+      body,
+      data: { shopItemId: bargain.shopItemId._id, bargainId: bargain._id, chatId },
+    });
+
+    res.json(bargain);
+  } catch (err) {
+    logger.error('[Shop] respondToBargain error:', err.message);
+    res.status(500).json({ error: 'Could not respond to bargain' });
   }
 };

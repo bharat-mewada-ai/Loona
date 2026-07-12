@@ -1,5 +1,18 @@
 import client from './client';
-import type { ShopItem, ShopCategory } from '../types';
+import type { ShopItem, ShopCategory, User } from '../types';
+
+export interface Bargain {
+  _id: string;
+  shopItemId: ShopItem;
+  buyerId: User;
+  sellerId: User;
+  price: number;
+  message: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  chatId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface CreateListingOrderPayload {
   title: string;
@@ -71,5 +84,20 @@ export const shopApi = {
 
   deleteListing: async (itemId: string): Promise<void> => {
     await client.delete(`/shop/${itemId}`);
+  },
+
+  createBargain: async (itemId: string, price: number, message?: string): Promise<Bargain> => {
+    const { data } = await client.post<Bargain>(`/shop/${itemId}/bargain`, { price, message });
+    return data;
+  },
+
+  getBargains: async (type: 'sent' | 'received'): Promise<Bargain[]> => {
+    const { data } = await client.get<Bargain[]>('/shop/bargains', { params: { type } });
+    return data;
+  },
+
+  respondToBargain: async (bargainId: string, action: 'accept' | 'reject'): Promise<Bargain> => {
+    const { data } = await client.post<Bargain>(`/shop/bargains/${bargainId}/respond`, { action });
+    return data;
   },
 };

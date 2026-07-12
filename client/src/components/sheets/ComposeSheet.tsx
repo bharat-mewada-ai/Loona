@@ -225,8 +225,13 @@ export default function ComposeSheet() {
 
   const handleSubmit = useCallback(() => {
     const isPhotoStory = composeType === 'stories' && cdnUrls.length > 0;
-    if (!title.trim() && !isPhotoStory) {
+    const isConfession = composeType === 'confess';
+    if (!title.trim() && !isPhotoStory && !isConfession) {
       Alert.alert('Wait!', 'Please enter a title or upload a photo.');
+      return;
+    }
+    if (isConfession && !body.trim()) {
+      Alert.alert('Wait!', 'Write your confession first.');
       return;
     }
     if (guard.level === 'bad') {
@@ -252,8 +257,8 @@ export default function ComposeSheet() {
 
     createPost(
       {
-        title: title.trim(),
-        body: body.trim() || undefined,
+        title: isConfession ? undefined : title.trim(),
+        body: isConfession ? body.trim() : (body.trim() || undefined),
         image: cdnUrls[0] || undefined,
         images: cdnUrls,
         eventDate: isEvent && dateSet ? eventDate.toISOString() : undefined,
@@ -310,12 +315,12 @@ export default function ComposeSheet() {
               </View>
               
               <TouchableOpacity 
-                style={[s.topPostBtn, { backgroundColor: themeColors.ogi }, (isPending || (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0))) && { opacity: 0.6 }]} 
+                style={[s.topPostBtn, { backgroundColor: themeColors.ogi }, (isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)))) && { opacity: 0.6 }]} 
                 onPress={handleSubmit} 
-                disabled={isPending || (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0))}
+                disabled={isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)))}
                 accessibilityRole="button"
                 accessibilityLabel="Post your content"
-                accessibilityState={{ disabled: isPending || (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)) }}
+                accessibilityState={{ disabled: isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0))) }}
               >
                 {isPending ? (
                   <ActivityIndicator size="small" color="#FFF" />
@@ -456,41 +461,41 @@ export default function ComposeSheet() {
                 </View>
               )}
 
-              <TextInput
-                style={[s.ta, { color: themeColors.txt, fontWeight: composeType === 'stories' ? '800' : '400' }]}
-                placeholder={
-                  composeType === 'confess' ? "Something on your mind? Confess anonymously..." :
-                  composeType === 'stories' ? "Story Title (e.g., Late night library secret...)" :
-                  composeType === 'discussion' ? "What's the topic? (e.g., Is coding dying?)" :
-                  isPoll ? "Ask a question for your poll..." : "Write your post here..."
-                }
-                placeholderTextColor={themeColors.txt3}
-                value={title}
-                onChangeText={setTitle}
-                maxLength={composeType === 'confess' ? 500 : 120}
-                multiline
-                autoFocus
-                accessibilityLabel="Post title input"
-              />
+              {composeType !== 'confess' && (
+                <TextInput
+                  style={[s.ta, { color: themeColors.txt, fontWeight: composeType === 'stories' ? '800' : '400' }]}
+                  placeholder={
+                    composeType === 'stories' ? "Story Title (e.g., Late night library secret...)" :
+                    composeType === 'discussion' ? "What's the topic? (e.g., Is coding dying?)" :
+                    isPoll ? "Ask a question for your poll..." : "Write your post here..."
+                  }
+                  placeholderTextColor={themeColors.txt3}
+                  value={title}
+                  onChangeText={setTitle}
+                  maxLength={120}
+                  multiline
+                  autoFocus
+                  accessibilityLabel="Post title input"
+                />
+              )}
 
-              {/* Body/Details input — hidden for confessions (keep it single clean text) */}
-              {composeType !== 'confess' && (composeType === 'stories' || composeType === 'discussion' || !!body) && (
+              {/* Body/Details input — always shown for confessions, conditionally for others */}
+              {(composeType === 'confess' || (composeType !== 'confess' && (composeType === 'stories' || composeType === 'discussion' || !!body))) && (
                 <>
                   <TextInput
-                    style={[s.bodyTa, { color: themeColors.txt2 }]}
-                    placeholder={composeType === 'stories' ? "Tell your full story here..." : "Add more details..."}
+                    style={[s.bodyTa, { color: themeColors.txt, minHeight: composeType === 'confess' ? 160 : 120 }]}
+                    placeholder={composeType === 'confess' ? "Pour your heart out... (up to 10,000 chars)" : composeType === 'stories' ? "Tell your full story here..." : "Add more details..."}
                     placeholderTextColor={themeColors.txt3}
                     value={body}
                     onChangeText={setBody}
-                    maxLength={(composeType === 'stories' || composeType === 'discussion') ? 5000 : 500}
+                    maxLength={composeType === 'confess' ? 10000 : (composeType === 'stories' || composeType === 'discussion') ? 5000 : 500}
                     multiline
+                    autoFocus={composeType === 'confess'}
                     accessibilityLabel="Post body input"
                   />
-                  {(composeType === 'stories' || composeType === 'discussion') && (
-                    <Text style={[s.charCount, { color: body.length > 4500 ? '#EF4444' : themeColors.txt3 }]}>
-                      {body.length} / 5000
-                    </Text>
-                  )}
+                  <Text style={[s.charCount, { color: body.length > (composeType === 'confess' ? 9500 : 4500) ? '#EF4444' : themeColors.txt3 }]}>
+                    {body.length} / {composeType === 'confess' ? 10000 : (composeType === 'stories' || composeType === 'discussion') ? 5000 : 500}
+                  </Text>
                 </>
               )}
 

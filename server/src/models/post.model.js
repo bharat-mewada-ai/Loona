@@ -1,8 +1,13 @@
 import mongoose from "mongoose";
 
 const postSchema = new mongoose.Schema({
-  title: { type: String, required: function() { return this.type !== 'stories'; }, maxlength: 120 },
-  body: { type: String, maxlength: 5000 },
+  title: {
+    type: String,
+    // title not required for confessions (body-only posts) or stories (photo-only)
+    required: function() { return this.type !== 'stories' && this.type !== 'confess'; },
+    maxlength: 300
+  },
+  body: { type: String, maxlength: 10000 },
   campus: { type: String, required: true },
   type: { type: String, required: true },
   author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

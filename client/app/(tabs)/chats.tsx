@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, TextInput, ScrollView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -59,15 +59,33 @@ export default function ChatsScreen() {
         contentContainerStyle={s.scroll}
         estimatedItemSize={75}
         ListHeaderComponent={
-          <View style={[s.searchBox, { backgroundColor: themeColors.card2 }]}>
-            <Ionicons name="search-outline" size={18} color={themeColors.txt3} style={{ marginRight: 10 }} />
-            <TextInput
-              style={{ color: themeColors.txt, flex: 1, fontSize: 15, padding: 0 }}
-              placeholder="Search messages..."
-              placeholderTextColor={themeColors.txt3}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
+          <View>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={[s.sectionLabel, { color: themeColors.txt3 }]}>Active Now</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
+                {filteredChats.slice(0, 8).map((chat, idx) => (
+                  <TouchableOpacity key={chat._id + idx} style={{ alignItems: 'center', gap: 6 }} onPress={() => router.push(`/chat/${chat._id}`)}>
+                    <View style={[s.activeBubble, { backgroundColor: themeColors.card2 }]}>
+                      <Text style={{ fontSize: 24 }}>{chat.avatar ?? '👤'}</Text>
+                      <View style={[s.onlineDot, { backgroundColor: '#22C55E', borderColor: themeColors.bg, borderWidth: 2 }]} />
+                    </View>
+                    <Text style={{ color: themeColors.txt, fontSize: 11, fontWeight: '600' }} numberOfLines={1}>
+                      {chat.name?.split(' ')[0] ?? 'Anon'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+            <View style={[s.searchBox, { backgroundColor: themeColors.card2 }]}>
+              <Ionicons name="search-outline" size={18} color={themeColors.txt3} style={{ marginRight: 10 }} />
+              <TextInput
+                style={{ color: themeColors.txt, flex: 1, fontSize: 15, padding: 0 }}
+                placeholder="Search messages..."
+                placeholderTextColor={themeColors.txt3}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
           </View>
         }
         renderItem={({ item }) => (
@@ -77,7 +95,11 @@ export default function ChatsScreen() {
             onPress={() => router.push(`/chat/${item._id}`)}
           >
             <View style={s.avWrap}>
-              <View style={[s.chatAv, { backgroundColor: themeColors.card2 }]}>
+              <View style={[
+                s.chatAv, 
+                { backgroundColor: themeColors.card2 },
+                (item.unread ?? 0) > 0 && { borderColor: themeColors.ogi, borderWidth: 2, shadowColor: themeColors.ogi, shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } }
+              ]}>
                 <Text style={{ fontSize: 20 }}>{item.avatar ?? '👤'}</Text>
               </View>
               {/* Online indicator */}
@@ -127,6 +149,8 @@ const s = StyleSheet.create({
   title: { fontSize: 28, fontFamily: 'Syne_700Bold' },
   scroll: { paddingBottom: 100 },
   searchBox: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 20, padding: 12, borderRadius: 16 },
+  sectionLabel: { fontSize: 12, fontWeight: '800', marginLeft: 20, marginBottom: 12, letterSpacing: 0.5 },
+  activeBubble: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#22C55E' },
   item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 },
   avWrap: { position: 'relative' },
   chatAv: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },

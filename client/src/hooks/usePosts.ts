@@ -125,7 +125,7 @@ export const useVote = () => {
       }
       if (context?.prevSaved) qc.setQueryData(['savedPosts'], context.prevSaved);
     },
-    onSuccess: (data: { upvotes: number; score: number; hasVoted: boolean }, id: string) => {
+    onSuccess: (data: { upvotes: number; score: number; hasVoted: boolean; voterPotato?: number }, id: string) => {
       // Write the server-authoritative upvote count directly into cache — NO re-fetch
       // This prevents stale-cache issues where a refetch returns old data before Redis clears
       const patch = (post: any) => {
@@ -164,6 +164,13 @@ export const useVote = () => {
         if (!old || !Array.isArray(old)) return old;
         return old.map(patch);
       });
+
+      // Immediately patch the voter's potato balance in authStore if server returned it.
+      // This gives instant feedback without waiting for a socket event or me-refetch.
+      if (typeof data.voterPotato === 'number') {
+        const { user, setUser } = useAuthStore.getState();
+        if (user) setUser({ ...user, potato: data.voterPotato });
+      }
 
       // Only refresh leaderboard and user profile (potato balance may have changed)
       qc.invalidateQueries({ queryKey: ['leaderboard'] });

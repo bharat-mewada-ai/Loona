@@ -22,6 +22,14 @@ export const useMyListings = () => {
   });
 };
 
+export const useBargains = (type: 'sent' | 'received') => {
+  return useQuery({
+    queryKey: ['shop', 'bargains', type],
+    queryFn: () => shopApi.getBargains(type),
+    staleTime: 1000 * 30, // 30 seconds
+  });
+};
+
 // ─── Mutations ──────────────────────────────────────────────────────────────
 
 /**
@@ -95,6 +103,38 @@ export const useDeleteListing = () => {
     },
     onError: () => {
       Alert.alert('Error', 'Could not delete listing.');
+    },
+  });
+};
+
+export const useCreateBargain = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ itemId, price, message }: { itemId: string; price: number; message?: string }) =>
+      shopApi.createBargain(itemId, price, message),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shop', 'bargains', 'sent'] });
+      Alert.alert('Success', 'Bargain request sent to the seller.');
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err?.response?.data?.error || 'Could not send bargain request.');
+    },
+  });
+};
+
+export const useRespondToBargain = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ bargainId, action }: { bargainId: string; action: 'accept' | 'reject' }) =>
+      shopApi.respondToBargain(bargainId, action),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shop', 'bargains', 'received'] });
+      queryClient.invalidateQueries({ queryKey: ['chats'] }); // A new chat might be created
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err?.response?.data?.error || 'Could not respond to bargain.');
     },
   });
 };

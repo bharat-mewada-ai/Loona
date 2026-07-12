@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, 
   Modal, ActivityIndicator, Alert, Switch, TextInput, Platform,
-  Dimensions, Image, Share, Linking, FlatList
+  Dimensions, Image, Share, Linking, FlatList, Animated, Pressable
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
@@ -83,49 +83,66 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const AnimatedPressable = ({ onPress, style, children, disabled }: any) => {
+    const scale = React.useRef(new Animated.Value(1)).current;
+    const handlePressIn = () => {
+      if(hapticsEnabled) triggerHaptic('selection');
+      Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 20 }).start();
+    };
+    const handlePressOut = () => {
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
+    };
+    return (
+      <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={onPress} disabled={disabled}>
+        <Animated.View style={[style, { transform: [{ scale }] }]}>
+          {children}
+        </Animated.View>
+      </Pressable>
+    );
+  };
+
   const ActivityItem = ({ icon, label, count, onPress, color }: any) => (
-    <TouchableOpacity style={[s.activityItem, { borderBottomColor: themeColors.bdr }]} onPress={onPress}>
-      <View style={s.rowLeft}>
-        <View style={[s.activityIcon, { backgroundColor: color + '15' }]}>
-          <Ionicons name={icon} size={20} color={color} />
+    <AnimatedPressable onPress={onPress}>
+      <View style={[s.activityItem, { borderBottomColor: themeColors.bdr }]}>
+        <View style={s.rowLeft}>
+          <View style={[s.activityIcon, { backgroundColor: color + '15' }]}>
+            <Ionicons name={icon} size={20} color={color} />
+          </View>
+          <Text style={[s.activityLabel, { color: themeColors.txt }]}>{label}</Text>
         </View>
-        <Text style={[s.activityLabel, { color: themeColors.txt }]}>{label}</Text>
+        <View style={s.rowRight}>
+          {count !== undefined && <Text style={[s.activityCount, { color: themeColors.txt3 }]}>{count}</Text>}
+          <Ionicons name="chevron-forward" size={18} color={themeColors.txt3} />
+        </View>
       </View>
-      <View style={s.rowRight}>
-        {count !== undefined && <Text style={[s.activityCount, { color: themeColors.txt3 }]}>{count}</Text>}
-        <Ionicons name="chevron-forward" size={18} color={themeColors.txt3} />
-      </View>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 
   const SettingRow = ({ icon, label, value, onPress, isSwitch, switchValue, onSwitchChange, destructive }: any) => (
-    <TouchableOpacity 
-      style={[s.settingRow, { borderBottomColor: themeColors.bdr }]} 
-      onPress={onPress} 
-      activeOpacity={0.7}
-      disabled={isSwitch}
-    >
-      <View style={s.rowLeft}>
-        <View style={[s.settingIcon, { backgroundColor: destructive ? '#FF3B3015' : themeColors.card2 }]}>
-          <Ionicons name={icon} size={18} color={destructive ? '#FF3B30' : themeColors.txt} />
+    <AnimatedPressable onPress={onPress} disabled={isSwitch}>
+      <View style={[s.settingRow, { borderBottomColor: themeColors.bdr }]}>
+        <View style={s.rowLeft}>
+          <View style={[s.settingIcon, { backgroundColor: destructive ? '#FF3B3015' : themeColors.card2 }]}>
+            <Ionicons name={icon} size={18} color={destructive ? '#FF3B30' : themeColors.txt} />
+          </View>
+          <Text style={[s.settingLabel, { color: destructive ? '#FF3B30' : themeColors.txt }]}>{label}</Text>
         </View>
-        <Text style={[s.settingLabel, { color: destructive ? '#FF3B30' : themeColors.txt }]}>{label}</Text>
+        <View style={s.rowRight}>
+          {isSwitch ? (
+            <Switch 
+              value={switchValue} 
+              onValueChange={onSwitchChange} 
+              trackColor={{ false: '#767577', true: themeColors.ogi }}
+            />
+          ) : (
+            <>
+              {value && <Text style={[s.settingValue, { color: themeColors.txt3 }]}>{value}</Text>}
+              <Ionicons name="chevron-forward" size={16} color={themeColors.txt3} />
+            </>
+          )}
+        </View>
       </View>
-      <View style={s.rowRight}>
-        {isSwitch ? (
-          <Switch 
-            value={switchValue} 
-            onValueChange={onSwitchChange} 
-            trackColor={{ false: '#767577', true: themeColors.ogi }}
-          />
-        ) : (
-          <>
-            {value && <Text style={[s.settingValue, { color: themeColors.txt3 }]}>{value}</Text>}
-            <Ionicons name="chevron-forward" size={16} color={themeColors.txt3} />
-          </>
-        )}
-      </View>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 
   if (activeView === 'posts' || activeView === 'saved') {
@@ -177,6 +194,17 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+        
+        {/* Dynamic Gradient Background */}
+        <View style={s.headerBgWrapper}>
+          <LinearGradient
+            colors={[themeColors.ogi + '40', themeColors.bg]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          />
+        </View>
+
         {/* Profile Info */}
         <View style={s.profileInfo}>
           <TouchableOpacity onPress={() => setEditModalVisible(true)} style={[s.avatarCircle, { backgroundColor: themeColors.card2, borderColor: themeColors.ogi }]}>
@@ -223,21 +251,19 @@ export default function ProfileScreen() {
         </View>
 
         {/* Potato Card */}
-        <TouchableOpacity 
-          style={[s.karmaCard, { backgroundColor: themeColors.card }]} 
-          activeOpacity={0.8}
-          onPress={() => setPotatoGuideVisible(true)}
-        >
-          <View style={s.karmaLeft}>
-            <View style={s.flameCircle}>
-              <Text style={{ fontSize: 28 }}>🥔</Text>
-            </View>
-            <View>
-              <Text style={[s.karmaNum, { color: themeColors.ogi }]}>{potato.toLocaleString()}</Text>
-              <Text style={[s.karmaLabel, { color: themeColors.txt3 }]}>Campus Potatoes · Top Contributor at {campus}</Text>
+        <AnimatedPressable onPress={() => setPotatoGuideVisible(true)}>
+          <View style={[s.karmaCard, { backgroundColor: themeColors.card, borderColor: themeColors.ogi + '50', borderWidth: 1, shadowColor: themeColors.ogi, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 }]}> 
+            <View style={s.karmaLeft}>
+              <View style={s.flameCircle}>
+                <Text style={{ fontSize: 28 }}>🥔</Text>
+              </View>
+              <View>
+                <Text style={[s.karmaNum, { color: themeColors.ogi }]}>{potato.toLocaleString()}</Text>
+                <Text style={[s.karmaLabel, { color: themeColors.txt3 }]}>Campus Potatoes · Top Contributor at {campus}</Text>
+              </View>
             </View>
           </View>
-        </TouchableOpacity>
+        </AnimatedPressable>
 
         <Text style={[s.sectionTitle, { color: themeColors.txt3 }]}>YOUR ACTIVITY</Text>
         <View style={[s.activityBox, { backgroundColor: themeColors.card }]}>
@@ -684,6 +710,7 @@ const s = StyleSheet.create({
   logo: { fontSize: 24, fontFamily: 'Syne_400Regular' },
   gearBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   scroll: { paddingBottom: 40 },
+  headerBgWrapper: { position: 'absolute', top: -100, left: 0, right: 0, height: 350, opacity: 0.8 },
   profileInfo: { alignItems: 'center', marginTop: 10 },
   avatarCircle: { width: 120, height: 120, borderRadius: 60, borderWidth: 3, justifyContent: 'center', alignItems: 'center', position: 'relative' },
   editBadge: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#333', width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFF' },
