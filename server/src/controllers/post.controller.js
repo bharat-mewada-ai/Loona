@@ -133,7 +133,7 @@ export const createPost = async (req, res) => {
       const multiplier = await getCampusMultiplier(req.user.campus);
       const todayStr = new Date().toISOString().split("T")[0];
 
-      // Atomically apply: +postCount, +potato (post reward), quest reset if new day,
+      // Atomically apply: +postCount, quest reset if new day,
       // +dailyPostsCount. We do this in one findOneAndUpdate to avoid race conditions.
       const user = await User.findOneAndUpdate(
         { _id: req.user._id },
@@ -141,7 +141,6 @@ export const createPost = async (req, res) => {
           {
             $set: {
               postCount: { $add: [{ $ifNull: ["$postCount", 0] }, 1] },
-              potato: { $add: [{ $ifNull: ["$potato", 0] }, 5 * multiplier] },
               lastPostDate: new Date(),
               // Reset daily quest counters if it's a new day
               dailyUpvotesCount: {
@@ -477,7 +476,7 @@ export const votePost = async (req, res) => {
 
   // Karma logic for author (adjusted with campus multiplier)
   const multiplier = await getCampusMultiplier(post.campus);
-  const potatoChange = existingVote ? -(3 * multiplier) : (3 * multiplier);
+  const potatoChange = existingVote ? -(1 * multiplier) : (1 * multiplier);
 
   let postAuthor;
   // Always use atomic $inc for potato changes — NEVER use req.user.save() for potato
@@ -866,7 +865,7 @@ export const addComment = async (req, res) => {
   const multiplierVal = await getCampusMultiplier(req.user.campus);
   const updatedCommenter = await User.findByIdAndUpdate(
     req.user._id,
-    { $inc: { potato: 2 * multiplierVal, commentsCount: 1 } },
+    { $inc: { potato: 1 * multiplierVal, commentsCount: 1 } },
     { new: true }
   );
   // Sync potato for socket emit

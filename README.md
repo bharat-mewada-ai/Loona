@@ -45,7 +45,7 @@ The core loop: **Post → Get Upvoted → Earn 🥔 Potatoes → Climb the Campu
 
 ### 🥔 Potatoes (Gamification)
 - Every user starts with 25 🥔 Potatoes
-- Earn potatoes by posting (+5), commenting (+2), getting upvoted (+3)
+- Earn potatoes by commenting (+1), getting upvoted (+1)
 - Campus win-streak multiplier — winning campus gets **2× potato rewards** for 3+ day streaks
 - Daily quests: post once + upvote 3 times = +5 bonus potatoes
 - Spend potatoes to wave at nearby users, list items in the shop, or boost listings

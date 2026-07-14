@@ -670,20 +670,12 @@ export default function ProfileScreen() {
                   <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>FREE</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-                  <Text style={{ fontSize: 20 }}>📝</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Create a Post</Text>
-                    <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Post confessions, discussions, or events.</Text>
-                  </View>
-                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+5 🥔</Text>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                   <Text style={{ fontSize: 20 }}>💬</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Leave a Comment</Text>
                     <Text style={{ color: themeColors.txt3, fontSize: 11 }}>Share your thoughts in comment threads.</Text>
                   </View>
-                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+2 🥔</Text>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+1 🥔</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                   <Text style={{ fontSize: 20 }}>👍</Text>
@@ -691,7 +683,7 @@ export default function ProfileScreen() {
                     <Text style={{ color: themeColors.txt, fontSize: 13, fontWeight: '700' }}>Receive an Upvote</Text>
                     <Text style={{ color: themeColors.txt3, fontSize: 11 }}>When other students upvote your posts.</Text>
                   </View>
-                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+3 🥔</Text>
+                  <Text style={{ color: '#34C759', fontWeight: '800', fontSize: 13 }}>+1 🥔</Text>
                 </View>
               </View>
 
