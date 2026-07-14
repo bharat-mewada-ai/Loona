@@ -185,18 +185,6 @@ export const getMessages = async (req, res) => {
     const chat = await Chat.findOne({ _id: chatId, participants: req.user._id }).populate("participants", "name avatar lastActive");
     if (!chat) return res.status(404).json({ error: "Chat not found" });
 
-    // Mark messages as read by adding the current user to the readBy array
-    await Message.updateMany(
-      { chatId, senderId: { $ne: req.user._id }, readBy: { $ne: req.user._id } },
-      { $addToSet: { readBy: req.user._id } }
-    );
-
-    // Mark unread counts as 0
-    if (chat.unreadCounts && chat.unreadCounts.get(req.user._id.toString()) > 0) {
-      chat.unreadCounts.set(req.user._id.toString(), 0);
-      await chat.save();
-    }
-
     const messages = await Message.find({ chatId })
       .sort({ createdAt: 1 })
       .lean();
@@ -255,6 +243,7 @@ export const getMessages = async (req, res) => {
       }
     };
 
+    // Respond IMMEDIATELY — don't wait for read receipt DB writes
     res.json({
       chat: {
         _id: chat._id,
@@ -265,10 +254,31 @@ export const getMessages = async (req, res) => {
       },
       messages: formattedMessages,
     });
+
+    // ─── Background: Mark messages as read (non-blocking) ───────────────────────
+    // These DB writes happen AFTER the response, so the user sees messages
+    // instantly without waiting for read receipt updates.
+    (async () => {
+      try {
+        // Mark messages as read
+        await Message.updateMany(
+          { chatId, senderId: { $ne: req.user._id }, readBy: { $ne: req.user._id } },
+          { $addToSet: { readBy: req.user._id } }
+        );
+        // Reset unread count to 0 atomically
+        await Chat.findByIdAndUpdate(chatId, {
+          $set: { [`unreadCounts.${req.user._id.toString()}`]: 0 }
+        });
+      } catch (bgErr) {
+        console.error('[getMessages] Read receipt background error:', bgErr.message);
+      }
+    })();
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // Send a message
 export const sendMessage = async (req, res) => {
@@ -288,6 +298,8 @@ export const sendMessage = async (req, res) => {
     const chat = await Chat.findOne({ _id: chatId, participants: req.user._id });
     if (!chat) return res.status(404).json({ error: "Chat not found" });
 
+    const otherId = chat.participants.find(p => p.toString() !== req.user._id.toString()).toString();
+
     const message = await Message.create({
       chatId,
       senderId: req.user._id,
@@ -296,86 +308,97 @@ export const sendMessage = async (req, res) => {
       readBy: [req.user._id],
     });
 
-    // Fetch user info for socket emission
-    const user = await User.findById(req.user._id).select("name avatar");
-
-    // Update chat
-    chat.lastMessage = message._id;
-    chat.lastMessageAt = Date.now();
-    
-    // Increment unread count for other participant
-    const otherId = chat.participants.find(p => p.toString() !== req.user._id.toString()).toString();
-    if (chat.unreadCounts) {
-      chat.unreadCounts.set(otherId, (chat.unreadCounts.get(otherId) || 0) + 1);
-    } else {
-      chat.unreadCounts = { [otherId]: 1, [req.user._id.toString()]: 0 };
-    }
-    
-    await chat.save();
-
-    // Emit via socket
-    const io = req.app.get("io");
-    if (io) {
-      // 1. Emit to the specific chat room (for users currently in the conversation)
-      io.to(chatId).emit("newMessage", message);
-      
-      // 2. Emit to the other user's global room (for unread count updates/notifications across the app)
-      io.to(`user:${otherId}`).emit("newNotification", {
-        type: "message",
-        chatId,
-        content: content ? content.slice(0, 50) : "Sent a photo"
-      });
-    }
-
-    // Compute push & notification title early to avoid reference errors
-    let title = "New Message";
+    // ─── Respond IMMEDIATELY so the sender's UI feels instant ─────────────────
+    // Everything after this is non-blocking background work.
+    let senderName = req.user.name;
+    let senderAvatar = req.user.avatar;
     if (chat.isAnonymous && !chat.isRevealed) {
       if (chat.anonAuthorId && req.user._id.toString() === chat.anonAuthorId.toString()) {
-        title = "🕳️ Anonymous Confessor";
-      } else {
-        const senderIdentity = chat.anonIdentities.get(req.user._id.toString()) || { name: "Someone", avatar: "👤" };
-        title = `${senderIdentity.avatar} ${senderIdentity.name}`;
-      }
-    } else {
-      const senderIdentity = chat.anonIdentities.get(req.user._id.toString()) || { name: "Someone", avatar: "👤" };
-      title = `${senderIdentity.avatar} ${senderIdentity.name}`;
-    }
-
-    // Create in-app notification + push for the other user
-    // NOTE: createNotification internally calls sendPushNotification — do NOT call it separately
-    createNotification({
-      recipient: otherId,
-      sender: req.user._id,
-      type: "message",
-      title: title,
-      body: image && !content ? "Sent a photo 📷" : `${content.slice(0, 60)}${content.length > 60 ? '...' : ''}`,
-      data: { chatId: chatId.toString() }
-    });
-
-    let responseName = user.name;
-    let responseAvatar = user.avatar;
-
-    if (chat.isAnonymous && !chat.isRevealed) {
-      if (chat.anonAuthorId && req.user._id.toString() === chat.anonAuthorId.toString()) {
-        responseName = "Anonymous Confessor";
-        responseAvatar = "🕳️";
+        senderName = "Anonymous Confessor";
+        senderAvatar = "🕳️";
       }
     }
 
-    // Return message with senderType instead of real ID
     const formattedMessage = {
       ...message.toObject(),
       senderType: "me",
-      senderName: responseName,
-      senderAvatar: responseAvatar,
+      senderName,
+      senderAvatar,
       senderId: undefined
     };
 
     res.status(201).json(formattedMessage);
+
+    // ─── Background: DB updates + Socket + Push ────────────────────────────────
+    // These do NOT block the HTTP response — the client already has the message.
+    (async () => {
+      try {
+        // 1. Update chat metadata atomically
+        await Chat.findByIdAndUpdate(chatId, {
+          $set: { lastMessage: message._id, lastMessageAt: new Date() },
+          $inc: { [`unreadCounts.${otherId}`]: 1 }
+        });
+
+        // 2. Emit via socket to the chat room (both users see it in real-time)
+        const io = req.app.get("io");
+        if (io) {
+          io.to(chatId).emit("newMessage", message);
+          io.to(`user:${otherId}`).emit("newNotification", {
+            type: "message",
+            chatId,
+            content: content ? content.slice(0, 50) : "Sent a photo"
+          });
+        }
+
+        // 3. Push notification with DEBOUNCE ────────────────────────────────────
+        // Key idea: if the same sender sends multiple messages rapidly to the
+        // same recipient in the same chat, only ONE push notification is sent
+        // per 10-second window. This gives WhatsApp/Instagram-style grouping:
+        // "3 new messages from X" instead of 3 separate vibrations.
+        //
+        // Implementation: set a Redis key `push_debounce:{chatId}:{otherId}` with
+        // a 10s TTL using NX (only set if not exists). If the key already exists,
+        // skip the push — the first notification already covers the conversation.
+        let shouldSendPush = true;
+        const debounceKey = `push_debounce:${chatId}:${otherId}`;
+        if (redis && redis.status === 'ready') {
+          try {
+            // NX = only set if key doesn't already exist
+            const wasSet = await redis.set(debounceKey, '1', 'EX', 10, 'NX');
+            if (!wasSet) {
+              // Key already existed — a push was sent recently, skip this one
+              shouldSendPush = false;
+            }
+          } catch (_) {
+            // Redis unavailable — always send push as safe fallback
+          }
+        }
+
+        if (shouldSendPush) {
+          // Build a clean title
+          let pushTitle = senderName;
+          const pushBody = image && !content ? "Sent a photo 📷" : `${(content || '').slice(0, 60)}${(content || '').length > 60 ? '...' : ''}`;
+
+          await createNotification({
+            recipient: otherId,
+            sender: req.user._id,
+            type: "message",
+            title: `${senderAvatar} ${pushTitle}`,
+            body: pushBody,
+            data: { chatId: chatId.toString() }
+          });
+        }
+      } catch (bgErr) {
+        // Never crash a sent message due to background work
+        console.error('[sendMessage] Background error:', bgErr.message);
+      }
+    })();
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 // Reveal anonymous identity in a chat
 export const revealIdentity = async (req, res) => {

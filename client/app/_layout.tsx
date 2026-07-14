@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 import { StatusBar } from 'expo-status-bar';
@@ -107,11 +107,24 @@ function RootLayout() {
     }
   }, [user?._id]);
 
-  // Expo Updates are handled automatically on start via checkAutomatically: "ON_LOAD" in app.json.
-  // We disable manual checkForUpdateAsync to prevent startup crash/reload loops on Android.
+  // Automatically apply updates when the app goes to the background
+  const { isUpdatePending } = Updates.useUpdates();
   useEffect(() => {
-    // Manual startup OTA checks disabled to ensure app stability
-  }, []);
+    if (__DEV__ || !Updates.isEnabled) return;
+
+    if (isUpdatePending) {
+      console.log('[RootLayout] New update downloaded and pending.');
+      const subscription = AppState.addEventListener('change', (nextAppState) => {
+        if (nextAppState === 'background') {
+          console.log('[RootLayout] App in background, reloading to apply update...');
+          Updates.reloadAsync().catch((err) => {
+            console.error('[RootLayout] reloadAsync failed:', err);
+          });
+        }
+      });
+      return () => subscription.remove();
+    }
+  }, [isUpdatePending]);
 
   // Initialize push notifications on startup
   const [fontsLoaded, fontError] = useFonts({

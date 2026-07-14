@@ -223,21 +223,39 @@ export const getMe = async (req, res) => {
   try {
     const alreadyReset = await redis.get(resetKey);
     if (!alreadyReset && req.user.lastQuestResetDate !== todayStr) {
+      // Use targeted $set — NEVER call req.user.save() here because
+      // getMe is called frequently and a full save would overwrite concurrent
+      // potato changes from votes/comments happening at the same time.
+      await User.findByIdAndUpdate(req.user._id, {
+        $set: {
+          dailyUpvotesCount: 0,
+          dailyPostsCount: 0,
+          questsCompletedToday: false,
+          lastQuestResetDate: todayStr
+        }
+      });
+      // Also patch req.user in memory so the response reflects reset state
       req.user.dailyUpvotesCount = 0;
       req.user.dailyPostsCount = 0;
       req.user.questsCompletedToday = false;
       req.user.lastQuestResetDate = todayStr;
-      await req.user.save();
       await redis.set(resetKey, '1', 'EX', 86400); // lock for 24h
     }
   } catch (e) {
-    // Redis fail: fallback to old behavior
+    // Redis fail: fallback — still use targeted $set, not full save
     if (req.user.lastQuestResetDate !== todayStr) {
+      await User.findByIdAndUpdate(req.user._id, {
+        $set: {
+          dailyUpvotesCount: 0,
+          dailyPostsCount: 0,
+          questsCompletedToday: false,
+          lastQuestResetDate: todayStr
+        }
+      }).catch(() => {});
       req.user.dailyUpvotesCount = 0;
       req.user.dailyPostsCount = 0;
       req.user.questsCompletedToday = false;
       req.user.lastQuestResetDate = todayStr;
-      await req.user.save();
     }
   }
 
@@ -697,9 +715,20 @@ export const waveUser = async (req, res) => {
       });
     }
 
-    // Deduct potato
-    req.user.potato -= WAVE_COST;
-    await req.user.save();
+    // Atomically deduct potato only if the user still has enough.
+    // Using findOneAndUpdate with a balance check prevents double-charges
+    // on rapid retries / network glitches (wave tapped twice quickly).
+    const afterWave = await User.findOneAndUpdate(
+      { _id: req.user._id, potato: { $gte: WAVE_COST } },
+      { $inc: { potato: -WAVE_COST } },
+      { new: true }
+    );
+    if (!afterWave) {
+      return res.status(400).json({
+        error: `You need at least ${WAVE_COST} 🥔 Potatoes to wave! You currently have ${req.user.potato} 🥔.`
+      });
+    }
+    req.user.potato = afterWave.potato; // sync for response
 
     try {
       await redis.del(`campusRank:${req.user._id}`);

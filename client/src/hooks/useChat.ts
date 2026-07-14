@@ -10,9 +10,12 @@ export const useChats = () => {
   return useQuery({
     queryKey: ['chats'],
     queryFn: chatApi.getChats,
-    refetchInterval: 30_000,
+    // Socket events (newNotification) already invalidate this query in real-time.
+    // 60s polling is a silent fallback only if the socket drops.
+    refetchInterval: 60_000,
   });
 };
+
 
 export const useStartChat = () => {
   const qc = useQueryClient();
@@ -73,6 +76,9 @@ export const useMessages = (chatId: string) => {
         const formattedMsg = {
           ...msg,
           senderType: msg.senderId === user?._id ? 'me' : 'other',
+          // Preserve senderName/senderAvatar from socket payload if present
+          senderName: msg.senderName || (msg.senderId === user?._id ? user?.name : 'Anonymous'),
+          senderAvatar: msg.senderAvatar || (msg.senderId === user?._id ? user?.avatar : '👤'),
           senderId: undefined,
         };
 
@@ -82,9 +88,10 @@ export const useMessages = (chatId: string) => {
         };
       });
       
-      // Update chat list preview/unread count
+      // Update chat list preview/unread count (non-blocking, socket already showed message)
       qc.invalidateQueries({ queryKey: ['chats'] });
     };
+
 
     s.on('newMessage', handleNewMessage);
 
@@ -146,11 +153,15 @@ export const useMessages = (chatId: string) => {
     staleTime: 0,
     // Don't persist stale messages to async storage
     gcTime: 0,
-    // Socket handles real-time; polling is a fallback if socket drops
-    refetchInterval: 30_000,
+    // Socket handles real-time delivery. Polling is intentionally DISABLED here
+    // because it causes jarring re-renders mid-conversation that make the chat
+    // feel laggy and delayed (like a page refresh every 30s while typing).
+    // If the socket drops, the user can pull-to-refresh manually.
+    refetchInterval: false,
     // Always refetch when screen comes to focus
     refetchOnMount: true,
   });
+
 };
 
 // ─── useSendMessage ──────────────────────────────────────────────────────────

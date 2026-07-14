@@ -61,13 +61,26 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
     setIsSavedLocal(isSavedFromServer);
   }, [isSavedFromServer]);
 
-  // Sync votedLocal + upvoteCountLocal when server data comes in
+  // Sync votedLocal when server confirms a vote state change.
+  // IMPORTANT: We only sync on hasVoted changes, NOT upvotes changes.
+  // Previously, listening on [post.hasVoted, post.upvotes] caused the auto-dislike
+  // bug: any upvote count change (from other users, leaderboard socket events, etc.)
+  // would trigger this effect and reset votedLocal to whatever post.hasVoted was
+  // at that moment — which could be a stale cached value.
   React.useEffect(() => {
-    setVotedLocal(post.hasVoted ?? false);
-    setUpvoteCountLocal(post.upvotes ?? 0);
-    // Also sync animation scale without triggering the spring
-    potatoScale.setValue(post.hasVoted ? 1.35 : 1.0);
-  }, [post.hasVoted, post.upvotes]);
+    // Only sync if we're not in the middle of a vote request
+    if (!isVotingRef.current) {
+      setVotedLocal(post.hasVoted ?? false);
+      potatoScale.setValue(post.hasVoted ? 1.35 : 1.0);
+    }
+  }, [post.hasVoted]);
+
+  // Sync upvote count from server separately — only when not voting
+  React.useEffect(() => {
+    if (!isVotingRef.current) {
+      setUpvoteCountLocal(post.upvotes ?? 0);
+    }
+  }, [post.upvotes]);
 
   const handleVote = useCallback(() => {
     // Drop tap if a vote request is already in-flight (Instagram-style lock)

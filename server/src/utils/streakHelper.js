@@ -40,8 +40,11 @@ export const getCampusMultiplier = async (campus) => {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const yesterdayStr = yesterday.toISOString().split("T")[0];
 
-    let yesterdayRecord = await DailyWinner.findOne({ date: yesterdayStr });
-    if (!yesterdayRecord) {
+    let yesterdayRecord;
+    try {
+      // Use upsert to atomically find-or-create the daily winner record.
+      // This prevents race conditions where concurrent requests all find null
+      // and all try to create(), causing duplicate key errors.
       const scores = await User.aggregate([
         { $group: { _id: "$campus", total: { $sum: "$potato" } } }
       ]);
@@ -50,8 +53,17 @@ export const getCampusMultiplier = async (campus) => {
       const winner = ogi > lnct ? 'ogi' : (lnct > ogi ? 'lnct' : 'draw');
 
       if (winner !== 'draw') {
-        yesterdayRecord = await DailyWinner.create({ date: yesterdayStr, winner });
+        yesterdayRecord = await DailyWinner.findOneAndUpdate(
+          { date: yesterdayStr },
+          { $setOnInsert: { date: yesterdayStr, winner } },
+          { upsert: true, new: true }
+        );
+      } else {
+        yesterdayRecord = await DailyWinner.findOne({ date: yesterdayStr });
       }
+    } catch (upsertErr) {
+      // Fallback: just try to find the existing record
+      yesterdayRecord = await DailyWinner.findOne({ date: yesterdayStr });
     }
 
     const pastWinners = await DailyWinner.find().sort({ date: -1 }).limit(5).lean();

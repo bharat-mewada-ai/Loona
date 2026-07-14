@@ -40,8 +40,11 @@ export const requireAuth = async (req, res, next) => {
     const now = new Date();
     const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
     if (!user.lastActive || user.lastActive < fourHoursAgo) {
-      user.lastActive = now;
-      user.save().catch(e => logger.error("Failed to update lastActive:", e.message));
+    // Use atomic $set instead of user.save() to avoid overwriting concurrent potato changes.
+    // user.save() would serialize and write ALL fields (including stale potato values),
+    // potentially clobbering changes made by concurrent vote/comment requests.
+    User.findByIdAndUpdate(user._id, { $set: { lastActive: now } })
+      .catch(e => logger.error("Failed to update lastActive:", e.message));
     }
     
     // ─── Ban Check ─────────────────────────────────────────────────────────────

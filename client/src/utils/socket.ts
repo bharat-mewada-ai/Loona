@@ -15,8 +15,14 @@ export const getSocket = (token: string): Socket => {
     socket = io(baseUrl, {
       auth: { token },
       transports: ['websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
+      // Detect dropped connections faster (default is 20s)
+      timeout: 10_000,
+      // Reconnect up to 10 times with exponential backoff (capped at 5s)
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      // Prevent accidentally creating a duplicate socket on re-renders
+      forceNew: false,
     });
   }
   return socket;

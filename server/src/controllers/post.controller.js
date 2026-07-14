@@ -128,45 +128,99 @@ export const createPost = async (req, res) => {
   (async () => {
     try {
       // ── Streak & Badge Logic (Background) ──
-      const user = await User.findById(req.user._id);
+      // Use findById to get user for streak/badge logic, but use atomic $inc for
+      // ALL potato changes to avoid overwriting concurrent vote/comment saves.
+      const multiplier = await getCampusMultiplier(req.user.campus);
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      // Atomically apply: +postCount, +potato (post reward), quest reset if new day,
+      // +dailyPostsCount. We do this in one findOneAndUpdate to avoid race conditions.
+      const user = await User.findOneAndUpdate(
+        { _id: req.user._id },
+        [
+          {
+            $set: {
+              postCount: { $add: [{ $ifNull: ["$postCount", 0] }, 1] },
+              potato: { $add: [{ $ifNull: ["$potato", 0] }, 5 * multiplier] },
+              lastPostDate: new Date(),
+              // Reset daily quest counters if it's a new day
+              dailyUpvotesCount: {
+                $cond: [{ $ne: ["$lastQuestResetDate", todayStr] }, 0, { $ifNull: ["$dailyUpvotesCount", 0] }]
+              },
+              dailyPostsCount: {
+                $cond: [
+                  { $ne: ["$lastQuestResetDate", todayStr] },
+                  1, // first post of new day
+                  { $add: [{ $ifNull: ["$dailyPostsCount", 0] }, 1] }
+                ]
+              },
+              questsCompletedToday: {
+                $cond: [{ $ne: ["$lastQuestResetDate", todayStr] }, false, { $ifNull: ["$questsCompletedToday", false] }]
+              },
+              lastQuestResetDate: todayStr,
+              // Streak logic
+              streak: {
+                $cond: [
+                  { $not: ["$lastPostDate"] },
+                  1,
+                  {
+                    $cond: [
+                      {
+                        $eq: [
+                          {
+                            $dateDiff: {
+                              startDate: { $dateTrunc: { date: "$lastPostDate", unit: "day" } },
+                              endDate: { $dateTrunc: { date: new Date(), unit: "day" } },
+                              unit: "day"
+                            }
+                          },
+                          1
+                        ]
+                      },
+                      { $add: [{ $ifNull: ["$streak", 0] }, 1] },
+                      {
+                        $cond: [
+                          {
+                            $gt: [
+                              {
+                                $dateDiff: {
+                                  startDate: { $dateTrunc: { date: "$lastPostDate", unit: "day" } },
+                                  endDate: { $dateTrunc: { date: new Date(), unit: "day" } },
+                                  unit: "day"
+                                }
+                              },
+                              1
+                            ]
+                          },
+                          1,
+                          { $ifNull: ["$streak", 0] }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        { new: true, updatePipeline: true }
+      );
+
       if (user) {
-        // Update user stats
-        user.postCount = (user.postCount || 0) + 1;
-
-        // Apply campus multiplier to post potato payout
-        const multiplier = await getCampusMultiplier(user.campus);
-        user.potato = (user.potato || 0) + (5 * multiplier);
-
-        // Daily Quest: Create 1 post
-        const todayStr = new Date().toISOString().split("T")[0];
-        if (user.lastQuestResetDate !== todayStr) {
-          user.dailyUpvotesCount = 0;
-          user.dailyPostsCount = 0;
-          user.questsCompletedToday = false;
-          user.lastQuestResetDate = todayStr;
-        }
-
-        user.dailyPostsCount = (user.dailyPostsCount || 0) + 1;
-
+        // Check quest completion AFTER the atomic update using the returned state
+        // Quest: 1 post + 3 upvotes in a day = +5 bonus
+        // Only award if JUST completed (upvotes already >= 3, posts count just became 1)
         let questCompletedJustNow = false;
         if (user.dailyPostsCount >= 1 && user.dailyUpvotesCount >= 3 && !user.questsCompletedToday) {
-          user.questsCompletedToday = true;
-          user.potato += 5; // Reward +5 potatoes
-          questCompletedJustNow = true;
+          // Use another atomic update to set quest flag and award bonus atomically
+          const questResult = await User.findOneAndUpdate(
+            { _id: user._id, questsCompletedToday: false },
+            { $set: { questsCompletedToday: true }, $inc: { potato: 5 } },
+            { new: true }
+          );
+          if (questResult) questCompletedJustNow = true;
         }
 
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0);
-        if (!user.lastPostDate) {
-          user.streak = 1;
-        } else {
-          const lastPost = new Date(user.lastPostDate);
-          lastPost.setUTCHours(0, 0, 0, 0);
-          const diffDays = Math.round((today.getTime() - lastPost.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays === 1) user.streak = (user.streak || 0) + 1;
-          else if (diffDays > 1) user.streak = 1;
-        }
-        user.lastPostDate = new Date();
         await checkAndAwardBadges(user);
         await user.save();
 
@@ -398,12 +452,24 @@ export const votePost = async (req, res) => {
 
   if (existingVote) {
     // Unvote
-    await Vote.deleteOne({ _id: existingVote._id });
+    const deleteResult = await Vote.deleteOne({ _id: existingVote._id });
+    if (deleteResult.deletedCount === 0) {
+      // Already unvoted by a concurrent request. Return success with the unvoted state.
+      return res.json({ upvotes: post.upvotes, score: post.score, hasVoted: false, voterPotato: req.user.potato });
+    }
     post.upvotes = Math.max(0, post.upvotes - 1);
   } else {
     // Vote
-    await Vote.create({ postId: post._id, userId });
-    post.upvotes += 1;
+    try {
+      await Vote.create({ postId: post._id, userId });
+      post.upvotes += 1;
+    } catch (err) {
+      if (err.code === 11000) {
+        // Already voted by a concurrent request. Return success with the voted state.
+        return res.json({ upvotes: post.upvotes, score: post.score, hasVoted: true, voterPotato: req.user.potato });
+      }
+      throw err;
+    }
   }
 
   updatePostScore(post);
@@ -414,62 +480,79 @@ export const votePost = async (req, res) => {
   const potatoChange = existingVote ? -(3 * multiplier) : (3 * multiplier);
 
   let postAuthor;
-  if (post.author.toString() === req.user._id.toString()) {
-    // If the voter is the author themselves, update req.user directly to avoid stale document writes
-    req.user.potato = (req.user.potato || 0) + potatoChange;
-    req.user.upvotesReceived = (req.user.upvotesReceived || 0) + (existingVote ? -1 : 1);
-    postAuthor = req.user;
+  // Always use atomic $inc for potato changes — NEVER use req.user.save() for potato
+  // mutations, as req.user is a stale document from auth time and will overwrite
+  // concurrent changes from other requests (comments, other votes, etc.)
+  postAuthor = await User.findByIdAndUpdate(
+    post.author,
+    { $inc: { potato: potatoChange, upvotesReceived: existingVote ? -1 : 1 } },
+    { new: true }
+  );
 
-    await checkAndAwardBadges(postAuthor);
-    // Always save — previously this was conditional and skipped new upvotes with no badge
-    await req.user.save();
-  } else {
-    // If different users, update the author in the DB atomically
-    postAuthor = await User.findByIdAndUpdate(
-      post.author,
-      { $inc: { potato: potatoChange, upvotesReceived: existingVote ? -1 : 1 } },
-      { new: true }
-    );
-
-    if (postAuthor) {
-      const badgeAwarded = await checkAndAwardBadges(postAuthor);
-      if (badgeAwarded) {
-        await postAuthor.save();
-      }
-      if (redis && redis.status === "ready") {
-        try {
-          await redis.del(`campusRank:${post.author}`);
-        } catch (err) {
-          logger.error("Rank invalidation failed in votePost:", err.message);
-        }
+  if (postAuthor) {
+    const badgeAwarded = await checkAndAwardBadges(postAuthor);
+    if (badgeAwarded) {
+      await postAuthor.save();
+    }
+    if (redis && redis.status === "ready") {
+      try {
+        await redis.del(`campusRank:${post.author}`);
+      } catch (err) {
+        logger.error("Rank invalidation failed in votePost:", err.message);
       }
     }
   }
 
   // Track voter stats & Daily Quest: Upvote 3 posts
+  // Use atomic operations to avoid overwriting concurrent potato changes
   if (!existingVote) {
-    req.user.upvotesGiven += 1;
-
     const todayStr = new Date().toISOString().split("T")[0];
-    if (req.user.lastQuestResetDate !== todayStr) {
-      req.user.dailyUpvotesCount = 0;
-      req.user.dailyPostsCount = 0;
-      req.user.questsCompletedToday = false;
-      req.user.lastQuestResetDate = todayStr;
-    }
 
-    req.user.dailyUpvotesCount = (req.user.dailyUpvotesCount || 0) + 1;
+    // Atomically increment voter's stats; reset daily counters if it's a new day
+    const updatedVoter = await User.findOneAndUpdate(
+      { _id: req.user._id },
+      [
+        {
+          $set: {
+            upvotesGiven: { $add: [{ $ifNull: ["$upvotesGiven", 0] }, 1] },
+            dailyUpvotesCount: {
+              $cond: [
+                { $ne: ["$lastQuestResetDate", todayStr] },
+                1,
+                { $add: [{ $ifNull: ["$dailyUpvotesCount", 0] }, 1] }
+              ]
+            },
+            dailyPostsCount: {
+              $cond: [{ $ne: ["$lastQuestResetDate", todayStr] }, 0, { $ifNull: ["$dailyPostsCount", 0] }]
+            },
+            questsCompletedToday: {
+              $cond: [{ $ne: ["$lastQuestResetDate", todayStr] }, false, { $ifNull: ["$questsCompletedToday", false] }]
+            },
+            lastQuestResetDate: todayStr
+          }
+        }
+      ],
+      { new: true, updatePipeline: true }
+    );
 
     let voterQuestCompletedJustNow = false;
-    if (req.user.dailyUpvotesCount >= 3 && req.user.dailyPostsCount >= 1 && !req.user.questsCompletedToday) {
-      req.user.questsCompletedToday = true;
-      req.user.potato += 5; // Reward +5 potatoes
-      voterQuestCompletedJustNow = true;
+    if (updatedVoter && updatedVoter.dailyUpvotesCount >= 3 && updatedVoter.dailyPostsCount >= 1 && !updatedVoter.questsCompletedToday) {
+      // Atomically claim quest — findOneAndUpdate with questsCompletedToday: false guard
+      // prevents double-awarding if two concurrent votes both think they complete the quest
+      const questResult = await User.findOneAndUpdate(
+        { _id: req.user._id, questsCompletedToday: false },
+        { $set: { questsCompletedToday: true }, $inc: { potato: 5 } },
+        { new: true }
+      );
+      if (questResult) {
+        voterQuestCompletedJustNow = true;
+        // Update req.user.potato for accurate socket emit below
+        req.user.potato = questResult.potato;
+      }
     }
 
-    // Save voter — applies upvotesGiven, dailyUpvotesCount, and any quest potato bonus.
-    // For self-voters this also persists changes made in the author block above.
-    await req.user.save();
+    // Sync req.user.potato for the socket emit at the end of the function
+    if (updatedVoter) req.user.potato = updatedVoter.potato;
 
     if (voterQuestCompletedJustNow) {
       await createNotification({
@@ -778,13 +861,20 @@ export const addComment = async (req, res) => {
   updatePostScore(post);
   await post.save();
 
-  // Update user stats (adjusted with campus multiplier)
-  req.user.commentsCount = (req.user.commentsCount || 0) + 1;
+  // Update user stats atomically — never use req.user.save() for potato mutations
+  // as req.user is stale from auth time and would overwrite concurrent changes
   const multiplierVal = await getCampusMultiplier(req.user.campus);
-  req.user.potato += (2 * multiplierVal);
+  const updatedCommenter = await User.findByIdAndUpdate(
+    req.user._id,
+    { $inc: { potato: 2 * multiplierVal, commentsCount: 1 } },
+    { new: true }
+  );
+  // Sync potato for socket emit
+  if (updatedCommenter) req.user.potato = updatedCommenter.potato;
 
   await checkAndAwardBadges(req.user);
-  await req.user.save();
+  // Only save for badge changes — potato is already atomically updated above
+  if (req.user.isModified()) await req.user.save();
   if (redis && redis.status === "ready") {
     try {
       await redis.del(`campusRank:${req.user._id}`);

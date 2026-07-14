@@ -30,7 +30,7 @@ export const usePosts = () => {
       }),
     getNextPageParam: (last: any) => (last.hasMore ? last.nextCursor : undefined),
     initialPageParam: null,
-    staleTime: 30_000,
+    staleTime: 10_000, // 10s — reduced from 30s to shorten the stale hasVoted window
   });
 };
 

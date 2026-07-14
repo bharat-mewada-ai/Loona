@@ -16,6 +16,8 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-messageSchema.index({ chatId: 1, createdAt: 1 });
+messageSchema.index({ chatId: 1, createdAt: 1 }); // Primary fetch index (get messages in order)
+messageSchema.index({ chatId: 1, senderId: 1 });  // markAsRead updateMany filter
+
 
 export default mongoose.model("Message", messageSchema);
