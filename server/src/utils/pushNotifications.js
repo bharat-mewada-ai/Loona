@@ -16,6 +16,9 @@ export const sendPushNotification = async (token, title, body, data = {}) => {
   if (!token) return; // user hasn't granted push permission yet
   if (!token.startsWith("ExponentPushToken[")) return; // not a valid Expo token
 
+  // Group notifications by chatId or postId to enable WhatsApp-style grouping
+  const threadId = data.chatId || data.postId || data.threadId || "default_thread";
+
   try {
     const res = await axios.post(
       EXPO_PUSH_URL,
@@ -26,6 +29,7 @@ export const sendPushNotification = async (token, title, body, data = {}) => {
         data,
         sound: "default",
         priority: "high",
+        threadId,
       },
       {
         headers: {
@@ -62,14 +66,18 @@ export const sendPushBatch = async (messages) => {
   try {
       const res = await axios.post(
         EXPO_PUSH_URL,
-        valid.map((m) => ({
-          to: m.token,
-          title: m.title,
-          body: m.body,
-          data: m.data ?? {},
-          sound: "default",
-          priority: "high",
-        })),
+        valid.map((m) => {
+          const threadId = m.data?.chatId || m.data?.postId || m.data?.threadId || "default_thread";
+          return {
+            to: m.token,
+            title: m.title,
+            body: m.body,
+            data: m.data ?? {},
+            sound: "default",
+            priority: "high",
+            threadId,
+          };
+        }),
         {
           headers: {
             "Content-Type": "application/json",
