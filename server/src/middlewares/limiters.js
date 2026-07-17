@@ -9,38 +9,48 @@ const redisStore = process.env.REDIS_URL ? new RedisStore({
 
 import jwt from "jsonwebtoken";
 
-const memoryStore = new MemoryStore();
-
-const createDynamicStore = (prefix) => ({
-  increment: async (key) => {
-    if (redis.status === 'ready' && redisStore) {
-      try {
-        return await redisStore.increment(`${prefix}:${key}`);
-      } catch (e) {
-        logger.warn(`⚠️ Redis increment failed for ${prefix}, falling back to memory`);
+const createDynamicStore = (prefix) => {
+  const localMemoryStore = new MemoryStore();
+  
+  return {
+    init: (options) => {
+      if (typeof localMemoryStore.init === 'function') {
+        localMemoryStore.init(options);
       }
+      if (redisStore && typeof redisStore.init === 'function') {
+        redisStore.init(options);
+      }
+    },
+    increment: async (key) => {
+      if (redis.status === 'ready' && redisStore) {
+        try {
+          return await redisStore.increment(`${prefix}:${key}`);
+        } catch (e) {
+          logger.warn(`⚠️ Redis increment failed for ${prefix}, falling back to memory`);
+        }
+      }
+      return await localMemoryStore.increment(`${prefix}:${key}`);
+    },
+    decrement: async (key) => {
+      if (redis.status === 'ready' && redisStore) {
+        try {
+          await redisStore.decrement(`${prefix}:${key}`);
+          return;
+        } catch (e) {}
+      }
+      await localMemoryStore.decrement(`${prefix}:${key}`);
+    },
+    resetKey: async (key) => {
+      if (redis.status === 'ready' && redisStore) {
+        try {
+          await redisStore.resetKey(`${prefix}:${key}`);
+          return;
+        } catch (e) {}
+      }
+      await localMemoryStore.resetKey(`${prefix}:${key}`);
     }
-    return await memoryStore.increment(`${prefix}:${key}`);
-  },
-  decrement: async (key) => {
-    if (redis.status === 'ready' && redisStore) {
-      try {
-        await redisStore.decrement(`${prefix}:${key}`);
-        return;
-      } catch (e) {}
-    }
-    await memoryStore.decrement(`${prefix}:${key}`);
-  },
-  resetKey: async (key) => {
-    if (redis.status === 'ready' && redisStore) {
-      try {
-        await redisStore.resetKey(`${prefix}:${key}`);
-        return;
-      } catch (e) {}
-    }
-    await memoryStore.resetKey(`${prefix}:${key}`);
-  }
-});
+  };
+};
 
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
