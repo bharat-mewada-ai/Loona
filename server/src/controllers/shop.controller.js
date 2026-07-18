@@ -386,3 +386,90 @@ export const respondToBargain = async (req, res) => {
     res.status(500).json({ error: 'Could not respond to bargain' });
   }
 };
+
+// ─── PATCH /shop/:id/mark-sold ─────────────────────────────────────────────
+// Seller marks their item as sold (without deleting it from history)
+export const markAsSold = async (req, res) => {
+  try {
+    const item = await ShopItem.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Listing not found' });
+    if (item.seller.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'You can only mark your own listings as sold' });
+    }
+    if (item.status === 'sold') {
+      return res.status(400).json({ error: 'Item is already marked as sold' });
+    }
+
+    item.status = 'sold';
+    await item.save();
+
+    logger.info(`[Shop] Item ${item._id} marked as sold by seller ${req.user._id}`);
+    res.json({ message: 'Item marked as sold', item });
+  } catch (err) {
+    logger.error('[Shop] markAsSold error:', err.message);
+    res.status(500).json({ error: 'Could not mark item as sold' });
+  }
+};
+
+// ─── POST /shop/:id/contact ────────────────────────────────────────────────
+// Buyer opens an in-app chat with the seller directly (no bargain required)
+export const chatWithSeller = async (req, res) => {
+  try {
+    const item = await ShopItem.findById(req.params.id).populate('seller', 'name avatar');
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+    if (item.status !== 'available') {
+      return res.status(400).json({ error: 'This item is no longer available' });
+    }
+
+    const buyerId  = req.user._id;
+    const sellerId = item.seller._id;
+
+    if (buyerId.toString() === sellerId.toString()) {
+      return res.status(400).json({ error: 'Cannot contact yourself' });
+    }
+
+    // Find or create a real-name (non-anonymous) chat between buyer and seller
+    let chat = await Chat.findOne({
+      participants: { $all: [buyerId, sellerId] },
+      isAnonymous: false,
+    });
+
+    if (!chat) {
+      chat = await Chat.create({
+        participants: [buyerId, sellerId],
+        isAnonymous: false,
+        unreadCounts: {
+          [sellerId.toString()]: 1,
+          [buyerId.toString()]: 0,
+        },
+      });
+
+      // Send a starter system message so seller knows context
+      const Message = (await import('../models/message.model.js')).default;
+      await Message.create({
+        chatId: chat._id,
+        sender: buyerId,
+        content: `👋 Hi! I'm interested in your listing: "${item.title}" (₹${item.price}). Can we talk?`,
+        isSystem: false,
+      });
+
+      chat.lastMessageAt = new Date();
+      await chat.save();
+
+      // Notify seller
+      await createNotification({
+        recipient: sellerId,
+        sender: buyerId,
+        type: 'shop_inquiry',
+        title: '🛍️ New Inquiry on Your Listing',
+        body: `Someone is interested in "${item.title}". Tap to reply!`,
+        data: { shopItemId: item._id, chatId: chat._id },
+      });
+    }
+
+    res.json({ chatId: chat._id });
+  } catch (err) {
+    logger.error('[Shop] chatWithSeller error:', err.message);
+    res.status(500).json({ error: 'Could not open chat with seller' });
+  }
+};

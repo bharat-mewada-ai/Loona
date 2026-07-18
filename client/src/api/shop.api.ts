@@ -24,6 +24,7 @@ export interface CreateListingOrderPayload {
   wantFeatured: boolean;
   paymentMethod: 'potato' | 'razorpay';
   image?: string;
+  images?: string[];
 }
 
 export interface CreateListingOrderResponse {
@@ -84,6 +85,16 @@ export const shopApi = {
 
   deleteListing: async (itemId: string): Promise<void> => {
     await client.delete(`/shop/${itemId}`);
+  },
+
+  markAsSold: async (itemId: string): Promise<ShopItem> => {
+    const { data } = await client.patch<{ item: ShopItem }>(`/shop/${itemId}/mark-sold`);
+    return data.item;
+  },
+
+  chatWithSeller: async (itemId: string): Promise<{ chatId: string }> => {
+    const { data } = await client.post<{ chatId: string }>(`/shop/${itemId}/contact`);
+    return data;
   },
 
   createBargain: async (itemId: string, price: number, message?: string): Promise<Bargain> => {

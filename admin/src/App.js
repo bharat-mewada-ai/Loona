@@ -10,8 +10,9 @@ import Login from './pages/Login';
 import ReportedChats from './pages/ReportedChats';
 import Feedback from './pages/Feedback';
 import Confessions from './pages/Confessions';
+import LastActive from './pages/LastActive';
 import Sidebar from './components/Sidebar';
-import { isStaff as checkIsStaff, clearAuthToken } from './utils/auth';
+import { isStaff as checkIsStaff, clearAuthToken, isOwner } from './utils/auth';
 
 function App() {
   const [authenticated, setAuthenticated] = useState(null);
@@ -41,7 +42,8 @@ function App() {
             <Route path="/reports" element={<ReportedPosts />} />
             <Route path="/reported-chats" element={<ReportedChats />} />
             <Route path="/users" element={<UserManagement />} />
-            <Route path="/confessions" element={<Confessions />} />
+            <Route path="/confessions" element={isOwner() ? <Confessions /> : <Navigate to="/" />} />
+            <Route path="/last-active" element={isOwner() ? <LastActive /> : <Navigate to="/" />} />
             <Route path="/feedback" element={<Feedback />} />
             <Route path="/broadcast" element={<Broadcast />} />
             <Route path="/criminals" element={<Criminals />} />

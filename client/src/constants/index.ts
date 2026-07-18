@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 // ─── API URL ──────────────────────────────────────────────────────────────────
 // EXPO_PUBLIC_API_URL in client/.env takes priority.
 // LOCAL_IP fallback is your machine's LAN IP (run `ipconfig` to update if it changes).
-const LOCAL_IP = '10.126.166.101'; // Update this to your local IP for dev
+const LOCAL_IP = '10.48.205.101'; // Update this to your local IP for dev
 const ENV_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // Ensure API_URL always ends with /v1 to avoid mismatch between interceptors and manual fetch calls

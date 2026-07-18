@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth, requireAdmin, requireStaff } from "../middlewares/auth.js";
+import { requireAuth, requireAdmin, requireStaff, requireOwner } from "../middlewares/auth.js";
 import User from "../models/user.model.js";
 import Post from "../models/post.model.js";
 import Chat from "../models/chat.model.js";
@@ -530,14 +530,39 @@ router.post("/reported-chats/:reportId/dismiss", requireAuth, requireStaff, asyn
 }));
 
 /**
- * GET ALL CONFESSIONS (Staff Access)
+ * GET ALL CONFESSIONS (Owner Only — hides real identity from other admins)
  */
-router.get("/confessions", requireAuth, requireStaff, asyncHandler(async (req, res) => {
+router.get("/confessions", requireAuth, requireOwner, asyncHandler(async (req, res) => {
   const confessions = await Post.find({ type: "confess" })
-    .populate("author", "name email avatar")
+    .populate("author", "name email avatar campus")
     .sort({ createdAt: -1 })
     .lean();
   res.json(confessions);
+}));
+
+/**
+ * GET LAST ACTIVE USERS (Owner Only)
+ * Returns users sorted by their last activity timestamp.
+ */
+router.get("/users/last-active", requireAuth, requireOwner, asyncHandler(async (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  const search = req.query.q || '';
+
+  const filter = { lastActive: { $exists: true, $ne: null } };
+  if (search) {
+    filter.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } }
+    ];
+  }
+
+  const users = await User.find(filter)
+    .select('name email avatar campus lastActive potato isBanned isVerified')
+    .sort({ lastActive: -1 })
+    .limit(limit)
+    .lean();
+
+  res.json(users);
 }));
 
 export default router;

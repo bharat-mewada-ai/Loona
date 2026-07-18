@@ -31,3 +31,16 @@ export const isSuperAdmin = () => {
   const user = getAdminUser();
   return user && user.role === 'admin';
 };
+
+/**
+ * Returns true only for the app owner (Bharat).
+ * Compares logged-in user's ID against REACT_APP_OWNER_USER_ID env variable.
+ * Even if Piyush has admin role, he cannot see owner-only sections.
+ */
+export const isOwner = () => {
+  const user = getAdminUser();
+  const ownerId = process.env.REACT_APP_OWNER_USER_ID;
+  if (!user || !ownerId || ownerId === 'REPLACE_WITH_YOUR_MONGODB_USER_ID') return false;
+  return user.id === ownerId || user._id === ownerId;
+};
+

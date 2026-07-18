@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, Image, Alert
+  ActivityIndicator, Image, Alert, Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,6 +111,24 @@ export default function BargainsScreen() {
             <Ionicons name="chatbubbles" size={18} color={LIME} />
             <Text style={{ color: LIME, fontWeight: '700', marginLeft: 8 }}>Go to Chat</Text>
           </TouchableOpacity>
+        )}
+
+        {/* GAP 6 fix: accepted but chatId missing — WhatsApp fallback */}
+        {item.status === 'accepted' && !item.chatId && (
+          <View style={[s.chatBtn, { backgroundColor: '#25D36615', borderColor: '#25D366', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }]}>
+            <Text style={{ color: '#25D366', fontWeight: '700', fontSize: 13 }}>✅ Offer accepted!</Text>
+            <Text style={{ color: themeColors.txt3, fontSize: 12 }}>Chat unavailable — contact seller directly:</Text>
+            {(item.sellerId as any)?.sellerContact ? (
+              <TouchableOpacity onPress={() => {
+                const phone = ((item.sellerId as any).sellerContact || '').replace(/\D/g, '');
+                Linking.openURL(`https://wa.me/91${phone}?text=Hi! My bargain offer of ₹${item.price} for "${item.shopItemId.title}" was accepted on Loona. Let's coordinate!`);
+              }}>
+                <Text style={{ color: '#25D366', fontWeight: '700', fontSize: 13 }}>💬 WhatsApp Seller</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={{ color: themeColors.txt3, fontSize: 12 }}>No contact info available from seller.</Text>
+            )}
+          </View>
         )}
       </View>
     );

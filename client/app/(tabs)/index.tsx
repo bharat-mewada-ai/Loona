@@ -58,9 +58,8 @@ export default function Feed() {
 
   useFocusEffect(
     useCallback(() => {
-      refetch();
       queryClient.invalidateQueries({ queryKey: ['me'] });
-    }, [refetch, queryClient])
+    }, [queryClient])
   );
   
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);

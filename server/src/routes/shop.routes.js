@@ -10,6 +10,8 @@ import {
   createBargain,
   getBargains,
   respondToBargain,
+  markAsSold,
+  chatWithSeller,
 } from '../controllers/shop.controller.js';
 
 const router = express.Router();
@@ -31,6 +33,12 @@ router.post('/:id/verify-listing', asyncHandler(verifyListingPayment));
 
 // Delete listing
 router.delete('/:id', asyncHandler(deleteListing));
+
+// Mark listing as sold (seller only)
+router.patch('/:id/mark-sold', asyncHandler(markAsSold));
+
+// Open in-app chat with seller (buyer — no bargain required)
+router.post('/:id/contact', asyncHandler(chatWithSeller));
 
 // Get sent or received bargains
 router.get('/bargains', asyncHandler(getBargains));

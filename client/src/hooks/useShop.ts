@@ -18,7 +18,8 @@ export const useMyListings = () => {
   return useQuery({
     queryKey: ['shop', 'my'],
     queryFn: shopApi.getMyListings,
-    staleTime: 0, // always fresh for seller's own listings
+    staleTime: 0,              // always fresh for seller's own listings
+    refetchInterval: 30000,    // GAP 7 fix: auto-refresh every 30s
   });
 };
 
@@ -103,6 +104,32 @@ export const useDeleteListing = () => {
     },
     onError: () => {
       Alert.alert('Error', 'Could not delete listing.');
+    },
+  });
+};
+
+// GAP 1 fix: Mark listing as sold (seller)
+export const useMarkAsSold = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (itemId: string) => shopApi.markAsSold(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shop', 'listings'] });
+      queryClient.invalidateQueries({ queryKey: ['shop', 'my'] });
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err?.response?.data?.error || 'Could not mark as sold.');
+    },
+  });
+};
+
+// GAP 3 fix: Open in-app chat with seller without a bargain
+export const useChatWithSeller = () => {
+  return useMutation({
+    mutationFn: (itemId: string) => shopApi.chatWithSeller(itemId),
+    onError: (err: any) => {
+      Alert.alert('Error', err?.response?.data?.error || 'Could not open chat with seller.');
     },
   });
 };

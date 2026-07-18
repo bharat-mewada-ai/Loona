@@ -41,8 +41,8 @@ const DEV_ORIGINS = [
   "http://127.0.0.1:19000",
   "http://127.0.0.1:19001",
   "http://127.0.0.1:19006",
-  "http://10.126.166.101:8081", // Current local IP (Metro)
-  "http://10.126.166.101:5000", // Current local IP (API)
+  "http://10.48.205.101:8081", // Current local IP (Metro)
+  "http://10.48.205.101:5000", // Current local IP (API)
 ];
 
 const PROD_ORIGINS = process.env.ALLOWED_ORIGINS

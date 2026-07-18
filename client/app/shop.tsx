@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Modal, ActivityIndicator, Alert, Linking,
   Dimensions, FlatList, RefreshControl, KeyboardAvoidingView, Platform,
-  Image,
+  Image, Clipboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { getColors } from '../src/theme/colors';
 import { useUIStore } from '../src/store/uiStore';
 import { useAuthStore } from '../src/store/authStore';
-import { useShopListings, useMyListings, useCreateListing, useDeleteListing, useCreateBargain } from '../src/hooks/useShop';
+import { useShopListings, useMyListings, useCreateListing, useDeleteListing, useCreateBargain, useMarkAsSold, useChatWithSeller } from '../src/hooks/useShop';
 import { ShopItem, ShopCategory } from '../src/types';
 import { triggerHaptic } from '../src/utils/haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -63,6 +63,8 @@ export default function ShopScreen() {
   // Mutations
   const { mutateAsync: createListing, isPending: creating } = useCreateListing();
   const { mutate: deleteListing } = useDeleteListing();
+  const { mutate: markSold, isPending: markingSold } = useMarkAsSold();
+  const { mutateAsync: chatWithSeller, isPending: openingChat } = useChatWithSeller();
 
   // Create listing modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -126,6 +128,16 @@ export default function ShopScreen() {
   const handleCreateListing = async () => {
     if (!newTitle.trim() || !newPrice || !newUpi.trim()) {
       Alert.alert('Missing Info', 'Please fill in title, price, and UPI ID.');
+      return;
+    }
+    // GAP 5 — UPI format validation
+    if (!newUpi.trim().includes('@')) {
+      Alert.alert('Invalid UPI ID', 'UPI ID must contain "@" (e.g. yourname@upi).');
+      return;
+    }
+    // GAP 5 — Phone number validation (10 digits if provided)
+    if (newContact.trim() && newContact.replace(/\D/g, '').length !== 10) {
+      Alert.alert('Invalid Phone', 'Please enter a valid 10-digit WhatsApp/phone number.');
       return;
     }
     const priceNum = parseFloat(newPrice);
@@ -226,20 +238,65 @@ export default function ShopScreen() {
     ]);
   };
 
+  const handleMarkSold = (item: ShopItem) => {
+    Alert.alert(
+      'Mark as Sold',
+      `Mark "${item.title}" as sold? It will be removed from the browse feed.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: '✅ Mark Sold',
+          onPress: () => { triggerHaptic('impact'); markSold(item._id); },
+        },
+      ]
+    );
+  };
+
+  // GAP 2 fix — proper contact flow with clipboard copy + direct WhatsApp
   const handleContactSeller = (item: ShopItem) => {
-    if (item.sellerUpi) {
-      Alert.alert(
-        `Contact Seller`,
-        `Pay ₹${item.price} to seller's UPI:\n\n${item.sellerUpi}${item.sellerContact ? `\n\nWhatsApp/Phone: ${item.sellerContact}` : ''}`,
-        [
-          { text: 'Close', style: 'cancel' },
-          item.sellerContact ? {
-            text: '📞 WhatsApp',
-            onPress: () => Linking.openURL(`https://wa.me/91${item.sellerContact.replace(/\D/g, '')}`),
-          } : undefined,
-        ].filter(Boolean) as any
-      );
+    const hasUpi = !!item.sellerUpi?.trim();
+    const hasContact = !!item.sellerContact?.trim();
+
+    if (!hasUpi && !hasContact) {
+      Alert.alert('No Contact Info', 'This seller has not added any contact details. Try sending them an in-app message.');
+      return;
     }
+
+    const buttons: any[] = [{ text: 'Close', style: 'cancel' }];
+
+    if (hasUpi) {
+      buttons.push({
+        text: '📋 Copy UPI ID',
+        onPress: () => {
+          Clipboard.setString(item.sellerUpi);
+          Alert.alert('Copied!', `UPI ID copied: ${item.sellerUpi}\n\nOpen your UPI app and pay ₹${item.price}.`);
+        },
+      });
+    }
+    if (hasContact) {
+      buttons.push({
+        text: '💬 WhatsApp',
+        onPress: () => {
+          const phone = item.sellerContact.replace(/\D/g, '');
+          Linking.openURL(`https://wa.me/91${phone}?text=Hi! I'm interested in your listing on Loona: "${item.title}" (₹${item.price}). Is it still available?`);
+        },
+      });
+    }
+
+    Alert.alert(
+      `Contact Seller`,
+      `${hasUpi ? `UPI ID: ${item.sellerUpi}` : ''}${hasUpi && hasContact ? '\n' : ''}${hasContact ? `WhatsApp: ${item.sellerContact}` : ''}`,
+      buttons
+    );
+  };
+
+  // GAP 3 fix — in-app chat with seller
+  const handleMessageSeller = async (item: ShopItem) => {
+    try {
+      const { chatId } = await chatWithSeller(item._id);
+      setSelectedItem(null);
+      setTimeout(() => router.push(`/chat/${chatId}`), 300);
+    } catch (_) {}
   };
 
   // ─── Render item card ────────────────────────────────────────────────────
@@ -335,12 +392,26 @@ export default function ShopScreen() {
           <Text style={[s.itemPrice, { color: LIME, fontSize: 16, marginTop: 4 }]}>₹{item.price}</Text>
         </View>
         {item.status !== 'sold' && (
-          <TouchableOpacity
-            style={[s.deleteBtn, { backgroundColor: '#FF3B3015' }]}
-            onPress={() => handleDeleteListing(item)}
-          >
-            <Ionicons name="trash-outline" size={18} color="#FF3B30" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'column', gap: 8 }}>
+            {/* Mark as Sold */}
+            <TouchableOpacity
+              style={[s.deleteBtn, { backgroundColor: '#34C75915' }]}
+              onPress={() => handleMarkSold(item)}
+              disabled={markingSold}
+            >
+              {markingSold
+                ? <ActivityIndicator size="small" color="#34C759" />
+                : <Ionicons name="checkmark-circle-outline" size={18} color="#34C759" />
+              }
+            </TouchableOpacity>
+            {/* Delete */}
+            <TouchableOpacity
+              style={[s.deleteBtn, { backgroundColor: '#FF3B3015' }]}
+              onPress={() => handleDeleteListing(item)}
+            >
+              <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     );
@@ -599,24 +670,40 @@ export default function ShopScreen() {
 
                   {!isMine && (
                     <View style={{ gap: 12 }}>
-                      <TouchableOpacity
-                        style={[s.buyBtn, { backgroundColor: LIME }]}
-                        onPress={() => {
-                          setSelectedItem(null);
-                          setTimeout(() => handleContactSeller(selectedItem), 400);
-                        }}
-                      >
-                        <Text style={s.buyBtnTxt}>💳 Pay ₹{selectedItem.price} · Contact Seller</Text>
-                      </TouchableOpacity>
+                      {/* Primary: Contact seller (UPI copy + WhatsApp) */}
+                      {(!!selectedItem.sellerUpi || !!selectedItem.sellerContact) ? (
+                        <TouchableOpacity
+                          style={[s.buyBtn, { backgroundColor: LIME }]}
+                          onPress={() => {
+                            setSelectedItem(null);
+                            setTimeout(() => handleContactSeller(selectedItem), 400);
+                          }}
+                        >
+                          <Text style={s.buyBtnTxt}>💳 Pay ₹{selectedItem.price} · Contact Seller</Text>
+                        </TouchableOpacity>
+                      ) : null}
 
+                      {/* In-app message — always available */}
                       <TouchableOpacity
                         style={[s.buyBtn, { backgroundColor: themeColors.card2, borderWidth: 1, borderColor: LIME }]}
+                        onPress={() => handleMessageSeller(selectedItem)}
+                        disabled={openingChat}
+                      >
+                        {openingChat
+                          ? <ActivityIndicator color={LIME} />
+                          : <Text style={[s.buyBtnTxt, { color: LIME }]}>💬 Message Seller In-App</Text>
+                        }
+                      </TouchableOpacity>
+
+                      {/* Bargain offer */}
+                      <TouchableOpacity
+                        style={[s.buyBtn, { backgroundColor: themeColors.card2, borderWidth: 1, borderColor: themeColors.bdr }]}
                         onPress={() => {
                           setBargainPrice(selectedItem.price.toString());
                           setShowBargain(true);
                         }}
                       >
-                        <Text style={[s.buyBtnTxt, { color: LIME }]}>🤝 Make an Offer / Bargain</Text>
+                        <Text style={[s.buyBtnTxt, { color: themeColors.txt2 }]}>🤝 Make an Offer / Bargain</Text>
                       </TouchableOpacity>
                     </View>
                   )}

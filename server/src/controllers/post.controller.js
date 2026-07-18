@@ -61,12 +61,13 @@ export const createPost = async (req, res) => {
     }
   }
 
-  // Reject base64 images — clients must upload to Cloudinary first and send the CDN URL
   if (image && image.startsWith("data:")) {
+    logger.warn(`[createPost] Rejected base64 image from user ${req.user._id}`);
     return res.status(400).json({ error: "Base64 images are not accepted. Upload to Cloudinary and send the URL.", code: "BASE64_REJECTED" });
   }
   // CDN Whitelist — Only allow images from our Cloudinary
   if (image && !isCloudinaryUrl(image)) {
+    logger.warn(`[createPost] Untrusted image from user ${req.user._id}: ${image}`);
     return res.status(400).json({
       error: "Untrusted image source. Only Cloudinary images are allowed.",
       code: "UNTRUSTED_IMAGE_SOURCE"
@@ -75,9 +76,11 @@ export const createPost = async (req, res) => {
   if (images && Array.isArray(images)) {
     for (const img of images) {
       if (img && img.startsWith("data:")) {
+        logger.warn(`[createPost] Rejected base64 image in array from user ${req.user._id}`);
         return res.status(400).json({ error: "Base64 images are not accepted. Upload to Cloudinary and send the URL.", code: "BASE64_REJECTED" });
       }
       if (img && !isCloudinaryUrl(img)) {
+        logger.warn(`[createPost] Untrusted image in array from user ${req.user._id}: ${img}`);
         return res.status(400).json({
           error: "Untrusted image source. Only Cloudinary images are allowed.",
           code: "UNTRUSTED_IMAGE_SOURCE"
@@ -87,7 +90,10 @@ export const createPost = async (req, res) => {
   }
 
   const moderation = checkContent(`${safeTitle} ${body || ""}`);
-  if (moderation.level === "bad") return res.status(400).json({ error: moderation.reason });
+  if (moderation.level === "bad") {
+    logger.warn(`[createPost] Blocked content for user ${req.user._id} due to moderation rules: ${moderation.reason}`);
+    return res.status(400).json({ error: moderation.reason });
+  }
 
   let anonName = req.user.name;
   let anonAvatar = req.user.avatar;
@@ -220,8 +226,10 @@ export const createPost = async (req, res) => {
           if (questResult) questCompletedJustNow = true;
         }
 
-        await checkAndAwardBadges(user);
-        await user.save();
+        const badgeAwarded = await checkAndAwardBadges(user);
+        if (badgeAwarded) {
+          await User.findByIdAndUpdate(user._id, { $set: { badges: user.badges } });
+        }
 
         if (questCompletedJustNow) {
           await createNotification({
@@ -449,6 +457,7 @@ export const votePost = async (req, res) => {
   const userId = req.user._id;
   const existingVote = await Vote.findOne({ postId: post._id, userId });
 
+  let updatedPost;
   if (existingVote) {
     // Unvote
     const deleteResult = await Vote.deleteOne({ _id: existingVote._id });
@@ -456,12 +465,20 @@ export const votePost = async (req, res) => {
       // Already unvoted by a concurrent request. Return success with the unvoted state.
       return res.json({ upvotes: post.upvotes, score: post.score, hasVoted: false, voterPotato: req.user.potato });
     }
-    post.upvotes = Math.max(0, post.upvotes - 1);
+    updatedPost = await Post.findByIdAndUpdate(
+      post._id,
+      { $inc: { upvotes: -1 } },
+      { new: true }
+    );
   } else {
     // Vote
     try {
       await Vote.create({ postId: post._id, userId });
-      post.upvotes += 1;
+      updatedPost = await Post.findByIdAndUpdate(
+        post._id,
+        { $inc: { upvotes: 1 } },
+        { new: true }
+      );
     } catch (err) {
       if (err.code === 11000) {
         // Already voted by a concurrent request. Return success with the voted state.
@@ -471,8 +488,19 @@ export const votePost = async (req, res) => {
     }
   }
 
-  updatePostScore(post);
-  await post.save();
+  if (updatedPost) {
+    if (updatedPost.upvotes < 0) {
+      updatedPost = await Post.findByIdAndUpdate(
+        post._id,
+        { $set: { upvotes: 0 } },
+        { new: true }
+      );
+    }
+    updatePostScore(updatedPost);
+    await Post.findByIdAndUpdate(post._id, {
+      $set: { score: updatedPost.score, isHot: updatedPost.isHot }
+    });
+  }
 
   // Karma logic for author (adjusted with campus multiplier)
   const multiplier = await getCampusMultiplier(post.campus);
@@ -491,7 +519,7 @@ export const votePost = async (req, res) => {
   if (postAuthor) {
     const badgeAwarded = await checkAndAwardBadges(postAuthor);
     if (badgeAwarded) {
-      await postAuthor.save();
+      await User.findByIdAndUpdate(postAuthor._id, { $set: { badges: postAuthor.badges } });
     }
     if (redis && redis.status === "ready") {
       try {
@@ -603,7 +631,12 @@ export const votePost = async (req, res) => {
   }
 
   // Return voterPotato so client can patch authStore.user.potato immediately
-  res.json({ upvotes: post.upvotes, score: post.score, hasVoted: !existingVote, voterPotato: req.user.potato });
+  res.json({
+    upvotes: updatedPost ? updatedPost.upvotes : post.upvotes,
+    score: updatedPost ? updatedPost.score : post.score,
+    hasVoted: !existingVote,
+    voterPotato: req.user.potato
+  });
 };
 
 /* ---------------- VOTE POLL (Atomic) ---------------- */
@@ -856,9 +889,18 @@ export const addComment = async (req, res) => {
     }
   }
 
-  post.commentCount += 1;
-  updatePostScore(post);
-  await post.save();
+  const updatedPost = await Post.findByIdAndUpdate(
+    post._id,
+    { $inc: { commentCount: 1 } },
+    { new: true }
+  );
+
+  if (updatedPost) {
+    updatePostScore(updatedPost);
+    await Post.findByIdAndUpdate(post._id, {
+      $set: { score: updatedPost.score, isHot: updatedPost.isHot }
+    });
+  }
 
   // Update user stats atomically — never use req.user.save() for potato mutations
   // as req.user is stale from auth time and would overwrite concurrent changes
@@ -871,9 +913,10 @@ export const addComment = async (req, res) => {
   // Sync potato for socket emit
   if (updatedCommenter) req.user.potato = updatedCommenter.potato;
 
-  await checkAndAwardBadges(req.user);
-  // Only save for badge changes — potato is already atomically updated above
-  if (req.user.isModified()) await req.user.save();
+  const badgeAwarded = await checkAndAwardBadges(req.user);
+  if (badgeAwarded) {
+    await User.findByIdAndUpdate(req.user._id, { $set: { badges: req.user.badges } });
+  }
   if (redis && redis.status === "ready") {
     try {
       await redis.del(`campusRank:${req.user._id}`);
@@ -956,22 +999,54 @@ export const reactPost = async (req, res) => {
   const userId = req.user._id.toString();
   const previousReaction = post.reactedBy.get(userId);
 
+  let updateQuery = {};
   if (previousReaction === reaction) {
     // Same reaction again — toggle off (remove)
-    post.reactions[reaction] = Math.max(0, post.reactions[reaction] - 1);
-    post.reactedBy.delete(userId);
+    updateQuery = {
+      $inc: { [`reactions.${reaction}`]: -1 },
+      $unset: { [`reactedBy.${userId}`]: "" }
+    };
   } else {
     // New or changed reaction
     if (previousReaction) {
-      // Remove old reaction count first
-      post.reactions[previousReaction] = Math.max(0, post.reactions[previousReaction] - 1);
+      updateQuery = {
+        $inc: { [`reactions.${reaction}`]: 1, [`reactions.${previousReaction}`]: -1 },
+        $set: { [`reactedBy.${userId}`]: reaction }
+      };
+    } else {
+      updateQuery = {
+        $inc: { [`reactions.${reaction}`]: 1 },
+        $set: { [`reactedBy.${userId}`]: reaction }
+      };
     }
-    post.reactions[reaction] += 1;
-    post.reactedBy.set(userId, reaction);
   }
 
-  updatePostScore(post);
-  await post.save();
+  // Atomically update reactions and retrieve the updated document
+  const updatedPost = await Post.findOneAndUpdate(
+    { _id: post._id },
+    updateQuery,
+    { new: true }
+  );
+
+  if (updatedPost) {
+    // Ensure reaction counts don't go below 0
+    let needsSanitization = false;
+    const sanitizedReactions = { ...updatedPost.reactions };
+    for (const key in sanitizedReactions) {
+      if (sanitizedReactions[key] < 0) {
+        sanitizedReactions[key] = 0;
+        needsSanitization = true;
+      }
+    }
+    if (needsSanitization) {
+      await Post.findByIdAndUpdate(post._id, { $set: { reactions: sanitizedReactions } });
+      updatedPost.reactions = sanitizedReactions;
+    }
+    updatePostScore(updatedPost);
+    await Post.findByIdAndUpdate(post._id, {
+      $set: { score: updatedPost.score, isHot: updatedPost.isHot }
+    });
+  }
 
   // ─── Trigger Notification ──────────────────────────────────────────────────
   if (!previousReaction && post.author.toString() !== req.user._id.toString()) {

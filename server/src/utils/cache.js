@@ -36,22 +36,29 @@ export const cacheMiddleware = (ttlSeconds, options = {}) => async (req, res, ne
 };
 
 export const invalidateCache = async (prefix) => {
-  if (!redisClient || redisClient.status !== "ready") return;
+  if (!redisClient || redisClient.status !== "ready") {
+    logger.warn(`Redis client not ready, skipping cache invalidation for prefix: ${prefix}`);
+    return;
+  }
   
   try {
     let cursor = '0';
     const pattern = `cache:${prefix}*`;
+    let deletedCount = 0;
     
+    logger.info(`[Cache] Invalidating cache for pattern: ${pattern}`);
     do {
-      // SCAN is much safer than KEYS in production as it doesn't block Redis
       const [nextCursor, keys] = await redisClient.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
       cursor = nextCursor;
       
       if (keys.length > 0) {
-        await redisClient.del(...keys);
+        logger.info(`[Cache] Deleting keys: ${keys.join(", ")}`);
+        const numDeleted = await redisClient.del(...keys);
+        deletedCount += numDeleted;
       }
     } while (cursor !== '0');
     
+    logger.info(`[Cache] Cache invalidation complete. Total keys deleted: ${deletedCount}`);
   } catch (err) {
     logger.error("Redis Cache Invalidate Error:", err.message);
   }

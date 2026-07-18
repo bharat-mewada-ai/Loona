@@ -346,10 +346,10 @@ export const useDeletePost = () => {
       });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['posts'] });
+      qc.invalidateQueries({ queryKey: ['posts'], refetchType: 'none' });
       qc.invalidateQueries({ queryKey: ['stats'] });
       qc.invalidateQueries({ queryKey: ['leaderboard'] });
-      qc.invalidateQueries({ queryKey: ['myPosts'] });
+      qc.invalidateQueries({ queryKey: ['myPosts'], refetchType: 'none' });
     },
     onError: (err: any) => {
       qc.invalidateQueries({ queryKey: ['posts'] });

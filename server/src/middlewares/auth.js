@@ -108,3 +108,27 @@ export const requireStaff = (req, res, next) => {
     });
   }
 };
+
+/**
+ * Owner Guard Middleware
+ * Restricts access to the app owner only (set via OWNER_USER_ID env var).
+ * Even other admins/moderators cannot access owner-only routes.
+ * Must be used AFTER requireAuth.
+ */
+export const requireOwner = (req, res, next) => {
+  const ownerId = process.env.OWNER_USER_ID;
+  if (!ownerId || ownerId === 'REPLACE_WITH_YOUR_MONGODB_USER_ID') {
+    return res.status(503).json({ 
+      error: "Owner ID not configured on server", 
+      code: "NOT_CONFIGURED" 
+    });
+  }
+  if (req.user && req.user._id.toString() === ownerId) {
+    next();
+  } else {
+    res.status(403).json({ 
+      error: "Forbidden: Owner access only", 
+      code: "OWNER_ONLY" 
+    });
+  }
+};
