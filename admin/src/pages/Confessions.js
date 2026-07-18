@@ -163,8 +163,14 @@ const Confessions = () => {
                   wordBreak: 'break-word',
                 }}
               >
-                <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#FFF' }}>{c.title}</div>
-                {c.body && <div style={{ color: '#A1A1AA' }}>{c.body}</div>}
+                {c.title ? (
+                  <>
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#FFF' }}>{c.title}</div>
+                    {c.body && <div style={{ color: '#A1A1AA' }}>{c.body}</div>}
+                  </>
+                ) : (
+                  <div style={{ fontWeight: '600', color: '#FFF' }}>{c.body}</div>
+                )}
                 {c.image && (
                   <div style={{ marginTop: '12px' }}>
                     <img 
