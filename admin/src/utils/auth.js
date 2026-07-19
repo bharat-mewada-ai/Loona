@@ -39,9 +39,10 @@ export const isSuperAdmin = () => {
  */
 export const isOwner = () => {
   const user = getAdminUser();
-  const ownerId = process.env.REACT_APP_OWNER_USER_ID || '6a004728bf755360f8814adb';
   if (!user) return false;
-  return user.id === ownerId || user._id === ownerId;
+  const ownerIdEnv = process.env.REACT_APP_OWNER_USER_ID || '6a004728bf755360f8814adb,69e51ec6c67375ccbfb3abc7';
+  const ownerIds = ownerIdEnv.split(',').map(id => id.trim());
+  return ownerIds.includes(user.id) || ownerIds.includes(user._id);
 };
 
 

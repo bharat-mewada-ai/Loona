@@ -116,14 +116,15 @@ export const requireStaff = (req, res, next) => {
  * Must be used AFTER requireAuth.
  */
 export const requireOwner = (req, res, next) => {
-  const ownerId = process.env.OWNER_USER_ID;
-  if (!ownerId || ownerId === 'REPLACE_WITH_YOUR_MONGODB_USER_ID') {
+  const ownerIdEnv = process.env.OWNER_USER_ID;
+  if (!ownerIdEnv || ownerIdEnv === 'REPLACE_WITH_YOUR_MONGODB_USER_ID') {
     return res.status(503).json({ 
       error: "Owner ID not configured on server", 
       code: "NOT_CONFIGURED" 
     });
   }
-  if (req.user && req.user._id.toString() === ownerId) {
+  const ownerIds = ownerIdEnv.split(',').map(id => id.trim());
+  if (req.user && ownerIds.includes(req.user._id.toString())) {
     next();
   } else {
     res.status(403).json({ 
