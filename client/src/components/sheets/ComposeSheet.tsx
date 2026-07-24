@@ -343,21 +343,6 @@ export default function ComposeSheet() {
                 </TouchableOpacity>
                 <Text style={[s.title, { color: themeColors.txt }]}>New Post</Text>
               </View>
-              
-              <TouchableOpacity 
-                style={[s.topPostBtn, { backgroundColor: themeColors.ogi }, (isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)))) && { opacity: 0.6 }]} 
-                onPress={handleSubmit} 
-                disabled={isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)))}
-                accessibilityRole="button"
-                accessibilityLabel="Post your content"
-                accessibilityState={{ disabled: isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0))) }}
-              >
-                {isPending ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Text style={s.topPostBtnTxt}>Post</Text>
-                )}
-              </TouchableOpacity>
             </View>
 
             <View style={s.authorRow}>
@@ -647,6 +632,11 @@ export default function ComposeSheet() {
                 ))}
               </View>
 
+              <View style={{ height: 20 }} />
+            </ScrollView>
+
+            {/* 📌 Sticky Bottom Footer Toolbar (Always Visible!) */}
+            <View style={[s.bottomFooterBar, { borderTopColor: themeColors.bdr }]}>
               <View style={s.actionRow}>
                 <TouchableOpacity style={s.aBtn} onPress={pickImage}>
                   <Ionicons name="image-outline" size={22} color={themeColors.txt2} />
@@ -664,56 +654,23 @@ export default function ComposeSheet() {
                 }}>
                   <Ionicons name={isPoll ? "bar-chart" : "bar-chart-outline"} size={22} color={isPoll ? themeColors.ogi : themeColors.txt2} />
                 </TouchableOpacity>
-                {/* Song attach button */}
                 <TouchableOpacity style={s.aBtn} onPress={openMusicSelector}>
                   <Ionicons name={selectedTrack ? "musical-notes" : "musical-notes-outline"} size={22} color={selectedTrack ? '#c8f53a' : themeColors.txt2} />
                 </TouchableOpacity>
               </View>
 
-              {/* Selected Track Instagram Music Banner Preview */}
-              {selectedTrack && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: 16, backgroundColor: isDark ? 'rgba(200,245,58,0.1)' : 'rgba(63,98,18,0.08)', borderWidth: 1, borderColor: isDark ? 'rgba(200,245,58,0.2)' : 'rgba(63,98,18,0.2)', marginBottom: 12 }}>
-                  {selectedTrack.artworkUrl ? (
-                    <Image source={{ uri: selectedTrack.artworkUrl }} style={{ width: 44, height: 44, borderRadius: 10 }} />
-                  ) : (
-                    <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }}>
-                      <Text style={{ fontSize: 20 }}>🎵</Text>
-                    </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>{selectedTrack.trackName}</Text>
-                    <Text style={{ color: themeColors.txt2, fontSize: 12, marginTop: 1 }} numberOfLines={1}>{selectedTrack.artistName} · Original Audio</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (playingPreviewId === selectedTrack.trackId) {
-                        soundManager.stop();
-                        setPlayingPreviewId(null);
-                      } else {
-                        setPlayingPreviewId(selectedTrack.trackId);
-                        soundManager.play(selectedTrack.previewUrl, () => {
-                          setPlayingPreviewId(null);
-                        });
-                      }
-                    }}
-                    style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: isDark ? '#c8f53a' : '#3f6212', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Ionicons name={playingPreviewId === selectedTrack.trackId ? "pause" : "play"} size={16} color={isDark ? '#000' : '#fff'} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      setSelectedTrack(null);
-                      soundManager.stop();
-                      setPlayingPreviewId(null);
-                    }}
-                    style={{ padding: 4 }}
-                  >
-                    <Ionicons name="close-circle" size={22} color={themeColors.txt3} />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <View style={{ height: 40 }} />
-            </ScrollView>
+              <TouchableOpacity 
+                style={[s.mainStickyPostBtn, { backgroundColor: themeColors.ogi }, (isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)))) && { opacity: 0.5 }]} 
+                onPress={handleSubmit} 
+                disabled={isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)))}
+              >
+                {isPending ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={s.mainStickyPostBtnTxt}>Post</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </Pressable>
         </KeyboardAvoidingView>
       </Pressable>
@@ -851,9 +808,12 @@ const s = StyleSheet.create({
   chipTxt: { fontSize: 12, fontWeight: '700' },
   postBtn: { marginLeft: 'auto', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
   postBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  actionRow: { flexDirection: 'row', gap: 20, marginTop: 20, paddingBottom: 20 },
+  actionRow: { flexDirection: 'row', gap: 16, alignItems: 'center' },
   aBtn: { padding: 4 },
   aIcon: { fontSize: 20 },
+  bottomFooterBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, paddingBottom: 8, borderTopWidth: 0.5, marginTop: 8 },
+  mainStickyPostBtn: { paddingHorizontal: 22, paddingVertical: 10, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  mainStickyPostBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
   eventFields: { gap: 10 },
   eInp: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: 12 },
   locBtn: { width: 48, height: 48, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
