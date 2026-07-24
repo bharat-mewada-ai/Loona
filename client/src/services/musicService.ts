@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 
 export interface Track {
   trackId: number;
@@ -8,17 +8,45 @@ export interface Track {
   artworkUrl: string;
 }
 
-// Enable audio playback in silent mode on mobile devices
-Audio.setAudioModeAsync({
-  playsInSilentModeIOS: true,
-  staysActiveInBackground: false,
-  shouldDuckAndroid: true,
-}).catch(() => {});
+// Configured audio mode for mobile speaker playback even in silent mode
+const configureAudio = async () => {
+  try {
+    await Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+      interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+      playThroughEarpieceAndroid: false,
+    });
+  } catch (e) {
+    console.log('[AudioMode] Error setting audio mode:', e);
+  }
+};
+configureAudio();
+
+// Pre-fetched popular trending songs for Instagram-style initial suggestions list
+export const getTrendingTracks = async (): Promise<Track[]> => {
+  try {
+    const res = await fetch(`https://itunes.apple.com/search?term=bollywood+top+hits&entity=song&limit=20`);
+    const data = await res.json();
+    if (!data || !data.results) return [];
+    return data.results.map((item: any) => ({
+      trackId: item.trackId,
+      trackName: item.trackName,
+      artistName: item.artistName,
+      previewUrl: item.previewUrl,
+      artworkUrl: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '300x300bb') : '',
+    }));
+  } catch (err) {
+    return [];
+  }
+};
 
 export const searchTracks = async (query: string): Promise<Track[]> => {
-  if (!query || query.trim().length < 2) return [];
+  if (!query || query.trim().length < 2) return getTrendingTracks();
   try {
-    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=15`);
+    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=25`);
     const data = await res.json();
     if (!data || !data.results) return [];
     return data.results.map((item: any) => ({
