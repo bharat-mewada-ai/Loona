@@ -13,6 +13,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { useAuthStore } from '../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from 'react-native';
+import { Audio } from 'expo-av';
 
 const { width, height } = Dimensions.get('window');
 const STORY_DURATION = 8000; // 8 seconds per story
@@ -37,11 +38,29 @@ export default function StoryViewer() {
   const isStaff = ['admin', 'moderator', 'super-admin'].includes(user?.role || '');
   const canDelete = isAuthor || isStaff;
 
+  const [soundObj, setSoundObj] = useState<Audio.Sound | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+
   useEffect(() => {
+    let activeSound: Audio.Sound | null = null;
     if (showStoryViewer && story && !isLoading) {
       startProgress();
+
+      if (story.songAudioUrl) {
+        Audio.Sound.createAsync({ uri: story.songAudioUrl }, { shouldPlay: !isMuted, isLooping: true })
+          .then(({ sound }) => {
+            activeSound = sound;
+            setSoundObj(sound);
+          })
+          .catch(() => {});
+      }
     }
-    return () => stopProgress();
+    return () => {
+      stopProgress();
+      if (activeSound) {
+        activeSound.unloadAsync();
+      }
+    };
   }, [activeStoryId, isLoading, showStoryViewer]);
 
   const startProgress = () => {
@@ -206,13 +225,31 @@ export default function StoryViewer() {
           {/* Footer */}
           {story && (
             <View style={s.footer}>
-              {/* Song Ticker */}
+              {/* Song Ticker & Mute Control */}
               {!!story.songName && (
                 <View style={s.songTicker}>
-                  <Text style={{ fontSize: 14 }}>🎵</Text>
+                  {story.songCoverUrl ? (
+                    <Image source={{ uri: story.songCoverUrl }} style={{ width: 22, height: 22, borderRadius: 4 }} />
+                  ) : (
+                    <Text style={{ fontSize: 14 }}>🎵</Text>
+                  )}
                   <Text style={s.songTickerTxt} numberOfLines={1}>
                     {story.songName}{story.songArtist ? ` — ${story.songArtist}` : ''}
                   </Text>
+                  {!!story.songAudioUrl && (
+                    <TouchableOpacity
+                      onPress={async () => {
+                        const newMute = !isMuted;
+                        setIsMuted(newMute);
+                        if (soundObj) {
+                          await soundObj.setIsMutedAsync(newMute);
+                        }
+                      }}
+                      style={{ paddingHorizontal: 6 }}
+                    >
+                      <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="#FFF" />
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
               <TouchableOpacity 

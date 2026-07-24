@@ -23,6 +23,8 @@ export interface CreatePostDto {
   externalLink?: string;
   songName?: string;    // Music sticker — song name
   songArtist?: string;  // Music sticker — artist name
+  songAudioUrl?: string;// Audio preview URL (MP3)
+  songCoverUrl?: string;// Album cover URL
 }
 
 export const postsApi = {

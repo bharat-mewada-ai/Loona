@@ -16,6 +16,8 @@ import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 import type { Campus } from '../../types';
 import { requestLocation } from '../../hooks/useLocation';
 import { Ionicons } from '@expo/vector-icons';
+import { searchTracks, Track } from '../../services/musicService';
+import { Audio } from 'expo-av';
 
 const COMPOSE_TITLES: Record<string, string> = {
   all: 'Start a discussion',
@@ -61,10 +63,14 @@ export default function ComposeSheet() {
   const [externalLink, setExternalLink] = useState(''); // for tickets or offers
   const [isExclusive, setIsExclusive] = useState(false);
 
-  // Song attachment (Instagram-style music sticker)
+  // Song attachment (Instagram-style music sticker & audio preview)
   const [showSongInput, setShowSongInput] = useState(false);
-  const [songName, setSongName] = useState('');
-  const [songArtist, setSongArtist] = useState('');
+  const [songQuery, setSongQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [isSearchingMusic, setIsSearchingMusic] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [playingPreviewId, setPlayingPreviewId] = useState<number | null>(null);
+  const [soundObj, setSoundObj] = useState<Audio.Sound | null>(null);
 
   // Auto-set burn status for stories
   useEffect(() => {
@@ -278,14 +284,17 @@ export default function ComposeSheet() {
         isPoll,
         pollOptions: isPoll ? cleanOptions : undefined,
         location: userLocation ? { type: 'Point', coordinates: [userLocation.longitude, userLocation.latitude] } : undefined,
-        songName: songName.trim() || undefined,
-        songArtist: songArtist.trim() || undefined,
+        songName: selectedTrack?.trackName || undefined,
+        songArtist: selectedTrack?.artistName || undefined,
+        songAudioUrl: selectedTrack?.previewUrl || undefined,
+        songCoverUrl: selectedTrack?.artworkUrl || undefined,
       },
       {
         onSuccess: () => {
           setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false); setPollOptions(['', '']);
           setEventLocation('');
-          setSongName(''); setSongArtist(''); setShowSongInput(false);
+          setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setShowSongInput(false);
+          if (soundObj) { soundObj.unloadAsync(); setSoundObj(null); }
           closeComposeSheet();
         },
         onError: (error: any) => {
@@ -300,7 +309,8 @@ export default function ComposeSheet() {
   const handleClose = () => {
     setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false);
     setOfferBrand(''); setOfferDiscount(''); setExternalLink(''); setIsExclusive(false);
-    setSongName(''); setSongArtist(''); setShowSongInput(false);
+    setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setShowSongInput(false);
+    if (soundObj) { soundObj.unloadAsync(); setSoundObj(null); }
     closeComposeSheet();
   };
   return (
@@ -645,40 +655,119 @@ export default function ComposeSheet() {
                 </TouchableOpacity>
                 {/* Song attach button */}
                 <TouchableOpacity style={s.aBtn} onPress={() => setShowSongInput(v => !v)}>
-                  <Ionicons name={showSongInput || songName ? "musical-notes" : "musical-notes-outline"} size={22} color={showSongInput || songName ? '#c8f53a' : themeColors.txt2} />
+                  <Ionicons name={showSongInput || selectedTrack ? "musical-notes" : "musical-notes-outline"} size={22} color={showSongInput || selectedTrack ? '#c8f53a' : themeColors.txt2} />
                 </TouchableOpacity>
               </View>
 
-              {/* Song Input Panel */}
+              {/* Song Search & Select Panel */}
               {showSongInput && (
                 <View style={[s.songPanel, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       <Text style={{ fontSize: 16 }}>🎵</Text>
-                      <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }}>Add Song</Text>
+                      <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }}>Search Music & Songs</Text>
                     </View>
-                    {!!songName && (
-                      <TouchableOpacity onPress={() => { setSongName(''); setSongArtist(''); }}>
-                        <Text style={{ color: themeColors.txt3, fontSize: 12 }}>Remove</Text>
+                    {!!selectedTrack && (
+                      <TouchableOpacity onPress={() => {
+                        setSelectedTrack(null);
+                        setSongQuery('');
+                        if (soundObj) { soundObj.unloadAsync(); setSoundObj(null); setPlayingPreviewId(null); }
+                      }}>
+                        <Text style={{ color: '#ef4444', fontSize: 12, fontWeight: '700' }}>Remove Song</Text>
                       </TouchableOpacity>
                     )}
                   </View>
-                  <TextInput
-                    style={[s.songInput, { color: themeColors.txt, borderColor: themeColors.bdr, backgroundColor: themeColors.bg }]}
-                    placeholder="Song name (e.g. Tum Hi Ho)"
-                    placeholderTextColor={themeColors.txt3}
-                    value={songName}
-                    onChangeText={setSongName}
-                    maxLength={80}
-                  />
-                  <TextInput
-                    style={[s.songInput, { color: themeColors.txt, borderColor: themeColors.bdr, backgroundColor: themeColors.bg, marginTop: 8 }]}
-                    placeholder="Artist name (e.g. Arijit Singh)"
-                    placeholderTextColor={themeColors.txt3}
-                    value={songArtist}
-                    onChangeText={setSongArtist}
-                    maxLength={60}
-                  />
+
+                  {/* Selected Track Badge */}
+                  {selectedTrack ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: 14, backgroundColor: isDark ? 'rgba(200,245,58,0.1)' : 'rgba(63,98,18,0.08)', borderWidth: 1, borderColor: isDark ? 'rgba(200,245,58,0.2)' : 'rgba(63,98,18,0.2)' }}>
+                      {selectedTrack.artworkUrl ? (
+                        <Image source={{ uri: selectedTrack.artworkUrl }} style={{ width: 44, height: 44, borderRadius: 8 }} />
+                      ) : (
+                        <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontSize: 20 }}>🎵</Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>{selectedTrack.trackName}</Text>
+                        <Text style={{ color: themeColors.txt2, fontSize: 12, marginTop: 1 }} numberOfLines={1}>{selectedTrack.artistName}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={async () => {
+                          if (playingPreviewId === selectedTrack.trackId && soundObj) {
+                            await soundObj.pauseAsync();
+                            setPlayingPreviewId(null);
+                          } else {
+                            if (soundObj) await soundObj.unloadAsync();
+                            const { sound } = await Audio.Sound.createAsync({ uri: selectedTrack.previewUrl });
+                            setSoundObj(sound);
+                            setPlayingPreviewId(selectedTrack.trackId);
+                            await sound.playAsync();
+                          }
+                        }}
+                        style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? '#c8f53a' : '#3f6212', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Ionicons name={playingPreviewId === selectedTrack.trackId ? "pause" : "play"} size={18} color={isDark ? '#000' : '#fff'} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: themeColors.bdr, borderRadius: 12, backgroundColor: themeColors.bg, paddingHorizontal: 12 }}>
+                        <Ionicons name="search-outline" size={18} color={themeColors.txt3} />
+                        <TextInput
+                          style={[s.songInput, { color: themeColors.txt, borderBottomWidth: 0, borderWidth: 0, flex: 1, height: 40 }]}
+                          placeholder="Search song or artist (e.g. Arijit, Kesariya, Drake)..."
+                          placeholderTextColor={themeColors.txt3}
+                          value={songQuery}
+                          onChangeText={async (q) => {
+                            setSongQuery(q);
+                            if (q.trim().length >= 2) {
+                              setIsSearchingMusic(true);
+                              const tracks = await searchTracks(q);
+                              setSearchResults(tracks);
+                              setIsSearchingMusic(false);
+                            } else {
+                              setSearchResults([]);
+                            }
+                          }}
+                        />
+                      </View>
+
+                      {isSearchingMusic && (
+                        <ActivityIndicator size="small" color={themeColors.ogi} style={{ marginTop: 12 }} />
+                      )}
+
+                      {/* Search Results list */}
+                      {searchResults.length > 0 && (
+                        <ScrollView style={{ maxHeight: 180, marginTop: 8 }} nestedScrollEnabled>
+                          {searchResults.map((t) => (
+                            <TouchableOpacity
+                              key={t.trackId}
+                              onPress={() => {
+                                setSelectedTrack(t);
+                                setSearchResults([]);
+                                setSongQuery('');
+                              }}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: themeColors.bdr }}
+                            >
+                              {t.artworkUrl ? (
+                                <Image source={{ uri: t.artworkUrl }} style={{ width: 36, height: 36, borderRadius: 6 }} />
+                              ) : (
+                                <View style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                                  <Text style={{ fontSize: 16 }}>🎵</Text>
+                                </View>
+                              )}
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ color: themeColors.txt, fontWeight: '600', fontSize: 13 }} numberOfLines={1}>{t.trackName}</Text>
+                                <Text style={{ color: themeColors.txt3, fontSize: 11 }} numberOfLines={1}>{t.artistName}</Text>
+                              </View>
+                              <Ionicons name="add-circle-outline" size={22} color={themeColors.ogi} />
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                    </>
+                  )}
                 </View>
               )}
               <View style={{ height: 40 }} />

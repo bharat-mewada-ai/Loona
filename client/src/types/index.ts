@@ -88,6 +88,8 @@ export interface Post {
   externalLink?: string;
   songName?: string;    // Song attached to post/story
   songArtist?: string;  // Artist of attached song
+  songAudioUrl?: string;// Audio preview URL (MP3)
+  songCoverUrl?: string;// Album cover URL
   images?: string[];    // Multiple images array
 }
 

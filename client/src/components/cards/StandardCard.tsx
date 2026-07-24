@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_IMAGE_WIDTH = SCREEN_WIDTH - 32; // 16px margin each side
 import { Ionicons } from '@expo/vector-icons';
+import { Audio } from 'expo-av';
 import { Post } from '../../types';
 import { POST_TYPES } from '../../constants';
 import { getColors } from '../../theme/colors';
@@ -47,6 +48,22 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
   // Poll local vote state — updates instantly on tap without waiting for server refetch
   const [userVoteLocal, setUserVoteLocal] = useState<number | null | undefined>(post.userVote);
+  const [bhandaraCounts, setBhandaraCounts] = useState<{ yes: number; no: number }>({
+    yes: post.bhandaraCountYes || 0,
+    no: post.bhandaraCountNo || 0,
+  });
+
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [soundObj, setSoundObj] = useState<Audio.Sound | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (soundObj) {
+        soundObj.unloadAsync();
+      }
+    };
+  }, [soundObj]);
+
   const [activeIndex, setActiveIndex] = useState(0);
 
   // ── In-flight lock — prevents rapid-tap glitch (duplicate votes / flicker) ──
@@ -324,16 +341,52 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
         )}
       </View>
 
-      {/* 🎵 Song Badge */}
+      {/* 🎵 Song Badge & Audio Player */}
       {!!post.songName && (
         <View style={[s.songBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
-          <View style={s.songIconWrap}>
-            <Text style={{ fontSize: 13 }}>🎵</Text>
-          </View>
+          {post.songCoverUrl ? (
+            <Image source={{ uri: post.songCoverUrl }} style={{ width: 36, height: 36, borderRadius: 8 }} />
+          ) : (
+            <View style={s.songIconWrap}>
+              <Text style={{ fontSize: 13 }}>🎵</Text>
+            </View>
+          )}
           <View style={{ flex: 1, overflow: 'hidden' }}>
             <Text style={[s.songName, { color: themeColors.txt }]} numberOfLines={1}>{post.songName}</Text>
             {!!post.songArtist && <Text style={[s.songArtist, { color: themeColors.txt3 }]} numberOfLines={1}>{post.songArtist}</Text>}
           </View>
+          {!!post.songAudioUrl && (
+            <TouchableOpacity
+              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: themeColors.ogi, alignItems: 'center', justifyContent: 'center' }}
+              onPress={async () => {
+                try {
+                  if (isPlayingAudio && soundObj) {
+                    await soundObj.pauseAsync();
+                    setIsPlayingAudio(false);
+                  } else {
+                    if (soundObj) {
+                      await soundObj.playAsync();
+                      setIsPlayingAudio(true);
+                    } else {
+                      const { sound } = await Audio.Sound.createAsync({ uri: post.songAudioUrl! });
+                      setSoundObj(sound);
+                      setIsPlayingAudio(true);
+                      await sound.playAsync();
+                      sound.setOnPlaybackStatusUpdate((status) => {
+                        if (status.isLoaded && status.didJustFinish) {
+                          setIsPlayingAudio(false);
+                        }
+                      });
+                    }
+                  }
+                } catch (e) {
+                  console.error('Audio play error:', e);
+                }
+              }}
+            >
+              <Ionicons name={isPlayingAudio ? "pause" : "play"} size={16} color={isDark ? '#000' : '#fff'} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 

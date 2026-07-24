@@ -21,8 +21,10 @@ const postSchema = new mongoose.Schema({
   offerDiscount: String,
   externalLink: String,
   isExclusive: { type: Boolean, default: false },
-  songName: { type: String, maxlength: 100 },    // Music sticker
-  songArtist: { type: String, maxlength: 100 },  // Artist name
+  songName: { type: String, maxlength: 100 },      // Music sticker
+  songArtist: { type: String, maxlength: 100 },    // Artist name
+  songAudioUrl: { type: String },                  // Audio preview URL (MP3)
+  songCoverUrl: { type: String },                  // Album cover image URL
   views: { type: Number, default: 0 },
   hashtags: [{ type: String }],
   upvotes: { type: Number, default: 0 },
