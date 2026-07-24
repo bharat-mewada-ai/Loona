@@ -16,8 +16,7 @@ import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 import type { Campus } from '../../types';
 import { requestLocation } from '../../hooks/useLocation';
 import { Ionicons } from '@expo/vector-icons';
-import { searchTracks, Track } from '../../services/musicService';
-import { Audio } from 'expo-av';
+import { searchTracks, Track, soundManager } from '../../services/musicService';
 
 const COMPOSE_TITLES: Record<string, string> = {
   all: 'Start a discussion',
@@ -693,16 +692,15 @@ export default function ComposeSheet() {
                         <Text style={{ color: themeColors.txt2, fontSize: 12, marginTop: 1 }} numberOfLines={1}>{selectedTrack.artistName}</Text>
                       </View>
                       <TouchableOpacity
-                        onPress={async () => {
-                          if (playingPreviewId === selectedTrack.trackId && soundObj) {
-                            await soundObj.pauseAsync();
+                        onPress={() => {
+                          if (playingPreviewId === selectedTrack.trackId) {
+                            soundManager.stop();
                             setPlayingPreviewId(null);
                           } else {
-                            if (soundObj) await soundObj.unloadAsync();
-                            const { sound } = await Audio.Sound.createAsync({ uri: selectedTrack.previewUrl });
-                            setSoundObj(sound);
                             setPlayingPreviewId(selectedTrack.trackId);
-                            await sound.playAsync();
+                            soundManager.play(selectedTrack.previewUrl, () => {
+                              setPlayingPreviewId(null);
+                            });
                           }
                         }}
                         style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? '#c8f53a' : '#3f6212', alignItems: 'center', justifyContent: 'center' }}

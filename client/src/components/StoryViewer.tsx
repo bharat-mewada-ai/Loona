@@ -13,7 +13,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { useAuthStore } from '../store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert } from 'react-native';
-import { Audio } from 'expo-av';
+import { soundManager } from '../services/musicService';
 
 const { width, height } = Dimensions.get('window');
 const STORY_DURATION = 8000; // 8 seconds per story
@@ -38,28 +38,19 @@ export default function StoryViewer() {
   const isStaff = ['admin', 'moderator', 'super-admin'].includes(user?.role || '');
   const canDelete = isAuthor || isStaff;
 
-  const [soundObj, setSoundObj] = useState<Audio.Sound | null>(null);
   const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
-    let activeSound: Audio.Sound | null = null;
     if (showStoryViewer && story && !isLoading) {
       startProgress();
 
-      if (story.songAudioUrl) {
-        Audio.Sound.createAsync({ uri: story.songAudioUrl }, { shouldPlay: !isMuted, isLooping: true })
-          .then(({ sound }) => {
-            activeSound = sound;
-            setSoundObj(sound);
-          })
-          .catch(() => {});
+      if (story.songAudioUrl && !isMuted) {
+        soundManager.play(story.songAudioUrl);
       }
     }
     return () => {
       stopProgress();
-      if (activeSound) {
-        activeSound.unloadAsync();
-      }
+      soundManager.stop();
     };
   }, [activeStoryId, isLoading, showStoryViewer]);
 
@@ -238,11 +229,13 @@ export default function StoryViewer() {
                   </Text>
                   {!!story.songAudioUrl && (
                     <TouchableOpacity
-                      onPress={async () => {
+                      onPress={() => {
                         const newMute = !isMuted;
                         setIsMuted(newMute);
-                        if (soundObj) {
-                          await soundObj.setIsMutedAsync(newMute);
+                        if (newMute) {
+                          soundManager.stop();
+                        } else {
+                          soundManager.play(story.songAudioUrl!);
                         }
                       }}
                       style={{ paddingHorizontal: 6 }}

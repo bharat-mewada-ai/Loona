@@ -24,3 +24,34 @@ export const searchTracks = async (query: string): Promise<Track[]> => {
     return [];
   }
 };
+
+// Universal Sound Manager
+class UniversalSoundManager {
+  private currentAudio: HTMLAudioElement | null = null;
+
+  async play(url: string, onEnded?: () => void) {
+    this.stop();
+    try {
+      if (typeof window !== 'undefined' && typeof window.Audio !== 'undefined') {
+        this.currentAudio = new window.Audio(url);
+        if (onEnded) this.currentAudio.onended = onEnded;
+        await this.currentAudio.play();
+      }
+    } catch (e) {
+      console.log('Audio play note:', e);
+    }
+  }
+
+  stop() {
+    if (this.currentAudio) {
+      try {
+        this.currentAudio.pause();
+        this.currentAudio.currentTime = 0;
+      } catch (e) {}
+      this.currentAudio = null;
+    }
+  }
+}
+
+export const soundManager = new UniversalSoundManager();
+

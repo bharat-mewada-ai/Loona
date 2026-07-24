@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_IMAGE_WIDTH = SCREEN_WIDTH - 32; // 16px margin each side
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { soundManager } from '../../services/musicService';
 import { Post } from '../../types';
 import { POST_TYPES } from '../../constants';
 import { getColors } from '../../theme/colors';
@@ -358,29 +358,15 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           {!!post.songAudioUrl && (
             <TouchableOpacity
               style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: themeColors.ogi, alignItems: 'center', justifyContent: 'center' }}
-              onPress={async () => {
-                try {
-                  if (isPlayingAudio && soundObj) {
-                    await soundObj.pauseAsync();
+              onPress={() => {
+                if (isPlayingAudio) {
+                  soundManager.stop();
+                  setIsPlayingAudio(false);
+                } else {
+                  setIsPlayingAudio(true);
+                  soundManager.play(post.songAudioUrl!, () => {
                     setIsPlayingAudio(false);
-                  } else {
-                    if (soundObj) {
-                      await soundObj.playAsync();
-                      setIsPlayingAudio(true);
-                    } else {
-                      const { sound } = await Audio.Sound.createAsync({ uri: post.songAudioUrl! });
-                      setSoundObj(sound);
-                      setIsPlayingAudio(true);
-                      await sound.playAsync();
-                      sound.setOnPlaybackStatusUpdate((status) => {
-                        if (status.isLoaded && status.didJustFinish) {
-                          setIsPlayingAudio(false);
-                        }
-                      });
-                    }
-                  }
-                } catch (e) {
-                  console.error('Audio play error:', e);
+                  });
                 }
               }}
             >
