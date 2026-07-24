@@ -79,7 +79,7 @@ export const useMe = () => {
 
 export const useUpdateProfile = () => {
   const setUser = useAuthStore((s) => s.setUser);
-  return useMutation<User, Error, { avatar?: string; name?: string; bio?: string; isPrivate?: boolean; tags?: string[]; notificationsEnabled?: boolean; campus?: string }>({
+  return useMutation<User, Error, { avatar?: string; name?: string; bio?: string; nearbyBio?: string; isPrivate?: boolean; tags?: string[]; notificationsEnabled?: boolean; campus?: string }>({
     mutationFn: (payload) => authApi.updateProfile(payload),
     onSuccess: (updatedUser) => {
       setUser(updatedUser);

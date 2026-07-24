@@ -99,7 +99,7 @@ export default function StoryViewer() {
       <Pressable style={[s.container, { backgroundColor: hasPhoto ? '#000' : bgColor }]} onPress={handleTap}>
         {story && story.image && (
           <View style={s.photoContainer}>
-            <Image source={{ uri: story.image }} style={s.photoStyle} contentFit="contain" />
+            <Image source={{ uri: story.image }} style={s.photoStyle} contentFit="cover" />
           </View>
         )}
         <SafeAreaView style={s.safe}>
@@ -206,6 +206,15 @@ export default function StoryViewer() {
           {/* Footer */}
           {story && (
             <View style={s.footer}>
+              {/* Song Ticker */}
+              {!!story.songName && (
+                <View style={s.songTicker}>
+                  <Text style={{ fontSize: 14 }}>🎵</Text>
+                  <Text style={s.songTickerTxt} numberOfLines={1}>
+                    {story.songName}{story.songArtist ? ` — ${story.songArtist}` : ''}
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity 
                 style={s.commentBar}
                 onPress={() => {
@@ -291,5 +300,23 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Song ticker for stories
+  songTicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  songTickerTxt: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+    maxWidth: 220,
   },
 });

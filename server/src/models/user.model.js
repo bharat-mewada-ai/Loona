@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema(
       maxlength: 150,
       default: "",
     },
+    nearbyBio: {
+      type: String,
+      maxlength: 100,
+      default: "",  // Custom "about me" shown on nearby screen
+    },
     isPrivate: {
       type: Boolean,
       default: false,

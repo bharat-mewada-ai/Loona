@@ -72,6 +72,13 @@ export default function StoryCard({ post, onDelete }: Props) {
           <Ionicons name="chatbubble-outline" size={12} color="#FFF" />
           <Text style={s.statTxt}>{post.commentCount || 0}</Text>
         </View>
+        {/* Song badge */}
+        {!!post.songName && (
+          <View style={s.songPill}>
+            <Text style={{ fontSize: 10 }}>🎵</Text>
+            <Text style={s.songPillTxt} numberOfLines={1}>{post.songName}</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -87,7 +94,9 @@ const s = StyleSheet.create({
   menuBtn: { padding: 5 },
   content: { marginTop: 'auto', zIndex: 1 },
   title: { color: '#FFF', fontSize: 20, fontWeight: '900', lineHeight: 28, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
-  footer: { flexDirection: 'row', gap: 12, marginTop: 12, zIndex: 1 },
+  footer: { flexDirection: 'row', gap: 12, marginTop: 12, zIndex: 1, flexWrap: 'wrap' },
   stat: { backgroundColor: 'rgba(255,255,255,0.25)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 4 },
   statTxt: { color: '#FFF', fontSize: 12, fontWeight: '800' },
+  songPill: { backgroundColor: 'rgba(0,0,0,0.35)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: 120 },
+  songPillTxt: { color: '#FFF', fontSize: 10, fontWeight: '700', flexShrink: 1 },
 });

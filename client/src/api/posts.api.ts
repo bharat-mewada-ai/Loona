@@ -2,12 +2,13 @@ import client from './client';
 import type { Post, PaginatedPosts } from '../types';
 
 export interface CreatePostDto {
-  title: string;
+  title?: string;
   body?: string;
   campus: string;
   type: string;
   burnAfter24h?: boolean;
   image?: string;
+  images?: string[];    // Multiple images
   eventDate?: string;
   eventLocation?: string;
   location?: {
@@ -20,6 +21,8 @@ export interface CreatePostDto {
   isExclusive?: boolean;
   offerDiscount?: string;
   externalLink?: string;
+  songName?: string;    // Music sticker — song name
+  songArtist?: string;  // Music sticker — artist name
 }
 
 export const postsApi = {

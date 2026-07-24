@@ -118,12 +118,27 @@ async function registerForPushNotificationsAsync() {
   let token;
 
   if (Platform.OS === 'android') {
+    // Default channel for general notifications
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
+      name: 'General',
+      importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF6B35',
+      lightColor: '#c8f53a',
+      showBadge: true,
     });
+    // Dedicated channel for chat messages — supports grouping
+    await Notifications.setNotificationChannelAsync('messages', {
+      name: 'Messages',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 200],
+      lightColor: '#c8f53a',
+      showBadge: true,
+      groupId: 'chat_group', // Android notification group
+    });
+    // Group summary channel
+    await Notifications.setNotificationChannelGroupAsync('chat_group', {
+      name: 'Chats',
+    }).catch(() => {}); // May not be supported on older Android
   }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();

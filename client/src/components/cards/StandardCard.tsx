@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_IMAGE_WIDTH = SCREEN_WIDTH - 32; // 16px margin each side
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../../types';
 import { POST_TYPES } from '../../constants';
@@ -264,29 +265,29 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
       </View>
 
       {post.images && post.images.length > 1 ? (
-        <View style={[s.mediaContainer, { position: 'relative', backgroundColor: '#111' }]}>
+        <View style={[s.multiMediaContainer, { position: 'relative' }]}>
           <ScrollView
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onScroll={(e) => {
-              const slide = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - 32));
+              const slide = Math.round(e.nativeEvent.contentOffset.x / CARD_IMAGE_WIDTH);
               setActiveIndex(slide);
             }}
             scrollEventThrottle={16}
           >
-            {post.images.map((img, index) => (
+            {post.images!.map((img, index) => (
               <Image
                 key={index}
                 source={{ uri: getOptimizedCloudinaryUrl(img, 800) }}
-                style={{ width: SCREEN_WIDTH - 32, height: 300 }}
-                contentFit="contain"
+                style={{ width: CARD_IMAGE_WIDTH, aspectRatio: 4/3 }}
+                contentFit="cover"
                 accessibilityLabel={`Attached post image ${index + 1}`}
               />
             ))}
           </ScrollView>
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, position: 'absolute', bottom: 12, left: 0, right: 0 }}>
-            {post.images.map((_, index) => (
+            {post.images!.map((_, index) => (
               <View
                 key={index}
                 style={{
@@ -301,14 +302,12 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
         </View>
       ) : (
         !!post.image && (
-          <View style={[s.mediaContainer, { backgroundColor: '#111' }]}>
-            <Image 
-              source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }} 
-              style={s.mediaImg} 
-              contentFit="contain"
-              accessibilityLabel="Attached post image"
-            />
-          </View>
+          <Image 
+            source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }} 
+            style={s.mediaImg} 
+            contentFit="cover"
+            accessibilityLabel="Attached post image"
+          />
         )
       )}
 
@@ -324,6 +323,19 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           </View>
         )}
       </View>
+
+      {/* 🎵 Song Badge */}
+      {!!post.songName && (
+        <View style={[s.songBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+          <View style={s.songIconWrap}>
+            <Text style={{ fontSize: 13 }}>🎵</Text>
+          </View>
+          <View style={{ flex: 1, overflow: 'hidden' }}>
+            <Text style={[s.songName, { color: themeColors.txt }]} numberOfLines={1}>{post.songName}</Text>
+            {!!post.songArtist && <Text style={[s.songArtist, { color: themeColors.txt3 }]} numberOfLines={1}>{post.songArtist}</Text>}
+          </View>
+        </View>
+      )}
 
       {post.isPoll && post.pollOptions && (
         <View style={s.pollWrap}>
@@ -461,8 +473,12 @@ const s = StyleSheet.create({
   moreBtn: { padding: 4 },
   contentArea: { paddingHorizontal: 16, paddingVertical: 8 },
   textBody: { fontSize: 15, lineHeight: 22.5, fontFamily: 'PlusJakartaSans_400Regular' },
-  mediaContainer: { marginHorizontal: 16, height: 300, borderRadius: 20, overflow: 'hidden', marginTop: 8 },
-  mediaImg: { width: '100%', height: '100%' },
+  // Single image — auto height (4:3 ratio, no black bars, cover crop like Instagram)
+  mediaImg: { width: CARD_IMAGE_WIDTH, aspectRatio: 4/3 },
+  // Multi-image carousel container — no fixed height
+  multiMediaContainer: { marginHorizontal: 0, overflow: 'hidden', marginTop: 8 },
+  // Legacy — keep for any code that still references it
+  mediaContainer: { marginHorizontal: 0, overflow: 'hidden', marginTop: 8 },
   pollWrap: { paddingHorizontal: 16, gap: 8, marginTop: 12 },
   pollOpt: { height: 48, borderRadius: 16, borderWidth: 1, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden', position: 'relative' },
   pollOptTxt: { fontSize: 14, fontWeight: '600', zIndex: 1 },
@@ -481,4 +497,9 @@ const s = StyleSheet.create({
   tagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold', letterSpacing: 0.08 },
   proPill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, marginLeft: 2 },
   proTxt: { fontSize: 9, fontWeight: '900', color: '#000' },
+  // Song badge styles
+  songBadge: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  songIconWrap: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(200,245,58,0.15)', alignItems: 'center', justifyContent: 'center' },
+  songName: { fontSize: 13, fontWeight: '700' },
+  songArtist: { fontSize: 11, fontWeight: '400', marginTop: 1 },
 });

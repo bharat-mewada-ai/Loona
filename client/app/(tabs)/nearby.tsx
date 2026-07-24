@@ -8,7 +8,11 @@ import {
   Easing, 
   TouchableOpacity, 
   ActivityIndicator, 
-  Alert
+  Alert,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -53,6 +57,8 @@ export default function NearbyScreen() {
   const [activeActionUserId, setActiveActionUserId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(!user?.isPrivate);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showNearbyBioEdit, setShowNearbyBioEdit] = useState(false);
+  const [nearbyBioInput, setNearbyBioInput] = useState(user?.nearbyBio || '');
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pingAnim = useRef(new Animated.Value(0)).current;
@@ -194,6 +200,13 @@ export default function NearbyScreen() {
             <Text style={{ fontSize: 14 }}>🥔</Text>
             <Text style={[s.potatoCount, { color: isDark ? LIME : '#3f6212' }]}>{user?.potato || 0}</Text>
           </View>
+          {/* Edit nearby identity button */}
+          <TouchableOpacity
+            style={[s.iconBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
+            onPress={() => setShowNearbyBioEdit(true)}
+          >
+            <Text style={{ fontSize: 14 }}>✏️</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[s.ghostPill, !isVisible && s.ghosted, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
             onPress={() => {
@@ -220,6 +233,40 @@ export default function NearbyScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Edit Nearby Bio Modal */}
+      <Modal visible={showNearbyBioEdit} transparent animationType="slide">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowNearbyBioEdit(false)}>
+            <TouchableOpacity activeOpacity={1} style={[s.bioEditSheet, { backgroundColor: themeColors.card }]}>
+              <View style={s.bioEditHandle} />
+              <Text style={[s.bioEditTitle, { color: themeColors.txt }]}>✏️ Your Nearby Identity</Text>
+              <Text style={[s.bioEditSubtitle, { color: themeColors.txt3 }]}>This is what people nearby see about you</Text>
+              <TextInput
+                style={[s.bioEditInput, { color: themeColors.txt, borderColor: themeColors.bdr, backgroundColor: themeColors.bg }]}
+                placeholder="Write something about yourself... (e.g. 3rd year CSE, loves chess, up for chai ☕)"
+                placeholderTextColor={themeColors.txt3}
+                value={nearbyBioInput}
+                onChangeText={setNearbyBioInput}
+                maxLength={100}
+                multiline
+                autoFocus
+              />
+              <Text style={{ color: themeColors.txt3, fontSize: 11, textAlign: 'right', marginTop: 4 }}>{nearbyBioInput.length}/100</Text>
+              <TouchableOpacity
+                style={[s.bioSaveBtn, { backgroundColor: isDark ? LIME : '#3f6212' }]}
+                onPress={() => {
+                  updateProfile({ nearbyBio: nearbyBioInput.trim() });
+                  setShowNearbyBioEdit(false);
+                  triggerHaptic('impact');
+                }}
+              >
+                <Text style={{ color: isDark ? '#000' : '#fff', fontWeight: '800', fontSize: 15 }}>Save</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* RADAR */}
       <View style={s.radarSection}>
@@ -287,6 +334,9 @@ export default function NearbyScreen() {
             const isVeryClose = item.distance < 250;
             const isActionPending = activeActionUserId === item._id;
             const isAnyActionPending = !!activeActionUserId;
+            // Nearby bio: prefer item.nearbyBio, fallback to item.bio
+            const displayBio = item.nearbyBio || item.bio;
+            const tags: string[] = item.tags || [];
             return (
               <View style={[
                 s.personCard, 
@@ -312,13 +362,23 @@ export default function NearbyScreen() {
                 </View>
                 <View style={s.cardInfo}>
                   <Text style={[s.cardName, { color: themeColors.txt }]}>{item.name}</Text>
-                  {!!item.bio && (
+                  {!!displayBio && (
                     <Text
                       style={[s.cardBio, { color: themeColors.txt3 }]}
-                      numberOfLines={1}
+                      numberOfLines={2}
                     >
-                      {item.bio}
+                      {displayBio}
                     </Text>
+                  )}
+                  {/* Tags chips */}
+                  {tags.length > 0 && (
+                    <View style={s.tagsRow}>
+                      {tags.slice(0, 3).map((tag, idx) => (
+                        <View key={idx} style={[s.tagChip, { backgroundColor: isDark ? 'rgba(200,245,58,0.08)' : 'rgba(63,98,18,0.07)', borderColor: isDark ? 'rgba(200,245,58,0.15)' : 'rgba(63,98,18,0.15)' }]}>
+                          <Text style={[s.tagChipTxt, { color: isDark ? LIME : '#3f6212' }]}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
                   )}
                   <View style={s.cardMeta}>
                     <View style={[
@@ -436,12 +496,15 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },
   sortBtn: { fontSize: 11, fontWeight: '600' },
 
-  personCard: { borderWidth: 1, borderRadius: 18, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 8 },
+  personCard: { borderWidth: 1, borderRadius: 18, padding: 14, flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 8 },
   veryCloseCard: { borderColor: 'rgba(200, 245, 58, 0.15)', backgroundColor: 'rgba(200, 245, 58, 0.02)' },
-  cardEmoji: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  cardEmoji: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   cardInfo: { flex: 1 },
-  cardName: { fontSize: 15, fontWeight: '700', marginBottom: 1 },
-  cardBio: { fontSize: 11, fontWeight: '400', marginBottom: 2, opacity: 0.7 },
+  cardName: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  cardBio: { fontSize: 12, fontWeight: '400', marginBottom: 4, lineHeight: 16 },
+  tagsRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
+  tagChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, borderWidth: 1 },
+  tagChipTxt: { fontSize: 10, fontWeight: '700' },
   cardMeta: { flexDirection: 'row', alignItems: 'center' },
   zoneBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   zoneClose: { },
@@ -464,4 +527,12 @@ const s = StyleSheet.create({
   costTxt: { fontSize: 10, fontWeight: '800' },
   potatoPill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 },
   potatoCount: { fontSize: 12, fontWeight: '800' },
+  // Nearby Bio Edit Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  bioEditSheet: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40 },
+  bioEditHandle: { width: 40, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  bioEditTitle: { fontSize: 20, fontWeight: '800', marginBottom: 4 },
+  bioEditSubtitle: { fontSize: 13, marginBottom: 16 },
+  bioEditInput: { borderWidth: 1, borderRadius: 16, padding: 14, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },
+  bioSaveBtn: { marginTop: 16, paddingVertical: 14, borderRadius: 16, alignItems: 'center' },
 });

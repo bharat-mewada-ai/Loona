@@ -29,18 +29,61 @@ export default function NotificationsScreen() {
   // Flatten the pages into a single array for the FlatList
   const notifications = data?.pages.flatMap(page => page.notifications) || [];
 
+  // Group consecutive message notifications from the same sender
+  const groupedNotifications = React.useMemo(() => {
+    const result: any[] = [];
+    let i = 0;
+    while (i < notifications.length) {
+      const current = notifications[i];
+      // Check if this is a message notification
+      if (current.type === 'message') {
+        // Collect consecutive messages from same chat
+        const chatId = current.data?.chatId;
+        const senderKey = current.sender?._id || current.sender || chatId;
+        let j = i + 1;
+        while (
+          j < notifications.length &&
+          notifications[j].type === 'message' &&
+          (notifications[j].sender?._id || notifications[j].sender || notifications[j].data?.chatId) === senderKey
+        ) {
+          j++;
+        }
+        const count = j - i;
+        if (count > 1) {
+          // Create a grouped notification
+          result.push({
+            ...current,
+            _id: `group_${current._id}`,
+            _isGroup: true,
+            _groupCount: count,
+            title: current.sender?.name ? `${current.sender.name}` : current.title,
+            body: `${count} new messages`,
+          });
+        } else {
+          result.push(current);
+        }
+        i = j;
+      } else {
+        result.push(current);
+        i++;
+      }
+    }
+    return result;
+  }, [notifications]);
+
   useEffect(() => {
     markRead();
   }, []);
 
-  const renderIcon = (type: string) => {
+  const renderIcon = (type: string, isGroup?: boolean) => {
+    if (isGroup) return '💬';
     switch (type) {
       case 'upvote': return '🥔';
       case 'reaction': return '✨';
       case 'comment': return '💬';
       case 'mention': return '🏷️';
       case 'wave': return '👋';
-      case 'message': return '💌';
+      case 'message': return '📬';
       default: return '🔔';
     }
   };
@@ -76,7 +119,7 @@ export default function NotificationsScreen() {
         <EmptyState type="notifications" />
       ) : (
         <FlatList
-          data={notifications}
+          data={groupedNotifications}
           keyExtractor={(item) => item._id}
           onRefresh={refetch}
           refreshing={isLoading}
@@ -93,14 +136,25 @@ export default function NotificationsScreen() {
           }
           renderItem={({ item }) => (
             <TouchableOpacity 
-              style={[s.item, { borderBottomColor: themeColors.bdr }]}
+              style={[
+                s.item, 
+                { borderBottomColor: themeColors.bdr },
+                item._isGroup && { backgroundColor: isDark ? 'rgba(200,245,58,0.03)' : 'rgba(63,98,18,0.03)' }
+              ]}
               onPress={() => handlePress(item)}
             >
-              <View style={s.iconWrap}>
-                <Text style={s.icon}>{renderIcon(item.type)}</Text>
+              <View style={[s.iconWrap, item._isGroup && { backgroundColor: isDark ? 'rgba(200,245,58,0.12)' : 'rgba(63,98,18,0.08)' }]}>
+                <Text style={s.icon}>{renderIcon(item.type, item._isGroup)}</Text>
               </View>
               <View style={s.content}>
-                <Text style={[s.title, { color: themeColors.txt }]}>{item.title}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[s.title, { color: themeColors.txt, flex: 1 }]}>{item.title}</Text>
+                  {item._isGroup && (
+                    <View style={[s.countBadge, { backgroundColor: isDark ? 'rgba(200,245,58,0.15)' : 'rgba(63,98,18,0.1)' }]}>
+                      <Text style={{ color: isDark ? '#c8f53a' : '#3f6212', fontSize: 10, fontWeight: '900' }}>{item._groupCount}</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={[s.body, { color: themeColors.txt2 }]}>{item.body}</Text>
                 <Text style={[s.time, { color: themeColors.txt3 }]}>
                   {formatDistanceToNow(item.createdAt)}
@@ -196,4 +250,6 @@ const s = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Syne_700Bold',
   },
+  // Grouped notification count badge
+  countBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10, minWidth: 22, alignItems: 'center' },
 });

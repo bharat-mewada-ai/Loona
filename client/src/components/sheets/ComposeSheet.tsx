@@ -61,6 +61,11 @@ export default function ComposeSheet() {
   const [externalLink, setExternalLink] = useState(''); // for tickets or offers
   const [isExclusive, setIsExclusive] = useState(false);
 
+  // Song attachment (Instagram-style music sticker)
+  const [showSongInput, setShowSongInput] = useState(false);
+  const [songName, setSongName] = useState('');
+  const [songArtist, setSongArtist] = useState('');
+
   // Auto-set burn status for stories
   useEffect(() => {
     if (composeType === 'stories') {
@@ -273,11 +278,14 @@ export default function ComposeSheet() {
         isPoll,
         pollOptions: isPoll ? cleanOptions : undefined,
         location: userLocation ? { type: 'Point', coordinates: [userLocation.longitude, userLocation.latitude] } : undefined,
+        songName: songName.trim() || undefined,
+        songArtist: songArtist.trim() || undefined,
       },
       {
         onSuccess: () => {
           setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false); setPollOptions(['', '']);
           setEventLocation('');
+          setSongName(''); setSongArtist(''); setShowSongInput(false);
           closeComposeSheet();
         },
         onError: (error: any) => {
@@ -292,6 +300,7 @@ export default function ComposeSheet() {
   const handleClose = () => {
     setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false);
     setOfferBrand(''); setOfferDiscount(''); setExternalLink(''); setIsExclusive(false);
+    setSongName(''); setSongArtist(''); setShowSongInput(false);
     closeComposeSheet();
   };
   return (
@@ -634,7 +643,44 @@ export default function ComposeSheet() {
                 }}>
                   <Ionicons name={isPoll ? "bar-chart" : "bar-chart-outline"} size={22} color={isPoll ? themeColors.ogi : themeColors.txt2} />
                 </TouchableOpacity>
+                {/* Song attach button */}
+                <TouchableOpacity style={s.aBtn} onPress={() => setShowSongInput(v => !v)}>
+                  <Ionicons name={showSongInput || songName ? "musical-notes" : "musical-notes-outline"} size={22} color={showSongInput || songName ? '#c8f53a' : themeColors.txt2} />
+                </TouchableOpacity>
               </View>
+
+              {/* Song Input Panel */}
+              {showSongInput && (
+                <View style={[s.songPanel, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 16 }}>🎵</Text>
+                      <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }}>Add Song</Text>
+                    </View>
+                    {!!songName && (
+                      <TouchableOpacity onPress={() => { setSongName(''); setSongArtist(''); }}>
+                        <Text style={{ color: themeColors.txt3, fontSize: 12 }}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <TextInput
+                    style={[s.songInput, { color: themeColors.txt, borderColor: themeColors.bdr, backgroundColor: themeColors.bg }]}
+                    placeholder="Song name (e.g. Tum Hi Ho)"
+                    placeholderTextColor={themeColors.txt3}
+                    value={songName}
+                    onChangeText={setSongName}
+                    maxLength={80}
+                  />
+                  <TextInput
+                    style={[s.songInput, { color: themeColors.txt, borderColor: themeColors.bdr, backgroundColor: themeColors.bg, marginTop: 8 }]}
+                    placeholder="Artist name (e.g. Arijit Singh)"
+                    placeholderTextColor={themeColors.txt3}
+                    value={songArtist}
+                    onChangeText={setSongArtist}
+                    maxLength={60}
+                  />
+                </View>
+              )}
               <View style={{ height: 40 }} />
             </ScrollView>
           </Pressable>
@@ -697,4 +743,7 @@ const s = StyleSheet.create({
   topPostBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
   confirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   charCount: { fontSize: 11, fontWeight: '600', textAlign: 'right', marginTop: 4, marginBottom: 8 },
+  // Song attachment panel
+  songPanel: { borderWidth: 1, borderRadius: 16, padding: 14, marginTop: 12, marginBottom: 4 },
+  songInput: { height: 42, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 14 },
 });

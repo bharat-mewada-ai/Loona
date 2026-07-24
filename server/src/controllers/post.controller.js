@@ -31,7 +31,7 @@ export const createPost = async (req, res) => {
   const {
     title, body, type, burnAfter24h, image, images,
     eventDate, eventLocation, offerBrand, offerDiscount, externalLink, isExclusive,
-    isPoll, pollOptions
+    isPoll, pollOptions, songName, songArtist
   } = req.body;
 
   // Always use the authenticated user's campus from the DB — never trust the client-sent value.
@@ -123,6 +123,9 @@ export const createPost = async (req, res) => {
     hashtags: `${safeTitle} ${body || ""}`.match(/#[a-zA-Z0-9_]+/g) 
       ? [...new Set(`${safeTitle} ${body || ""}`.match(/#[a-zA-Z0-9_]+/g).map(t => t.toLowerCase()))] 
       : [],
+    // Music sticker
+    songName: songName ? String(songName).slice(0, 100) : undefined,
+    songArtist: songArtist ? String(songArtist).slice(0, 100) : undefined,
   };
 
   const post = await Post.create(postData);

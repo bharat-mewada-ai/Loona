@@ -30,6 +30,7 @@ export interface User {
   dailyPostsCount?: number;
   questsCompletedToday?: boolean;
   lastQuestResetDate?: string;
+  nearbyBio?: string; // Custom "about me" shown on nearby screen
 }
 
 export interface Post {
@@ -85,6 +86,9 @@ export interface Post {
   offerDiscount?: string;
   isSaved?: boolean;
   externalLink?: string;
+  songName?: string;    // Song attached to post/story
+  songArtist?: string;  // Artist of attached song
+  images?: string[];    // Multiple images array
 }
 
 export interface AuthResponse {
