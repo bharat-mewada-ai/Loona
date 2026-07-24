@@ -54,15 +54,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   });
 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [soundObj, setSoundObj] = useState<Audio.Sound | null>(null);
+  const [showReelModal, setShowReelModal] = useState(false);
 
-  React.useEffect(() => {
-    return () => {
-      if (soundObj) {
-        soundObj.unloadAsync();
-      }
-    };
-  }, [soundObj]);
 
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -341,24 +334,32 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
         )}
       </View>
 
-      {/* 🎵 Song Badge & Audio Player */}
+      {/* 🎵 Instagram-Style Music Banner Sticker */}
       {!!post.songName && (
-        <View style={[s.songBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+        <TouchableOpacity 
+          style={[s.songBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}
+          onPress={() => setShowReelModal(true)}
+          activeOpacity={0.8}
+        >
           {post.songCoverUrl ? (
-            <Image source={{ uri: post.songCoverUrl }} style={{ width: 36, height: 36, borderRadius: 8 }} />
+            <Image source={{ uri: post.songCoverUrl }} style={{ width: 38, height: 38, borderRadius: 10 }} />
           ) : (
             <View style={s.songIconWrap}>
-              <Text style={{ fontSize: 13 }}>🎵</Text>
+              <Text style={{ fontSize: 14 }}>🎵</Text>
             </View>
           )}
           <View style={{ flex: 1, overflow: 'hidden' }}>
-            <Text style={[s.songName, { color: themeColors.txt }]} numberOfLines={1}>{post.songName}</Text>
-            {!!post.songArtist && <Text style={[s.songArtist, { color: themeColors.txt3 }]} numberOfLines={1}>{post.songArtist}</Text>}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={[s.songName, { color: themeColors.txt }]} numberOfLines={1}>{post.songName}</Text>
+              <Text style={{ fontSize: 11 }}>🎶</Text>
+            </View>
+            {!!post.songArtist && <Text style={[s.songArtist, { color: themeColors.txt3 }]} numberOfLines={1}>{post.songArtist} · Original Audio</Text>}
           </View>
           {!!post.songAudioUrl && (
             <TouchableOpacity
-              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: themeColors.ogi, alignItems: 'center', justifyContent: 'center' }}
-              onPress={() => {
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: themeColors.ogi, alignItems: 'center', justifyContent: 'center' }}
+              onPress={(e) => {
+                e.stopPropagation();
                 if (isPlayingAudio) {
                   soundManager.stop();
                   setIsPlayingAudio(false);
@@ -373,8 +374,61 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               <Ionicons name={isPlayingAudio ? "pause" : "play"} size={16} color={isDark ? '#000' : '#fff'} />
             </TouchableOpacity>
           )}
-        </View>
+        </TouchableOpacity>
       )}
+
+      {/* 🎬 Instagram-Style Reel Music Modal */}
+      <Modal visible={showReelModal} transparent animationType="slide" onRequestClose={() => setShowReelModal(false)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={() => setShowReelModal(false)}>
+          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: isDark ? '#121217' : '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, alignItems: 'center' }}>
+            <View style={{ width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, marginBottom: 20 }} />
+            
+            {/* Spinning Album Artwork */}
+            <View style={{ width: 140, height: 140, borderRadius: 70, overflow: 'hidden', borderWidth: 4, borderColor: themeColors.ogi, marginBottom: 16, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 }}>
+              {post.songCoverUrl ? (
+                <Image source={{ uri: post.songCoverUrl }} style={{ width: '100%', height: '100%' }} />
+              ) : (
+                <View style={{ width: '100%', height: '100%', backgroundColor: themeColors.card2, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 48 }}>🎵</Text>
+                </View>
+              )}
+            </View>
+
+            <Text style={{ color: themeColors.txt, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>{post.songName}</Text>
+            <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '500', marginTop: 4, textAlign: 'center' }}>{post.songArtist || 'Original Audio'} · Audio Preview</Text>
+
+            {/* Play/Pause Large Button */}
+            {!!post.songAudioUrl && (
+              <TouchableOpacity
+                onPress={() => {
+                  if (isPlayingAudio) {
+                    soundManager.stop();
+                    setIsPlayingAudio(false);
+                  } else {
+                    setIsPlayingAudio(true);
+                    soundManager.play(post.songAudioUrl!, () => {
+                      setIsPlayingAudio(false);
+                    });
+                  }
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: themeColors.ogi, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 30, marginTop: 24 }}
+              >
+                <Ionicons name={isPlayingAudio ? "pause" : "play"} size={22} color={isDark ? '#000' : '#fff'} />
+                <Text style={{ color: isDark ? '#000' : '#fff', fontWeight: '800', fontSize: 16 }}>
+                  {isPlayingAudio ? 'Pause Audio' : 'Play Song Preview'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity 
+              onPress={() => setShowReelModal(false)}
+              style={{ marginTop: 20, paddingVertical: 10 }}
+            >
+              <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {post.isPoll && post.pollOptions && (
         <View style={s.pollWrap}>

@@ -315,7 +315,7 @@ export default function ComposeSheet() {
   return (
     <Modal visible={showComposeSheet} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={s.overlay} onPress={handleClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%', maxHeight: '92%', justifyContent: 'flex-end' }}>
           <Pressable style={[s.sheet, { backgroundColor: themeColors.card }]} onPress={(e) => e.stopPropagation()}>
             <View style={s.handle} />
             
@@ -357,7 +357,7 @@ export default function ComposeSheet() {
               </Text>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {(composeType === 'events' || composeType === 'bhandara') && (
                 <View style={[s.eventFields, { backgroundColor: themeColors.card2, padding: 12, borderRadius: 16, marginBottom: 16 }]}>
                   <TouchableOpacity 
@@ -792,7 +792,7 @@ export default function ComposeSheet() {
 
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 20, minHeight: '70%' },
+  sheet: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 20, maxHeight: '88%', flexDirection: 'column' },
   handle: { width: 40, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   sHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 24, fontFamily: 'Syne_700Bold' },
