@@ -327,7 +327,7 @@ export default function ComposeSheet() {
   return (
     <Modal visible={showComposeSheet} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={s.overlay} onPress={handleClose}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%', maxHeight: '92%', justifyContent: 'flex-end' }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', height: '85%', justifyContent: 'flex-end' }}>
           <Pressable style={[s.sheet, { backgroundColor: themeColors.card }]} onPress={(e) => e.stopPropagation()}>
             <View style={s.handle} />
             
@@ -343,6 +343,20 @@ export default function ComposeSheet() {
                 </TouchableOpacity>
                 <Text style={[s.title, { color: themeColors.txt }]}>New Post</Text>
               </View>
+              
+              <TouchableOpacity 
+                style={[s.topPostBtn, { backgroundColor: themeColors.ogi }, (isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)))) && { opacity: 0.5 }]} 
+                onPress={handleSubmit} 
+                disabled={isPending || (composeType === 'confess' ? !body.trim() : (!title.trim() && !(composeType === 'stories' && cdnUrls.length > 0)))}
+                accessibilityRole="button"
+                accessibilityLabel="Post your content"
+              >
+                {isPending ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={s.topPostBtnTxt}>Post</Text>
+                )}
+              </TouchableOpacity>
             </View>
 
             <View style={s.authorRow}>
@@ -786,7 +800,7 @@ export default function ComposeSheet() {
 
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 20, maxHeight: '88%', flexDirection: 'column' },
+  sheet: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 20, height: '100%', flexDirection: 'column' },
   handle: { width: 40, height: 4, backgroundColor: '#333', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   sHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 24, fontFamily: 'Syne_700Bold' },
