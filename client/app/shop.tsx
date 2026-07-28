@@ -71,11 +71,9 @@ export default function ShopScreen() {
   const [newTitle,       setNewTitle]       = useState('');
   const [newDesc,        setNewDesc]        = useState('');
   const [newPrice,       setNewPrice]       = useState('');
-  const [newUpi,         setNewUpi]         = useState('');
   const [newContact,     setNewContact]     = useState('');
   const [newCategory,    setNewCategory]    = useState<ShopCategory>('books');
   const [wantFeatured,   setWantFeatured]   = useState(false);
-  const [paymentMethod,  setPaymentMethod]  = useState<'potato' | 'razorpay'>('potato');
   const [images,         setImages]         = useState<string[]>([]);
   const [isUploading,    setIsUploading]    = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -119,23 +117,17 @@ export default function ShopScreen() {
 
   const resetForm = () => {
     setNewTitle(''); setNewDesc(''); setNewPrice('');
-    setNewUpi(''); setNewContact('');
+    setNewContact('');
     setNewCategory('books'); setWantFeatured(false);
-    setPaymentMethod('potato');
     setImages([]);
   };
 
   const handleCreateListing = async () => {
-    if (!newTitle.trim() || !newPrice || !newUpi.trim()) {
-      Alert.alert('Missing Info', 'Please fill in title, price, and UPI ID.');
+    if (!newTitle.trim() || !newPrice) {
+      Alert.alert('Missing Info', 'Please fill in item name and price.');
       return;
     }
-    // GAP 5 — UPI format validation
-    if (!newUpi.trim().includes('@')) {
-      Alert.alert('Invalid UPI ID', 'UPI ID must contain "@" (e.g. yourname@upi).');
-      return;
-    }
-    // GAP 5 — Phone number validation (10 digits if provided)
+    // Phone number validation (10 digits if provided)
     if (newContact.trim() && newContact.replace(/\D/g, '').length !== 10) {
       Alert.alert('Invalid Phone', 'Please enter a valid 10-digit WhatsApp/phone number.');
       return;
@@ -146,82 +138,47 @@ export default function ShopScreen() {
       return;
     }
 
-    if (paymentMethod === 'potato') {
-      const potatoCost = wantFeatured ? 300 : 150;
-      const currentPotato = user?.potato ?? 0;
-      if (currentPotato < potatoCost) {
-        Alert.alert(
-          'Insufficient Potatoes',
-          `You need ${potatoCost} 🥔 Potatoes to list this item. You have ${currentPotato} 🥔.\n\nPlease choose UPI payment or earn more potatoes.`
-        );
-        return;
-      }
-
+    const potatoCost = wantFeatured ? 300 : 150;
+    const currentPotato = user?.potato ?? 0;
+    if (currentPotato < potatoCost) {
       Alert.alert(
-        'Confirm Listing',
-        `Use ${potatoCost} 🥔 Potatoes to list this item?\n\nProceed to list?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: `List for ${potatoCost} 🥔`,
-            onPress: async () => {
-              try {
-                setShowCreate(false);
-                await createListing({
-                  title: newTitle.trim(),
-                  description: newDesc.trim(),
-                  price: priceNum,
-                  category: newCategory,
-                  sellerUpi: newUpi.trim(),
-                  sellerContact: newContact.trim(),
-                  wantFeatured,
-                  paymentMethod: 'potato',
-                  image: images[0] || undefined,
-                  images: images,
-                });
-                resetForm();
-                Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
-              } catch (e) {
-                // errors handled in hook
-              }
-            },
-          },
-        ]
+        'Insufficient Potatoes',
+        `You need ${potatoCost} 🥔 Potatoes to list this item. You have ${currentPotato} 🥔.\n\nEarn more potatoes by posting and getting upvotes!`
       );
-    } else {
-      const totalFee = wantFeatured ? LISTING_FEE + BOOST_FEE : LISTING_FEE;
-      Alert.alert(
-        'Pay Listing Fee',
-        `A fee of ₹${totalFee} will be charged:\n• ₹${LISTING_FEE} listing fee${wantFeatured ? `\n• ₹${BOOST_FEE} featured boost` : ''}\n\nProceed to payment?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: `Pay ₹${totalFee}`,
-            onPress: async () => {
-              try {
-                setShowCreate(false);
-                await createListing({
-                  title: newTitle.trim(),
-                  description: newDesc.trim(),
-                  price: priceNum,
-                  category: newCategory,
-                  sellerUpi: newUpi.trim(),
-                  sellerContact: newContact.trim(),
-                  wantFeatured,
-                  paymentMethod: 'razorpay',
-                  image: images[0] || undefined,
-                  images: images,
-                });
-                resetForm();
-                Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
-              } catch (e) {
-                // errors handled in hook
-              }
-            },
-          },
-        ]
-      );
+      return;
     }
+
+    Alert.alert(
+      'Confirm Listing',
+      `Use ${potatoCost} 🥔 Potatoes to list this item?\n\nBuyers will contact you on campus to exchange.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `List for ${potatoCost} 🥔`,
+          onPress: async () => {
+            try {
+              setShowCreate(false);
+              await createListing({
+                title: newTitle.trim(),
+                description: newDesc.trim(),
+                price: priceNum,
+                category: newCategory,
+                sellerUpi: '',
+                sellerContact: newContact.trim(),
+                wantFeatured,
+                paymentMethod: 'potato',
+                image: images[0] || undefined,
+                images: images,
+              });
+              resetForm();
+              Alert.alert('🎉 Listed!', 'Your item is now live on the campus shop.');
+            } catch (e) {
+              // errors handled in hook
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDeleteListing = (item: ShopItem) => {
@@ -252,42 +209,17 @@ export default function ShopScreen() {
     );
   };
 
-  // GAP 2 fix — proper contact flow with clipboard copy + direct WhatsApp
+  // Contact seller — WhatsApp only
   const handleContactSeller = (item: ShopItem) => {
-    const hasUpi = !!item.sellerUpi?.trim();
     const hasContact = !!item.sellerContact?.trim();
 
-    if (!hasUpi && !hasContact) {
-      Alert.alert('No Contact Info', 'This seller has not added any contact details. Try sending them an in-app message.');
+    if (!hasContact) {
+      Alert.alert('No Contact Info', 'This seller has no WhatsApp number. Try sending them an in-app message.');
       return;
     }
 
-    const buttons: any[] = [{ text: 'Close', style: 'cancel' }];
-
-    if (hasUpi) {
-      buttons.push({
-        text: '📋 Copy UPI ID',
-        onPress: () => {
-          Clipboard.setString(item.sellerUpi);
-          Alert.alert('Copied!', `UPI ID copied: ${item.sellerUpi}\n\nOpen your UPI app and pay ₹${item.price}.`);
-        },
-      });
-    }
-    if (hasContact) {
-      buttons.push({
-        text: '💬 WhatsApp',
-        onPress: () => {
-          const phone = item.sellerContact.replace(/\D/g, '');
-          Linking.openURL(`https://wa.me/91${phone}?text=Hi! I'm interested in your listing on Loona: "${item.title}" (₹${item.price}). Is it still available?`);
-        },
-      });
-    }
-
-    Alert.alert(
-      `Contact Seller`,
-      `${hasUpi ? `UPI ID: ${item.sellerUpi}` : ''}${hasUpi && hasContact ? '\n' : ''}${hasContact ? `WhatsApp: ${item.sellerContact}` : ''}`,
-      buttons
-    );
+    const phone = item.sellerContact.replace(/\D/g, '');
+    Linking.openURL(`https://wa.me/91${phone}?text=Hi! I'm interested in your listing on Loona: "${item.title}" (₹${item.price}). Is it still available? Let's meet on campus 🙏`);
   };
 
   // GAP 3 fix — in-app chat with seller
@@ -670,18 +602,18 @@ export default function ShopScreen() {
 
                   {!isMine && (
                     <View style={{ gap: 12 }}>
-                      {/* Primary: Contact seller (UPI copy + WhatsApp) */}
-                      {(!!selectedItem.sellerUpi || !!selectedItem.sellerContact) ? (
+                      {/* Primary: WhatsApp Contact */}
+                      {!!selectedItem.sellerContact && (
                         <TouchableOpacity
-                          style={[s.buyBtn, { backgroundColor: LIME }]}
+                          style={[s.buyBtn, { backgroundColor: '#25D366' }]}
                           onPress={() => {
                             setSelectedItem(null);
                             setTimeout(() => handleContactSeller(selectedItem), 400);
                           }}
                         >
-                          <Text style={s.buyBtnTxt}>💳 Pay ₹{selectedItem.price} · Contact Seller</Text>
+                          <Text style={[s.buyBtnTxt, { color: '#FFF' }]}>💬 Contact on WhatsApp</Text>
                         </TouchableOpacity>
-                      ) : null}
+                      )}
 
                       {/* In-app message — always available */}
                       <TouchableOpacity
@@ -709,7 +641,7 @@ export default function ShopScreen() {
                   )}
 
                   <Text style={[s.payNote, { color: themeColors.txt3 }]}>
-                    Payment is peer-to-peer via UPI. Coordinate pickup on campus.
+                    🏫 Meet on campus to exchange. No digital payment needed.
                   </Text>
                 </>
               );
@@ -803,20 +735,10 @@ export default function ShopScreen() {
                   keyboardType="numeric"
                 />
 
-                <Text style={s.inputLabel}>YOUR UPI ID * (buyer pays you directly)</Text>
-                <TextInput
-                  style={[s.input, { backgroundColor: themeColors.card2, color: themeColors.txt }]}
-                  placeholder="e.g., yourname@upi"
-                  placeholderTextColor={themeColors.txt3}
-                  value={newUpi}
-                  onChangeText={setNewUpi}
-                  autoCapitalize="none"
-                />
-
                 <Text style={s.inputLabel}>WHATSAPP / PHONE (optional)</Text>
                 <TextInput
                   style={[s.input, { backgroundColor: themeColors.card2, color: themeColors.txt }]}
-                  placeholder="e.g., 9876543210"
+                  placeholder="e.g., 9876543210 (buyers will contact you here)"
                   placeholderTextColor={themeColors.txt3}
                   value={newContact}
                   onChangeText={setNewContact}

@@ -83,9 +83,17 @@ export default function NotificationsScreen() {
       case 'comment': return '💬';
       case 'mention': return '🏷️';
       case 'wave': return '👋';
-      case 'message': return '📬';
+      case 'message': return '📨';
       default: return '🔔';
     }
+  };
+
+  const getIconBg = (type: string, isGroup?: boolean, isDk?: boolean) => {
+    if (type === 'message' || isGroup) return isDk ? 'rgba(200,245,58,0.12)' : 'rgba(63,98,18,0.08)';
+    if (type === 'upvote') return isDk ? 'rgba(255,107,53,0.12)' : 'rgba(255,107,53,0.08)';
+    if (type === 'comment') return isDk ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.08)';
+    if (type === 'wave') return isDk ? 'rgba(168,85,247,0.12)' : 'rgba(168,85,247,0.08)';
+    return 'rgba(255,255,255,0.05)';
   };
 
   const handlePress = (notif: any) => {
@@ -139,28 +147,35 @@ export default function NotificationsScreen() {
               style={[
                 s.item, 
                 { borderBottomColor: themeColors.bdr },
-                item._isGroup && { backgroundColor: isDark ? 'rgba(200,245,58,0.03)' : 'rgba(63,98,18,0.03)' }
+                !item.read && { backgroundColor: isDark ? 'rgba(255,107,53,0.04)' : 'rgba(255,107,53,0.03)' },
+                (item.type === 'message' || item._isGroup) && { backgroundColor: isDark ? 'rgba(200,245,58,0.03)' : 'rgba(63,98,18,0.025)' },
               ]}
               onPress={() => handlePress(item)}
             >
-              <View style={[s.iconWrap, item._isGroup && { backgroundColor: isDark ? 'rgba(200,245,58,0.12)' : 'rgba(63,98,18,0.08)' }]}>
+              {/* Unread indicator stripe */}
+              {!item.read && (
+                <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, borderRadius: 2, backgroundColor: themeColors.ogi }} />
+              )}
+
+              <View style={[s.iconWrap, { backgroundColor: getIconBg(item.type, item._isGroup, isDark) }]}>
                 <Text style={s.icon}>{renderIcon(item.type, item._isGroup)}</Text>
+                {/* Count badge for grouped notifications */}
+                {item._isGroup && (
+                  <View style={[s.countBadge, { backgroundColor: isDark ? '#c8f53a' : '#3f6212', position: 'absolute', top: -4, right: -4 }]}>
+                    <Text style={{ color: isDark ? '#000' : '#fff', fontSize: 9, fontWeight: '900' }}>{item._groupCount}</Text>
+                  </View>
+                )}
               </View>
+
               <View style={s.content}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[s.title, { color: themeColors.txt, flex: 1 }]}>{item.title}</Text>
-                  {item._isGroup && (
-                    <View style={[s.countBadge, { backgroundColor: isDark ? 'rgba(200,245,58,0.15)' : 'rgba(63,98,18,0.1)' }]}>
-                      <Text style={{ color: isDark ? '#c8f53a' : '#3f6212', fontSize: 10, fontWeight: '900' }}>{item._groupCount}</Text>
-                    </View>
-                  )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <Text style={[s.title, { color: themeColors.txt, flex: 1 }]} numberOfLines={1}>{item.title}</Text>
+                  <Text style={[s.time, { color: themeColors.txt3 }]}>{formatDistanceToNow(item.createdAt)}</Text>
                 </View>
-                <Text style={[s.body, { color: themeColors.txt2 }]}>{item.body}</Text>
-                <Text style={[s.time, { color: themeColors.txt3 }]}>
-                  {formatDistanceToNow(item.createdAt)}
+                <Text style={[s.body, { color: item._isGroup ? themeColors.txt2 : themeColors.txt3 }]} numberOfLines={2}>
+                  {item._isGroup ? `${item._groupCount} new messages` : item.body}
                 </Text>
               </View>
-              {!item.read && <View style={s.unreadDot} />}
             </TouchableOpacity>
           )}
           ListHeaderComponent={() => (

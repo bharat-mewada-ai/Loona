@@ -222,7 +222,7 @@ export default function StoryViewer() {
                   {story.songCoverUrl ? (
                     <Image source={{ uri: story.songCoverUrl }} style={{ width: 22, height: 22, borderRadius: 4 }} />
                   ) : (
-                    <Text style={{ fontSize: 14 }}>🎵</Text>
+                    <Ionicons name="musical-notes" size={16} color="#FFF" />
                   )}
                   <Text style={s.songTickerTxt} numberOfLines={1}>
                     {story.songName}{story.songArtist ? ` — ${story.songArtist}` : ''}

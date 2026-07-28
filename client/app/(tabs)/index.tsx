@@ -11,7 +11,7 @@ import {
   RefreshControl,
   Image,
 } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from "expo-location";
@@ -51,6 +51,7 @@ export default function Feed() {
   const toggleDark = useUIStore(s => s.toggleDark);
   const openComposeSheet = useUIStore(s => s.openComposeSheet);
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const isSneaking = activeCampus === 'all' || activeCampus !== user?.campus;
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading, refetch } = usePosts();
   const { mutate: deletePost } = useDeletePost();
@@ -425,7 +426,7 @@ export default function Feed() {
       {/* FAB - Hide if sneaking */}
       {!isSneaking && (
         <TouchableOpacity 
-          style={[s.fab, { backgroundColor: themeColors.ogi }]} 
+          style={[s.fab, { backgroundColor: themeColors.ogi, bottom: insets.bottom + 90 }]} 
           onPress={() => {
             // Never pass 'all' or 'place' as a post type — default to 'discussion'
             const type = (activeTab === 'all' || activeTab === 'place') ? 'discussion' : activeTab;
@@ -519,7 +520,7 @@ const s = StyleSheet.create({
   emptyContainer: { alignItems: 'center', marginTop: 80 },
   emptyEmoji: { fontSize: 64, marginBottom: 16 },
   emptyTxt: { fontSize: 15, fontFamily: 'PlusJakartaSans_400Regular' },
-  fab: { width: 60, height: 60, borderRadius: 30, position: 'absolute', bottom: 24, right: 24, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+  fab: { width: 60, height: 60, borderRadius: 30, position: 'absolute', right: 24, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   fabIcon: { color: '#FFF', fontSize: 32, fontWeight: '300' },
   rankPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, marginTop: -2 },
   rankTxt: { color: '#FFF', fontSize: 9, fontWeight: '900' },

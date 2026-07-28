@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
 import { Ionicons } from '@expo/vector-icons';
+import { useChats } from '../../src/hooks/useChat';
+import React from 'react';
 
 const THEME = {
   bg: '#0a0a0f',
@@ -21,6 +23,12 @@ function TabBar({ state, navigation }: any) {
   // insets.bottom = Android nav bar height (0 on gesture nav, ~48dp on 3-button nav)
   const insets = useSafeAreaInsets();
   const bottomPad = insets.bottom;
+
+  const { data: chats } = useChats();
+  const unreadCount = React.useMemo(() => {
+    if (!chats) return 0;
+    return chats.reduce((acc: number, c: any) => acc + (c.unread || 0), 0);
+  }, [chats]);
 
   const tabs = [
     { name: 'index',   icon: 'home-outline',      label: 'Feed'    },
@@ -68,11 +76,18 @@ function TabBar({ state, navigation }: any) {
             )}
 
             <View style={s.iconWrap}>
-              <Ionicons
-                name={tab.icon as any}
-                size={24}
-                color={focused ? activeColor : inactiveColor}
-              />
+              <View style={{ position: 'relative' }}>
+                <Ionicons
+                  name={tab.icon as any}
+                  size={24}
+                  color={focused ? activeColor : inactiveColor}
+                />
+                {tab.name === 'chats' && unreadCount > 0 && (
+                  <View style={s.badge}>
+                    <Text style={s.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={[s.niLabel, { color: focused ? activeColor : inactiveColor }]}>
                 {tab.label}
               </Text>
@@ -136,5 +151,25 @@ const s = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'PlusJakartaSans_600SemiBold',
     letterSpacing: 0.3,
+  },
+  badge: {
+    position: 'absolute',
+    right: -8,
+    top: -5,
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#0a0a0f',
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 8,
+    fontWeight: '900',
+    textAlign: 'center',
   },
 });

@@ -560,6 +560,35 @@ export default function ComposeSheet() {
                 </View>
               )}
 
+              {/* Attached Music Song Sticker Banner */}
+              {!!selectedTrack && (
+                <View style={[s.songPanel, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, marginTop: 12 }]}>
+                  {selectedTrack.artworkUrl ? (
+                    <Image source={{ uri: selectedTrack.artworkUrl }} style={{ width: 42, height: 42, borderRadius: 10 }} />
+                  ) : (
+                    <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="musical-notes" size={20} color={themeColors.ogi} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
+                      {selectedTrack.trackName}
+                    </Text>
+                    <Text style={{ color: themeColors.txt3, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                      {selectedTrack.artistName} · Song Attached
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setSelectedTrack(null)}
+                    style={{ padding: 6 }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove attached song"
+                  >
+                    <Ionicons name="close-circle" size={22} color={themeColors.txt3} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {isPoll && (
                 <View style={[s.pollInputs, { backgroundColor: themeColors.card2, padding: 16, borderRadius: 20, marginTop: 16 }]}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -750,7 +779,7 @@ export default function ComposeSheet() {
                       <Image source={{ uri: t.artworkUrl }} style={{ width: 48, height: 48, borderRadius: 10 }} />
                     ) : (
                       <View style={{ width: 48, height: 48, borderRadius: 10, backgroundColor: themeColors.card2, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ fontSize: 20 }}>🎵</Text>
+                        <Ionicons name="musical-notes" size={20} color={themeColors.txt3} />
                       </View>
                     )}
                     <View style={{ flex: 1 }}>

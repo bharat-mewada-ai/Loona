@@ -40,6 +40,8 @@ export const useNotifications = () => {
   const qc = useQueryClient();
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
+  // Track last notification ID per chatId so we can dismiss it before showing new grouped one
+  const pendingChatNotifs = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!user || !token) return;
@@ -77,10 +79,21 @@ export const useNotifications = () => {
     // Handle notifications in foreground & deep-linking
     if (Platform.OS !== 'web') {
       // Invalidate query when user receives potato-related notifications in foreground
-      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      notificationListener.current = Notifications.addNotificationReceivedListener(async notification => {
         const title = notification.request.content.title?.toLowerCase() || '';
         const body = notification.request.content.body?.toLowerCase() || '';
         const data = notification.request.content.data || {};
+
+        // Collapse chat notifications: dismiss old one from same chat, track new one
+        const chatId = data?.chatId as string | undefined;
+        if (chatId) {
+          const prevNotifId = pendingChatNotifs.current.get(chatId);
+          if (prevNotifId) {
+            await Notifications.dismissNotificationAsync(prevNotifId).catch(() => {});
+          }
+          pendingChatNotifs.current.set(chatId, notification.request.identifier);
+        }
+
         if (data?.type === 'potato_update' || title.includes('potato') || body.includes('potato')) {
           qc.invalidateQueries({ queryKey: ['me'] });
         }
@@ -88,11 +101,14 @@ export const useNotifications = () => {
 
       responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
         const data = response.notification.request.content.data;
+        const chatId = data?.chatId as string | undefined;
+        // Clean up tracking once user taps the notification
+        if (chatId) pendingChatNotifs.current.delete(chatId);
         
         if (data?.postId) {
           router.push(`/post/${data.postId}`); 
-        } else if (data?.chatId) {
-          router.push(`/chat/${data.chatId}`);
+        } else if (chatId) {
+          router.push(`/chat/${chatId}`);
         } else if (data?.type === 'wave' && data?.senderId) {
           router.push(`/user/${data.senderId}`);
         }
@@ -133,11 +149,13 @@ async function registerForPushNotificationsAsync() {
       vibrationPattern: [0, 200],
       lightColor: '#c8f53a',
       showBadge: true,
-      groupId: 'chat_group', // Android notification group
+      groupId: 'chat_group',
+      // Android groups all 'messages' channel notifications under one shade entry
     });
-    // Group summary channel
+    // Group summary channel — provides the collapsible header in notification shade
     await Notifications.setNotificationChannelGroupAsync('chat_group', {
       name: 'Chats',
+      description: 'All your Loona conversations',
     }).catch(() => {}); // May not be supported on older Android
   }
 

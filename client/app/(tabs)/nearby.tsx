@@ -14,11 +14,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useUIStore } from '../../src/store/uiStore';
 import { getColors } from '../../src/theme/colors';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { useWaveUser, useAuth, useNearby, useUpdateLocation, useUpdateProfile } from '../../src/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStartChat } from '../../src/hooks/useChat';
@@ -62,6 +63,8 @@ export default function NearbyScreen() {
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pingAnim = useRef(new Animated.Value(0)).current;
+  const fabScale = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
 
   const handleRefresh = async () => {
     triggerHaptic('impact');
@@ -126,6 +129,15 @@ export default function NearbyScreen() {
         setLocSynced(true);
       }
     })();
+
+    // FAB entrance spring
+    Animated.spring(fabScale, {
+      toValue: 1,
+      friction: 5,
+      tension: 120,
+      useNativeDriver: true,
+      delay: 400,
+    }).start();
 
     return () => sweep.stop();
   }, []);
@@ -200,26 +212,7 @@ export default function NearbyScreen() {
             <Text style={{ fontSize: 14 }}>🥔</Text>
             <Text style={[s.potatoCount, { color: isDark ? LIME : '#3f6212' }]}>{user?.potato || 0}</Text>
           </View>
-          {/* Edit nearby identity button */}
-          <TouchableOpacity
-            style={[s.iconBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
-            onPress={() => setShowNearbyBioEdit(true)}
-          >
-            <Text style={{ fontSize: 14 }}>✏️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.ghostPill, !isVisible && s.ghosted, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]}
-            onPress={() => {
-              const newVisible = !isVisible;
-              setIsVisible(newVisible);
-              updateProfile({ isPrivate: !newVisible });
-            }}
-          >
-            <View style={[s.dot, !isVisible && { backgroundColor: themeColors.txt3, shadowOpacity: 0 }]} />
-            <Text style={[s.ghostLabel, { color: !isVisible ? themeColors.txt3 : themeColors.txt }]}>
-              {isVisible ? 'visible' : 'ghosted'}
-            </Text>
-          </TouchableOpacity>
+          {/* Refresh button */}
           <TouchableOpacity 
             style={[s.iconBtn, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr }]} 
             onPress={handleRefresh}
@@ -228,7 +221,7 @@ export default function NearbyScreen() {
             {isRefreshing ? (
               <ActivityIndicator color={themeColors.ogi} size="small" />
             ) : (
-              <Text style={{ fontSize: 14 }}>🔄</Text>
+              <Ionicons name="refresh" size={16} color={themeColors.txt} />
             )}
           </TouchableOpacity>
         </View>
@@ -240,7 +233,10 @@ export default function NearbyScreen() {
           <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowNearbyBioEdit(false)}>
             <TouchableOpacity activeOpacity={1} style={[s.bioEditSheet, { backgroundColor: themeColors.card }]}>
               <View style={s.bioEditHandle} />
-              <Text style={[s.bioEditTitle, { color: themeColors.txt }]}>✏️ Your Nearby Identity</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <Ionicons name="pencil" size={20} color={themeColors.txt} />
+                <Text style={[s.bioEditTitle, { color: themeColors.txt, marginBottom: 0 }]}>Your Nearby Identity</Text>
+              </View>
               <Text style={[s.bioEditSubtitle, { color: themeColors.txt3 }]}>This is what people nearby see about you</Text>
               <TextInput
                 style={[s.bioEditInput, { color: themeColors.txt, borderColor: themeColors.bdr, backgroundColor: themeColors.bg }]}
@@ -438,6 +434,34 @@ export default function NearbyScreen() {
           )}
         />
       )}
+
+      {/* Pencil FAB — Edit Nearby Identity (same style as home + FAB) */}
+      <Animated.View
+        style={[
+          s.pencilFab,
+          {
+            bottom: insets.bottom + 90,
+            backgroundColor: isDark ? LIME : '#2d6a1e',
+            shadowColor: isDark ? LIME : '#2d6a1e',
+            transform: [{ scale: fabScale }],
+          },
+        ]}
+        pointerEvents="box-none"
+      >
+        <TouchableOpacity
+          style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
+          onPress={() => {
+            triggerHaptic('impact');
+            setShowNearbyBioEdit(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Edit your Nearby Identity"
+          activeOpacity={0.85}
+        >
+          <Ionicons name="pencil" size={24} color={isDark ? '#000' : '#fff'} />
+        </TouchableOpacity>
+      </Animated.View>
+
     </SafeAreaView>
   );
 }
@@ -452,6 +476,21 @@ const s = StyleSheet.create({
   ghosted: { opacity: 0.7 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: LIME, shadowColor: LIME, shadowOpacity: 0.5, shadowRadius: 4 },
   ghostLabel: { fontSize: 12, fontWeight: '600' },
+  // Pencil FAB
+  pencilFab: {
+    position: 'absolute',
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+    zIndex: 50,
+  },
 
   radarSection: { height: 280, justifyContent: 'center', alignItems: 'center', marginHorizontal: 20, marginVertical: 8 },
   radarBg: { ...StyleSheet.absoluteFillObject, borderRadius: 24 },

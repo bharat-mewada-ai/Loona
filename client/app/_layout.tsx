@@ -107,10 +107,25 @@ function RootLayout() {
     }
   }, [user?._id]);
 
-  // Automatically apply updates when the app goes to the background
+  // Automatically check & fetch OTA updates on launch and apply when available
   const { isUpdatePending } = Updates.useUpdates();
   useEffect(() => {
     if (__DEV__ || !Updates.isEnabled) return;
+
+    async function checkAndApplyUpdates() {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          console.log('[RootLayout] New OTA update found, fetching and reloading...');
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (err) {
+        console.log('[RootLayout] OTA Update check error:', err);
+      }
+    }
+
+    checkAndApplyUpdates();
 
     if (isUpdatePending) {
       console.log('[RootLayout] New update downloaded and pending.');

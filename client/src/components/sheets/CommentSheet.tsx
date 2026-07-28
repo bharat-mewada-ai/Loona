@@ -141,11 +141,13 @@ export default function CommentSheet() {
                       )}
                     </View>
                     <View style={s.cActions}>
-                      {!item.parentId && (
-                        <TouchableOpacity onPress={() => setReplyTo({ id: item._id, name: item.anonName })}>
-                          <Text style={[s.actionTxt, { color: themeColors.ogi }]}>Reply</Text>
-                        </TouchableOpacity>
-                      )}
+                      <TouchableOpacity onPress={() => {
+                        const targetParentId = item.parentId || item._id;
+                        setReplyTo({ id: targetParentId, name: item.anonName });
+                        setContent(`@${item.anonName} `);
+                      }}>
+                        <Text style={[s.actionTxt, { color: themeColors.ogi }]}>Reply</Text>
+                      </TouchableOpacity>
                       {item.author === user?._id ? (
                         <TouchableOpacity onPress={() => handleDelete(item._id)}>
                           <Text style={[s.actionTxt, { color: themeColors.danger }]}>Delete</Text>

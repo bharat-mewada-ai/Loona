@@ -75,7 +75,7 @@ export default function StoryCard({ post, onDelete }: Props) {
         {/* Song badge */}
         {!!post.songName && (
           <View style={s.songPill}>
-            <Text style={{ fontSize: 10 }}>🎵</Text>
+            <Ionicons name="musical-notes" size={10} color="#FFF" />
             <Text style={s.songPillTxt} numberOfLines={1}>{post.songName}</Text>
           </View>
         )}

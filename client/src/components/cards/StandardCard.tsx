@@ -1,8 +1,40 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions, Easing, Modal } from 'react-native';
 import { Image } from 'expo-image';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_IMAGE_WIDTH = SCREEN_WIDTH - 32; // 16px margin each side
+
+import { PinchGestureHandler, State } from 'react-native-gesture-handler';
+
+const ZoomableImage = ({ children }: { children: React.ReactNode }) => {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPinchEvent = Animated.event(
+    [{ nativeEvent: { scale } }],
+    { useNativeDriver: true }
+  );
+
+  const onPinchStateChange = (event: any) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      Animated.spring(scale, {
+        toValue: 1,
+        useNativeDriver: true,
+        bounciness: 4,
+      }).start();
+    }
+  };
+
+  return (
+    <PinchGestureHandler
+      onGestureEvent={onPinchEvent}
+      onHandlerStateChange={onPinchStateChange}
+    >
+      <Animated.View style={{ transform: [{ scale }], overflow: 'visible', zIndex: 999 }}>
+        {children}
+      </Animated.View>
+    </PinchGestureHandler>
+  );
+};
 import { Ionicons } from '@expo/vector-icons';
 import { soundManager } from '../../services/musicService';
 import { Post } from '../../types';
@@ -58,6 +90,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [singleRatio, setSingleRatio] = useState(4/3);
+  const [multiRatio, setMultiRatio] = useState(4/3);
 
   // ── In-flight lock — prevents rapid-tap glitch (duplicate votes / flicker) ──
   // Only one vote request allowed at a time. Additional taps are silently dropped
@@ -66,6 +100,19 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
   // Potato animation — start at correct scale
   const potatoScale = useRef(new Animated.Value(post.hasVoted ? 1.35 : 1.0)).current;
+
+  // Vinyl spinning animation for floating music sticker
+  const vinylAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (post.songName) {
+      const loop = Animated.loop(
+        Animated.timing(vinylAnim, { toValue: 1, duration: 3000, easing: Easing.linear, useNativeDriver: true })
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [!!post.songName]);
+  const vinylRotation = vinylAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   // Sync when server data updates (after onSuccess patches cache)
   React.useEffect(() => {
@@ -186,6 +233,48 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
     distanceText = ` · near ${formatDistance(d)} from you`;
   }
 
+  // ── Floating song sticker — overlays image (Instagram-style) ──
+  const FloatingSongSticker = () => (
+    <TouchableOpacity
+      style={s.songStickerFloat}
+      onPress={() => setShowReelModal(true)}
+      activeOpacity={0.85}
+    >
+      {/* Spinning Vinyl Disc */}
+      <Animated.View style={[s.vinylDisc, { transform: [{ rotate: vinylRotation }] }]}>
+        {post.songCoverUrl ? (
+          <Image source={{ uri: post.songCoverUrl }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+        ) : (
+          <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="musical-notes" size={10} color="#c8f53a" />
+          </View>
+        )}
+        {/* Center dot */}
+        <View style={s.vinylCenter} />
+      </Animated.View>
+
+      {/* Song info */}
+      <View style={{ flex: 1, marginHorizontal: 8, overflow: 'hidden' }}>
+        <Text style={s.floatSongName} numberOfLines={1}>{post.songName}</Text>
+        {!!post.songArtist && <Text style={s.floatSongArtist} numberOfLines={1}>{post.songArtist}</Text>}
+      </View>
+
+      {/* Play/Pause button */}
+      {!!post.songAudioUrl && (
+        <TouchableOpacity
+          style={s.floatPlayBtn}
+          onPress={(e) => {
+            e.stopPropagation();
+            if (isPlayingAudio) { soundManager.stop(); setIsPlayingAudio(false); }
+            else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false)); }
+          }}
+        >
+          <Ionicons name={isPlayingAudio ? 'pause' : 'play'} size={13} color="#FFF" />
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
+  );
+
   return (
     <View style={[s.card, { backgroundColor: themeColors.card, borderColor: themeColors.bdr }]}>
       {isAllTab && (
@@ -275,7 +364,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
       </View>
 
       {post.images && post.images.length > 1 ? (
-        <View style={[s.multiMediaContainer, { position: 'relative' }]}>
+        <View style={[s.multiMediaContainer, { position: 'relative', overflow: 'visible', zIndex: 1 }]}>
           <ScrollView
             horizontal
             pagingEnabled
@@ -285,15 +374,24 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               setActiveIndex(slide);
             }}
             scrollEventThrottle={16}
+            style={{ overflow: 'visible' }}
           >
             {post.images!.map((img, index) => (
-              <Image
-                key={index}
-                source={{ uri: getOptimizedCloudinaryUrl(img, 800) }}
-                style={{ width: CARD_IMAGE_WIDTH, aspectRatio: 4/3 }}
-                contentFit="cover"
-                accessibilityLabel={`Attached post image ${index + 1}`}
-              />
+              <ZoomableImage key={index}>
+                <Image
+                  source={{ uri: getOptimizedCloudinaryUrl(img, 800) }}
+                  style={{ width: CARD_IMAGE_WIDTH, aspectRatio: multiRatio }}
+                  contentFit="cover"
+                  onLoad={index === 0 ? (e) => {
+                    const { width, height } = e.source;
+                    if (width && height) {
+                      const ratio = width / height;
+                      setMultiRatio(Math.max(0.8, Math.min(ratio, 1.91)));
+                    }
+                  } : undefined}
+                  accessibilityLabel={`Post image ${index + 1}`}
+                />
+              </ZoomableImage>
             ))}
           </ScrollView>
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, position: 'absolute', bottom: 12, left: 0, right: 0 }}>
@@ -309,22 +407,34 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               />
             ))}
           </View>
+          {/* Floating song sticker over image */}
+          {!!post.songName && <FloatingSongSticker />}
         </View>
-      ) : (
-        !!post.image && (
-          <Image 
-            source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }} 
-            style={s.mediaImg} 
-            contentFit="cover"
-            accessibilityLabel="Attached post image"
-          />
-        )
-      )}
+      ) : !!post.image ? (
+        <View style={{ position: 'relative', overflow: 'visible', zIndex: 1 }}>
+          <ZoomableImage>
+            <Image
+              source={{ uri: getOptimizedCloudinaryUrl(post.image, 800) }}
+              style={[s.mediaImg, { aspectRatio: singleRatio }]}
+              contentFit="cover"
+              onLoad={(e) => {
+                const { width, height } = e.source;
+                if (width && height) {
+                  const ratio = width / height;
+                  setSingleRatio(Math.max(0.8, Math.min(ratio, 1.91)));
+                }
+              }}
+              accessibilityLabel="Post image"
+            />
+          </ZoomableImage>
+          {/* Floating song sticker over image */}
+          {!!post.songName && <FloatingSongSticker />}
+        </View>
+      ) : null}
 
       <View style={s.contentArea}>
         <Text style={[s.textBody, { color: themeColors.txt }]}>
-          {post.title}
-          {!!post.body && `\n\n${post.body}`}
+          {post.title}{!!post.body && `\n\n${post.body}`}
         </Text>
         {(post.type === 'events' || post.type === 'bhandara') && (post.eventDate || post.eventLocation) && (
           <View style={{ marginTop: 12, padding: 12, backgroundColor: themeColors.card2, borderRadius: 12, gap: 6 }}>
@@ -334,9 +444,9 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
         )}
       </View>
 
-      {/* 🎵 Instagram-Style Music Banner Sticker */}
-      {!!post.songName && (
-        <TouchableOpacity 
+      {/* Song sticker BELOW text only when NO image */}
+      {!!post.songName && !post.image && !(post.images && post.images.length > 1) && (
+        <TouchableOpacity
           style={[s.songBadge, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}
           onPress={() => setShowReelModal(true)}
           activeOpacity={0.8}
@@ -345,13 +455,13 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
             <Image source={{ uri: post.songCoverUrl }} style={{ width: 38, height: 38, borderRadius: 10 }} />
           ) : (
             <View style={s.songIconWrap}>
-              <Text style={{ fontSize: 14 }}>🎵</Text>
+              <Ionicons name="musical-notes" size={16} color={isDark ? '#c8f53a' : '#3f6212'} />
             </View>
           )}
           <View style={{ flex: 1, overflow: 'hidden' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Text style={[s.songName, { color: themeColors.txt }]} numberOfLines={1}>{post.songName}</Text>
-              <Text style={{ fontSize: 11 }}>🎶</Text>
+              <Ionicons name="musical-notes-outline" size={12} color={themeColors.txt3} />
             </View>
             {!!post.songArtist && <Text style={[s.songArtist, { color: themeColors.txt3 }]} numberOfLines={1}>{post.songArtist} · Original Audio</Text>}
           </View>
@@ -360,18 +470,11 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: themeColors.ogi, alignItems: 'center', justifyContent: 'center' }}
               onPress={(e) => {
                 e.stopPropagation();
-                if (isPlayingAudio) {
-                  soundManager.stop();
-                  setIsPlayingAudio(false);
-                } else {
-                  setIsPlayingAudio(true);
-                  soundManager.play(post.songAudioUrl!, () => {
-                    setIsPlayingAudio(false);
-                  });
-                }
+                if (isPlayingAudio) { soundManager.stop(); setIsPlayingAudio(false); }
+                else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false)); }
               }}
             >
-              <Ionicons name={isPlayingAudio ? "pause" : "play"} size={16} color={isDark ? '#000' : '#fff'} />
+              <Ionicons name={isPlayingAudio ? 'pause' : 'play'} size={16} color={isDark ? '#000' : '#fff'} />
             </TouchableOpacity>
           )}
         </TouchableOpacity>
@@ -389,7 +492,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
                 <Image source={{ uri: post.songCoverUrl }} style={{ width: '100%', height: '100%' }} />
               ) : (
                 <View style={{ width: '100%', height: '100%', backgroundColor: themeColors.card2, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 48 }}>🎵</Text>
+                  <Ionicons name="musical-notes" size={48} color={themeColors.ogi} />
                 </View>
               )}
             </View>
@@ -567,7 +670,7 @@ const s = StyleSheet.create({
   contentArea: { paddingHorizontal: 16, paddingVertical: 8 },
   textBody: { fontSize: 15, lineHeight: 22.5, fontFamily: 'PlusJakartaSans_400Regular' },
   // Single image — auto height (4:3 ratio, no black bars, cover crop like Instagram)
-  mediaImg: { width: CARD_IMAGE_WIDTH, aspectRatio: 4/3 },
+  mediaImg: { width: CARD_IMAGE_WIDTH },
   // Multi-image carousel container — no fixed height
   multiMediaContainer: { marginHorizontal: 0, overflow: 'hidden', marginTop: 8 },
   // Legacy — keep for any code that still references it
@@ -590,9 +693,60 @@ const s = StyleSheet.create({
   tagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold', letterSpacing: 0.08 },
   proPill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, marginLeft: 2 },
   proTxt: { fontSize: 9, fontWeight: '900', color: '#000' },
-  // Song badge styles
+  // Song badge styles (pill shown below text when no image)
   songBadge: { flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   songIconWrap: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(200,245,58,0.15)', alignItems: 'center', justifyContent: 'center' },
   songName: { fontSize: 13, fontWeight: '700' },
   songArtist: { fontSize: 11, fontWeight: '400', marginTop: 1 },
+  // Floating song sticker (over image — Instagram style)
+  songStickerFloat: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.58)',
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    zIndex: 10,
+  },
+  vinylDisc: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#111',
+    borderWidth: 2,
+    borderColor: '#2a2a2a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  vinylCenter: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#c8f53a',
+    zIndex: 2,
+  },
+  floatSongName: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  floatSongArtist: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  floatPlayBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
