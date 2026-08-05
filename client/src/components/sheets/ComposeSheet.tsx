@@ -20,6 +20,73 @@ import { Ionicons } from '@expo/vector-icons';
 import { searchTracks, getTrendingTracks, Track, soundManager } from '../../services/musicService';
 
 
+interface SliderProps {
+  offset: number;
+  onChange: (value: number) => void;
+  onRelease: () => void;
+  themeColors: any;
+}
+
+const CustomMusicSlider = ({ offset, onChange, onRelease, themeColors }: SliderProps) => {
+  const [width, setWidth] = useState(250);
+  
+  const handleTouch = (e: any) => {
+    const { locationX } = e.nativeEvent;
+    const percentage = Math.max(0, Math.min(locationX / width, 1));
+    const seconds = Math.round(percentage * 20); // 0 to 20 seconds start offset
+    onChange(seconds);
+  };
+
+  return (
+    <View style={{ marginTop: 12, width: '100%', paddingHorizontal: 4 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <Text style={{ color: themeColors.txt2, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: 'DMSans_700Bold' }}>
+          Select start part:
+        </Text>
+        <Text style={{ color: themeColors.ogi, fontSize: 12, fontWeight: '900', fontFamily: 'DMSans_700Bold' }}>
+          Starts at 0:{offset < 10 ? `0${offset}` : offset}
+        </Text>
+      </View>
+      <View 
+        onLayout={(e) => setWidth(e.nativeEvent.layout.width || 250)}
+        onStartShouldSetResponder={() => true}
+        onResponderGrant={handleTouch}
+        onResponderMove={handleTouch}
+        onResponderRelease={onRelease}
+        style={{ height: 32, justifyContent: 'center', position: 'relative' }}
+      >
+        {/* Track */}
+        <View style={{ height: 6, borderRadius: 3, backgroundColor: themeColors.bdr, width: '100%' }} />
+        {/* Active Part */}
+        <View style={{ position: 'absolute', height: 6, borderRadius: 3, backgroundColor: themeColors.ogi, width: `${(offset / 20) * 100}%` }} />
+        {/* Thumb */}
+        <View 
+          style={{ 
+            position: 'absolute', 
+            left: `${(offset / 20) * 100}%`, 
+            marginLeft: -10, 
+            width: 20, 
+            height: 20, 
+            borderRadius: 10, 
+            backgroundColor: '#FFF', 
+            borderWidth: 2, 
+            borderColor: themeColors.ogi,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 2,
+            elevation: 2 
+          }} 
+        />
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}>
+        <Text style={{ color: themeColors.txt3, fontSize: 10, fontFamily: 'DMSans_400Regular' }}>0:00 (Start)</Text>
+        <Text style={{ color: themeColors.txt3, fontSize: 10, fontFamily: 'DMSans_400Regular' }}>0:20 (End of preview)</Text>
+      </View>
+    </View>
+  );
+};
+
 const COMPOSE_TITLES: Record<string, string> = {
   all: 'Start a discussion',
   thought: 'Start a discussion',
@@ -74,6 +141,8 @@ export default function ComposeSheet() {
   const [playingPreviewId, setPlayingPreviewId] = useState<number | null>(null);
   const musicSearchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [musicFetchError, setMusicFetchError] = useState(false);
+  const [songStartOffset, setSongStartOffset] = useState(0); // start offset in seconds (0-20)
+
 
   // Stop preview audio whenever music modal closes
   useEffect(() => {
@@ -317,12 +386,13 @@ export default function ComposeSheet() {
         songArtist: selectedTrack?.artistName || undefined,
         songAudioUrl: selectedTrack?.previewUrl || undefined,
         songCoverUrl: selectedTrack?.artworkUrl || undefined,
+        songStartOffset: selectedTrack ? songStartOffset * 1000 : undefined,
       },
       {
         onSuccess: () => {
           setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false); setPollOptions(['', '']);
           setEventLocation('');
-          setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setShowSongInput(false);
+          setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setSongStartOffset(0);
           soundManager.stop();
           closeComposeSheet();
         },
@@ -333,12 +403,12 @@ export default function ComposeSheet() {
         }
       }
     );
-  }, [title, body, cdnUrls, composeType, dateSet, eventDate, eventLocation, user, burn, isPoll, pollOptions, createPost, closeComposeSheet, userLocation, guard.level]);
+  }, [title, body, cdnUrls, composeType, dateSet, eventDate, eventLocation, user, burn, isPoll, pollOptions, createPost, closeComposeSheet, userLocation, guard.level, selectedTrack, songStartOffset]);
 
   const handleClose = () => {
     setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false);
     setOfferBrand(''); setOfferDiscount(''); setExternalLink(''); setIsExclusive(false);
-    setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setShowSongInput(false);
+    setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setSongStartOffset(0);
     soundManager.stop();
     closeComposeSheet();
   };
@@ -580,30 +650,42 @@ export default function ComposeSheet() {
 
               {/* Attached Music Song Sticker Banner */}
               {!!selectedTrack && (
-                <View style={[s.songPanel, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, marginTop: 12 }]}>
-                  {selectedTrack.artworkUrl ? (
-                    <Image source={{ uri: selectedTrack.artworkUrl }} style={{ width: 42, height: 42, borderRadius: 10 }} />
-                  ) : (
-                    <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="musical-notes" size={20} color={themeColors.ogi} />
+                <View style={[s.songPanel, { backgroundColor: themeColors.card2, borderColor: themeColors.bdr, padding: 12, borderRadius: 16, marginTop: 12 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    {selectedTrack.artworkUrl ? (
+                      <Image source={{ uri: selectedTrack.artworkUrl }} style={{ width: 42, height: 42, borderRadius: 10 }} />
+                    ) : (
+                      <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="musical-notes" size={20} color={themeColors.ogi} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
+                        {selectedTrack.trackName}
+                      </Text>
+                      <Text style={{ color: themeColors.txt3, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                        {selectedTrack.artistName} · Song Attached
+                      </Text>
                     </View>
-                  )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 14 }} numberOfLines={1}>
-                      {selectedTrack.trackName}
-                    </Text>
-                    <Text style={{ color: themeColors.txt3, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-                      {selectedTrack.artistName} · Song Attached
-                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setSelectedTrack(null)}
+                      style={{ padding: 6 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove attached song"
+                    >
+                      <Ionicons name="close-circle" size={22} color={themeColors.txt3} />
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => setSelectedTrack(null)}
-                    style={{ padding: 6 }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Remove attached song"
-                  >
-                    <Ionicons name="close-circle" size={22} color={themeColors.txt3} />
-                  </TouchableOpacity>
+
+                  {/* Custom Music Slider */}
+                  <CustomMusicSlider 
+                    offset={songStartOffset}
+                    onChange={setSongStartOffset}
+                    onRelease={() => {
+                      soundManager.play(selectedTrack.previewUrl, () => {}, songStartOffset * 1000);
+                    }}
+                    themeColors={themeColors}
+                  />
                 </View>
               )}
 
@@ -827,6 +909,7 @@ export default function ComposeSheet() {
                       soundManager.stop();
                       setPlayingPreviewId(null);
                       setShowMusicModal(false);
+                      setSongStartOffset(0);
                     }}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: themeColors.bdr }}
                   >

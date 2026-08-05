@@ -276,7 +276,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           onPress={(e) => {
             e.stopPropagation();
             if (isPlayingAudio) { soundManager.stop(); setIsPlayingAudio(false); }
-            else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false)); }
+            else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false), post.songStartOffset || 0); }
           }}
         >
           <Ionicons name={isPlayingAudio ? 'pause' : 'play'} size={13} color="#FFF" />
@@ -471,7 +471,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               onPress={(e) => {
                 e.stopPropagation();
                 if (isPlayingAudio) { soundManager.stop(); setIsPlayingAudio(false); }
-                else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false)); }
+                else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false), post.songStartOffset || 0); }
               }}
             >
               <Ionicons name={isPlayingAudio ? 'pause' : 'play'} size={16} color={isDark ? '#000' : '#fff'} />
@@ -518,7 +518,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
                     setIsPlayingAudio(true);
                     soundManager.play(post.songAudioUrl!, () => {
                       setIsPlayingAudio(false);
-                    });
+                    }, post.songStartOffset || 0);
                   }
                 }}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: themeColors.ogi, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 30, marginTop: 24 }}

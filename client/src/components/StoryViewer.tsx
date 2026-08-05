@@ -45,7 +45,7 @@ export default function StoryViewer() {
       startProgress();
 
       if (story.songAudioUrl && !isMuted) {
-        soundManager.play(story.songAudioUrl);
+        soundManager.play(story.songAudioUrl, () => {}, story.songStartOffset || 0);
       }
     }
     return () => {
@@ -235,7 +235,7 @@ export default function StoryViewer() {
                         if (newMute) {
                           soundManager.stop();
                         } else {
-                          soundManager.play(story.songAudioUrl!);
+                          soundManager.play(story.songAudioUrl!, () => {}, story.songStartOffset || 0);
                         }
                       }}
                       style={{ paddingHorizontal: 6 }}

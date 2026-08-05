@@ -100,7 +100,7 @@ class SoundManager {
   private sound: Audio.Sound | null = null;
   private _isPlaying = false;
 
-  async play(url: string | null | undefined, onEnded?: () => void): Promise<void> {
+  async play(url: string | null | undefined, onEnded?: () => void, startOffsetMs = 0): Promise<void> {
     if (!url) return;
 
     await configureAudio();
@@ -109,7 +109,9 @@ class SoundManager {
     try {
       const { sound } = await Audio.Sound.createAsync(
         { uri: url },
-        { shouldPlay: true, volume: 1.0 }
+        { shouldPlay: true, volume: 1.0, positionMillis: startOffsetMs },
+        undefined,
+        false // downloadFirst = false (stream immediately!)
       );
 
       this.sound = sound;
