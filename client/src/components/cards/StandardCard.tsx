@@ -482,10 +482,17 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
       {/* 🎬 Instagram-Style Reel Music Modal */}
       <Modal visible={showReelModal} transparent animationType="slide" onRequestClose={() => setShowReelModal(false)}>
-        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={() => setShowReelModal(false)}>
-          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: isDark ? '#121217' : '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, alignItems: 'center' }}>
-            <View style={{ width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, marginBottom: 20 }} />
-            
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setShowReelModal(false)}
+        >
+          <View
+            style={{ backgroundColor: isDark ? '#121217' : '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, alignItems: 'center' }}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={{ width: 40, height: 4, backgroundColor: isDark ? '#333' : '#DDD', borderRadius: 2, marginBottom: 20 }} />
+
             {/* Spinning Album Artwork */}
             <View style={{ width: 140, height: 140, borderRadius: 70, overflow: 'hidden', borderWidth: 4, borderColor: themeColors.ogi, marginBottom: 16, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 }}>
               {post.songCoverUrl ? (
@@ -497,8 +504,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               )}
             </View>
 
-            <Text style={{ color: themeColors.txt, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>{post.songName}</Text>
-            <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '500', marginTop: 4, textAlign: 'center' }}>{post.songArtist || 'Original Audio'} · Audio Preview</Text>
+            <Text style={{ color: themeColors.txt, fontSize: 20, fontWeight: '800', textAlign: 'center', fontFamily: 'DMSans_700Bold' }}>{post.songName}</Text>
+            <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '500', marginTop: 4, textAlign: 'center', fontFamily: 'DMSans_400Regular' }}>{post.songArtist || 'Original Audio'} · Audio Preview</Text>
 
             {/* Play/Pause Large Button */}
             {!!post.songAudioUrl && (
@@ -517,21 +524,22 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: themeColors.ogi, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 30, marginTop: 24 }}
               >
                 <Ionicons name={isPlayingAudio ? "pause" : "play"} size={22} color={isDark ? '#000' : '#fff'} />
-                <Text style={{ color: isDark ? '#000' : '#fff', fontWeight: '800', fontSize: 16 }}>
+                <Text style={{ color: isDark ? '#000' : '#fff', fontWeight: '800', fontSize: 16, fontFamily: 'DMSans_700Bold' }}>
                   {isPlayingAudio ? 'Pause Audio' : 'Play Song Preview'}
                 </Text>
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowReelModal(false)}
-              style={{ marginTop: 20, paddingVertical: 10 }}
+              style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 24 }}
             >
-              <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '600' }}>Close</Text>
+              <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '600', fontFamily: 'DMSans_600SemiBold' }}>Close</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
         </TouchableOpacity>
       </Modal>
+
 
       {/* Three-dot Action Menu Modal */}
       <Modal
