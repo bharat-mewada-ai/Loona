@@ -28,7 +28,7 @@ export const light = {
 };
 
 export const dark: typeof light = {
-  bg: "#0d0d0f",
+  bg: "#0F1115",
   bg2: "#111113",
   bg3: "#161618",
   card: "#141416",

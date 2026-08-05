@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions, Easing, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions, Easing, Modal, ActionSheetIOS, Platform, Alert as RNAlert } from 'react-native';
 import { Image } from 'expo-image';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_IMAGE_WIDTH = SCREEN_WIDTH - 32; // 16px margin each side
@@ -87,6 +87,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [showReelModal, setShowReelModal] = useState(false);
+  const [showMenuModal, setShowMenuModal] = useState(false);
 
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -113,6 +114,15 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
     }
   }, [!!post.songName]);
   const vinylRotation = vinylAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  // Stop audio when card unmounts (e.g. user scrolls away)
+  useEffect(() => {
+    return () => {
+      if (isPlayingAudio) {
+        soundManager.stop();
+      }
+    };
+  }, [isPlayingAudio]);
 
   // Sync when server data updates (after onSuccess patches cache)
   React.useEffect(() => {
@@ -340,24 +350,14 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               <Text style={[s.statusTxt, { color: '#3B82F6' }]}>🎉 Event</Text>
             </View>
           )}
-          {canReport && (
-            <TouchableOpacity 
-              onPress={onReport} 
+          {(canDelete || canReport) && (
+            <TouchableOpacity
+              onPress={() => setShowMenuModal(true)}
               style={s.moreBtn}
               accessibilityRole="button"
-              accessibilityLabel="Report this post"
+              accessibilityLabel="More options"
             >
-              <Text style={{ fontSize: 16 }}>🚩</Text>
-            </TouchableOpacity>
-          )}
-          {canDelete && (
-            <TouchableOpacity 
-              onPress={onDelete} 
-              style={s.moreBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Delete this post"
-            >
-              <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
+              <Ionicons name="ellipsis-horizontal" size={20} color={themeColors.txt3} />
             </TouchableOpacity>
           )}
         </View>
@@ -533,6 +533,60 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
         </TouchableOpacity>
       </Modal>
 
+      {/* Three-dot Action Menu Modal */}
+      <Modal
+        visible={showMenuModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMenuModal(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setShowMenuModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={[s.menuSheet, { backgroundColor: isDark ? '#1A1A22' : '#FFFFFF' }]}>
+            <View style={{ width: 40, height: 4, backgroundColor: isDark ? '#333' : '#DDD', borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
+            {canDelete && (
+              <TouchableOpacity
+                style={s.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  setTimeout(() => onDelete?.(), 200);
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.menuItemTitle, { color: '#FF3B30' }]}>Delete Post</Text>
+                  <Text style={[s.menuItemSub, { color: themeColors.txt3 }]}>This action cannot be undone</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            {canReport && (
+              <TouchableOpacity
+                style={s.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  setTimeout(() => onReport?.(), 200);
+                }}
+              >
+                <Ionicons name="flag-outline" size={20} color={themeColors.txt2} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.menuItemTitle, { color: themeColors.txt }]}>Report Post</Text>
+                  <Text style={[s.menuItemSub, { color: themeColors.txt3 }]}>Report to our moderation team</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[s.menuItem, { marginTop: 8, borderTopWidth: 1, borderTopColor: isDark ? '#222' : '#EEE' }]}
+              onPress={() => setShowMenuModal(false)}
+            >
+              <Text style={[s.menuItemTitle, { color: themeColors.txt3, textAlign: 'center', flex: 1 }]}>Cancel</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       {post.isPoll && post.pollOptions && (
         <View style={s.pollWrap}>
           {post.pollOptions.map((opt, i) => {
@@ -661,14 +715,14 @@ const s = StyleSheet.create({
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   avatarWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   avatarEmoji: { fontSize: 24 },
-  authorName: { fontSize: 14, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold' },
-  authorHandle: { fontSize: 12, fontFamily: 'PlusJakartaSans_400Regular', marginTop: 1, color: '#666' },
+  authorName: { fontSize: 14, fontWeight: '600', fontFamily: 'DMSans_600SemiBold' },
+  authorHandle: { fontSize: 12, fontFamily: 'DMSans_400Regular', marginTop: 1, color: '#666' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   statusTxt: { fontSize: 11, fontWeight: '800' },
   moreBtn: { padding: 4 },
   contentArea: { paddingHorizontal: 16, paddingVertical: 8 },
-  textBody: { fontSize: 15, lineHeight: 22.5, fontFamily: 'PlusJakartaSans_400Regular' },
+  textBody: { fontSize: 15, lineHeight: 22.5, fontFamily: 'DMSans_400Regular' },
   // Single image — auto height (4:3 ratio, no black bars, cover crop like Instagram)
   mediaImg: { width: CARD_IMAGE_WIDTH },
   // Multi-image carousel container — no fixed height
@@ -685,12 +739,12 @@ const s = StyleSheet.create({
   footerLeft: { flexDirection: 'row', gap: 24, alignItems: 'center' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   actionIcon: { fontSize: 20 },
-  actionCount: { fontSize: 13, fontWeight: '400', fontFamily: 'PlusJakartaSans_400Regular' },
+  actionCount: { fontSize: 13, fontWeight: '400', fontFamily: 'DMSans_400Regular' },
   sectionTag: { paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start' },
-  sectionTagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold', textTransform: 'uppercase', letterSpacing: 0.08 },
+  sectionTagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'DMSans_700Bold', textTransform: 'uppercase', letterSpacing: 0.08 },
   tagsList: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginVertical: 2 },
   tagPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  tagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold', letterSpacing: 0.08 },
+  tagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'DMSans_700Bold', letterSpacing: 0.08 },
   proPill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, marginLeft: 2 },
   proTxt: { fontSize: 9, fontWeight: '900', color: '#000' },
   // Song badge styles (pill shown below text when no image)
@@ -748,5 +802,30 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Three-dot action menu
+  menuSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 20,
+    paddingBottom: 36,
+    gap: 4,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  menuItemTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'DMSans_600SemiBold',
+  },
+  menuItemSub: {
+    fontSize: 12,
+    fontFamily: 'DMSans_400Regular',
+    marginTop: 2,
   },
 });

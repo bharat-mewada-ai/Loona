@@ -1,4 +1,4 @@
-import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
+import { Audio, InterruptionModeIOS, InterruptionModeAndroid, AVPlaybackStatus } from 'expo-av';
 
 export interface Track {
   trackId: number;
@@ -8,8 +8,10 @@ export interface Track {
   artworkUrl: string;
 }
 
-// Configured audio mode for mobile speaker playback even in silent mode
+// ─── Audio Mode ────────────────────────────────────────────────────────────────
+let audioConfigured = false;
 const configureAudio = async () => {
+  if (audioConfigured) return;
   try {
     await Audio.setAudioModeAsync({
       playsInSilentModeIOS: true,
@@ -19,104 +21,131 @@ const configureAudio = async () => {
       interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
       playThroughEarpieceAndroid: false,
     });
+    audioConfigured = true;
   } catch (e) {
-    console.log('[AudioMode] Error setting audio mode:', e);
+    console.log('[AudioMode] Setup error (non-fatal):', e);
   }
 };
 configureAudio();
 
-// Pre-fetched popular trending songs for Instagram-style initial suggestions list
-export const getTrendingTracks = async (): Promise<Track[]> => {
-  try {
-    const res = await fetch(`https://itunes.apple.com/search?term=bollywood+top+hits&entity=song&limit=20`);
-    const data = await res.json();
-    if (!data || !data.results) return [];
-    return data.results.map((item: any) => ({
+// ─── iTunes Search — with multiple fallback terms ─────────────────────────────
+// NOTE: Do NOT use country=IN — iTunes blocks most preview URLs for India.
+// Using US store (default) gives the most preview URLs globally.
+
+const FALLBACK_TERMS = [
+  'top+hits+2024',
+  'pop+hits',
+  'trending+songs',
+];
+
+const fetchFromItunes = async (term: string, limit = 50): Promise<Track[]> => {
+  const url = `https://itunes.apple.com/search?term=${term}&entity=song&limit=${limit}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data?.results?.length) return [];
+  return data.results
+    .filter((item: any) => !!item.previewUrl && !!item.trackId && !!item.trackName)
+    .map((item: any) => ({
       trackId: item.trackId,
       trackName: item.trackName,
-      artistName: item.artistName,
+      artistName: item.artistName || 'Unknown Artist',
       previewUrl: item.previewUrl,
-      artworkUrl: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '300x300bb') : '',
+      artworkUrl: item.artworkUrl100
+        ? item.artworkUrl100.replace('100x100bb', '300x300bb')
+        : '',
     }));
-  } catch (err) {
-    return [];
+};
+
+export const getTrendingTracks = async (): Promise<Track[]> => {
+  // Try bollywood first, then fall back to global hits if empty
+  const terms = [
+    'bollywood+2024',
+    'bollywood+hits',
+    'hindi+songs',
+    ...FALLBACK_TERMS,
+  ];
+
+  for (const term of terms) {
+    try {
+      const tracks = await fetchFromItunes(term, 50);
+      if (tracks.length >= 5) {
+        console.log(`[musicService] Got ${tracks.length} tracks for term: ${term}`);
+        return tracks;
+      }
+    } catch (err) {
+      console.log(`[musicService] Failed for term "${term}":`, err);
+    }
   }
+
+  console.log('[musicService] All terms exhausted, returning []');
+  return [];
 };
 
 export const searchTracks = async (query: string): Promise<Track[]> => {
   if (!query || query.trim().length < 2) return getTrendingTracks();
   try {
-    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=25`);
-    const data = await res.json();
-    if (!data || !data.results) return [];
-    return data.results.map((item: any) => ({
-      trackId: item.trackId,
-      trackName: item.trackName,
-      artistName: item.artistName,
-      previewUrl: item.previewUrl,
-      artworkUrl: item.artworkUrl100 ? item.artworkUrl100.replace('100x100bb', '300x300bb') : '',
-    }));
+    const tracks = await fetchFromItunes(encodeURIComponent(query), 50);
+    if (tracks.length > 0) return tracks;
+    // If no results for this query, fallback to trending
+    return getTrendingTracks();
   } catch (err) {
-    console.error('Track search error:', err);
-    return [];
+    console.log('[musicService] searchTracks error:', err);
+    return getTrendingTracks();
   }
 };
 
-// Universal Sound Manager — works on Web & Mobile Native Apps!
-class UniversalSoundManager {
-  private currentWebAudio: HTMLAudioElement | null = null;
-  private currentExpoSound: Audio.Sound | null = null;
+// ─── Sound Manager ─────────────────────────────────────────────────────────────
+class SoundManager {
+  private sound: Audio.Sound | null = null;
+  private _isPlaying = false;
 
-  async play(url: string, onEnded?: () => void) {
+  async play(url: string | null | undefined, onEnded?: () => void): Promise<void> {
+    if (!url) return;
+
+    await configureAudio();
     await this.stop();
+
     try {
-      // 1. Try Native Expo Audio for Android / iOS app
       const { sound } = await Audio.Sound.createAsync(
         { uri: url },
         { shouldPlay: true, volume: 1.0 }
       );
-      this.currentExpoSound = sound;
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          if (onEnded) onEnded();
+
+      this.sound = sound;
+      this._isPlaying = true;
+
+      sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
+        if (!status.isLoaded) {
+          this._isPlaying = false;
+          return;
+        }
+        if (status.didJustFinish) {
+          this._isPlaying = false;
+          this.sound = null;
+          onEnded?.();
         }
       });
-      await sound.playAsync();
-      return;
-    } catch (nativeErr) {
-      console.log('[SoundManager] Expo sound playback note, fallback to Web Audio:', nativeErr);
-    }
-
-    // 2. Fallback to Web HTML5 Audio
-    try {
-      if (typeof window !== 'undefined' && typeof window.Audio !== 'undefined') {
-        this.currentWebAudio = new window.Audio(url);
-        if (onEnded) this.currentWebAudio.onended = onEnded;
-        await this.currentWebAudio.play();
-      }
-    } catch (e) {
-      console.log('[SoundManager] Web audio error:', e);
+    } catch (err) {
+      console.log('[SoundManager] play error:', err);
+      this.sound = null;
+      this._isPlaying = false;
     }
   }
 
-  async stop() {
-    if (this.currentExpoSound) {
-      try {
-        await this.currentExpoSound.stopAsync();
-        await this.currentExpoSound.unloadAsync();
-      } catch (e) {}
-      this.currentExpoSound = null;
+  async stop(): Promise<void> {
+    const s = this.sound;
+    this.sound = null;
+    this._isPlaying = false;
+    if (s) {
+      try { await s.stopAsync(); } catch (_) {}
+      try { await s.unloadAsync(); } catch (_) {}
     }
-    if (this.currentWebAudio) {
-      try {
-        this.currentWebAudio.pause();
-        this.currentWebAudio.currentTime = 0;
-      } catch (e) {}
-      this.currentWebAudio = null;
-    }
+  }
+
+  get isPlaying(): boolean {
+    return this._isPlaying;
   }
 }
 
-export const soundManager = new UniversalSoundManager();
-
-
+export const soundManager = new SoundManager();

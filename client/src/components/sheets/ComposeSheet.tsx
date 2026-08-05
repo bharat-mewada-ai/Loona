@@ -6,7 +6,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import DateTimePicker, { DateTimePickerAndroid, DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getColors } from '../../theme/colors';
 import { useUIStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
@@ -33,6 +34,7 @@ const COMPOSE_TITLES: Record<string, string> = {
 type VibeStyleResult = { label: string; color: string; bg: string } | null;
 
 export default function ComposeSheet() {
+  const insets = useSafeAreaInsets();
   const { showComposeSheet, closeComposeSheet, composeType, setComposeType, isDark } = useUIStore();
   const themeColors = getColors(isDark);
   const { user } = useAuthStore();
@@ -70,16 +72,32 @@ export default function ComposeSheet() {
   const [isSearchingMusic, setIsSearchingMusic] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [playingPreviewId, setPlayingPreviewId] = useState<number | null>(null);
+  const musicSearchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [musicFetchError, setMusicFetchError] = useState(false);
+
+  // Stop preview audio whenever music modal closes
+  useEffect(() => {
+    if (!showMusicModal) {
+      soundManager.stop();
+      setPlayingPreviewId(null);
+    }
+  }, [showMusicModal]);
 
   // Load trending music suggestions when music selector opens
   const openMusicSelector = async () => {
     setShowMusicModal(true);
-    if (searchResults.length === 0) {
-      setIsSearchingMusic(true);
+    setSongQuery('');
+    setMusicFetchError(false);
+    setIsSearchingMusic(true);
+    try {
       const trending = await getTrendingTracks();
       setSearchResults(trending);
-      setIsSearchingMusic(false);
+      setMusicFetchError(trending.length === 0);
+    } catch (_) {
+      setMusicFetchError(true);
+      setSearchResults([]);
     }
+    setIsSearchingMusic(false);
   };
 
 
@@ -305,7 +323,7 @@ export default function ComposeSheet() {
           setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false); setPollOptions(['', '']);
           setEventLocation('');
           setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setShowSongInput(false);
-          if (soundObj) { soundObj.unloadAsync(); setSoundObj(null); }
+          soundManager.stop();
           closeComposeSheet();
         },
         onError: (error: any) => {
@@ -321,7 +339,7 @@ export default function ComposeSheet() {
     setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false);
     setOfferBrand(''); setOfferDiscount(''); setExternalLink(''); setIsExclusive(false);
     setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setShowSongInput(false);
-    if (soundObj) { soundObj.unloadAsync(); setSoundObj(null); }
+    soundManager.stop();
     closeComposeSheet();
   };
   return (
@@ -679,7 +697,7 @@ export default function ComposeSheet() {
             </ScrollView>
 
             {/* 📌 Sticky Bottom Footer Toolbar (Always Visible!) */}
-            <View style={[s.bottomFooterBar, { borderTopColor: themeColors.bdr }]}>
+            <View style={[s.bottomFooterBar, { borderTopColor: themeColors.bdr, paddingBottom: Math.max(insets.bottom, 12) }]}>
               <View style={s.actionRow}>
                 <TouchableOpacity style={s.aBtn} onPress={pickImage}>
                   <Ionicons name="image-outline" size={22} color={themeColors.txt2} />
@@ -740,12 +758,18 @@ export default function ComposeSheet() {
                 placeholder="Search music, songs, artist..."
                 placeholderTextColor={themeColors.txt3}
                 value={songQuery}
-                onChangeText={async (q) => {
+                onChangeText={(q) => {
                   setSongQuery(q);
-                  setIsSearchingMusic(true);
-                  const tracks = await searchTracks(q);
-                  setSearchResults(tracks);
-                  setIsSearchingMusic(false);
+                  // Debounce — wait 400ms after user stops typing before fetching
+                  if (musicSearchTimer.current) clearTimeout(musicSearchTimer.current);
+                  musicSearchTimer.current = setTimeout(async () => {
+                    setIsSearchingMusic(true);
+                    try {
+                      const tracks = await searchTracks(q);
+                      setSearchResults(tracks);
+                    } catch (_) {}
+                    setIsSearchingMusic(false);
+                  }, 400);
                 }}
                 autoFocus
               />
@@ -761,7 +785,38 @@ export default function ComposeSheet() {
             </Text>
 
             {isSearchingMusic ? (
-              <ActivityIndicator size="medium" color={themeColors.ogi} style={{ marginTop: 40 }} />
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="large" color={themeColors.ogi} />
+                <Text style={{ color: themeColors.txt3, marginTop: 12, fontSize: 13 }}>Loading songs...</Text>
+              </View>
+            ) : musicFetchError || searchResults.length === 0 ? (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                <Text style={{ fontSize: 40 }}>🎵</Text>
+                <Text style={{ color: themeColors.txt, fontWeight: '700', fontSize: 16, textAlign: 'center' }}>
+                  {musicFetchError ? 'Could not load songs' : 'No songs found'}
+                </Text>
+                <Text style={{ color: themeColors.txt3, fontSize: 13, textAlign: 'center', paddingHorizontal: 20 }}>
+                  {musicFetchError
+                    ? 'Check your internet connection and try again.'
+                    : 'Try a different search term.'}
+                </Text>
+                <TouchableOpacity
+                  onPress={async () => {
+                    setSongQuery('');
+                    setMusicFetchError(false);
+                    setIsSearchingMusic(true);
+                    try {
+                      const tracks = await getTrendingTracks();
+                      setSearchResults(tracks);
+                      setMusicFetchError(tracks.length === 0);
+                    } catch (_) { setMusicFetchError(true); }
+                    setIsSearchingMusic(false);
+                  }}
+                  style={{ backgroundColor: themeColors.ogi, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, marginTop: 8 }}
+                >
+                  <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 14 }}>🔄 Try Again</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
                 {searchResults.map((t) => (

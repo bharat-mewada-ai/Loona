@@ -123,10 +123,8 @@ export default function Feed() {
   }, []);
   let posts = data?.pages.flatMap((page) => page.posts) ?? [];
 
-  // Filter stories out of 'all' feed because they are in the Rail
-  if (activeTab === 'all') {
-    posts = posts.filter(p => p.type !== 'stories');
-  }
+  // Stories hidden from feed (StoryRail disabled) — filter out story-type posts everywhere
+  posts = posts.filter(p => p.type !== 'stories');
 
   const handleSelectCampus = (c: Campus) => {
     setCampus(c);
@@ -199,7 +197,7 @@ export default function Feed() {
     if (activeTab === 'all') {
       return (
         <View style={{ gap: 16, marginBottom: 8 }}>
-          <StoryRail />
+          {/* StoryRail hidden — stories feature disabled */}
           
           {/* Quick Utilities Row */}
           <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 4, marginTop: 4 }}>
@@ -426,7 +424,7 @@ export default function Feed() {
       {/* FAB - Hide if sneaking */}
       {!isSneaking && (
         <TouchableOpacity 
-          style={[s.fab, { backgroundColor: themeColors.ogi, bottom: insets.bottom + 90 }]} 
+          style={[s.fab, { backgroundColor: themeColors.ogi, bottom: insets.bottom + 20 }]} 
           onPress={() => {
             // Never pass 'all' or 'place' as a post type — default to 'discussion'
             const type = (activeTab === 'all' || activeTab === 'place') ? 'discussion' : activeTab;

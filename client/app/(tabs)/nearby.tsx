@@ -440,7 +440,7 @@ export default function NearbyScreen() {
         style={[
           s.pencilFab,
           {
-            bottom: insets.bottom + 90,
+            bottom: insets.bottom + 20,
             backgroundColor: isDark ? LIME : '#2d6a1e',
             shadowColor: isDark ? LIME : '#2d6a1e',
             transform: [{ scale: fabScale }],

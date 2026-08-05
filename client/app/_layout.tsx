@@ -13,11 +13,11 @@ import {
   Syne_700Bold,
 } from '@expo-google-fonts/syne';
 import {
-  PlusJakartaSans_400Regular,
-  PlusJakartaSans_500Medium,
-  PlusJakartaSans_600SemiBold,
-  PlusJakartaSans_700Bold,
-} from '@expo-google-fonts/plus-jakarta-sans';
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+} from '@expo-google-fonts/dm-sans';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuthStore } from '../src/store/authStore';
 import { useUIStore } from '../src/store/uiStore';
@@ -144,10 +144,10 @@ function RootLayout() {
   // Initialize push notifications on startup
   const [fontsLoaded, fontError] = useFonts({
     Syne_700Bold,
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
   });
 
   const [splashVisible, setSplashVisible] = useState(true);
@@ -231,7 +231,8 @@ function RootLayout() {
             {showCommentSheet && <CommentSheet />}
             {showFeedbackSheet && <FeedbackSheet />}
             {showPrivacySheet && <PrivacySheet />}
-            {showStoryViewer && <StoryViewer />}
+            {/* StoryViewer hidden — stories feature disabled */}
+            {/* {showStoryViewer && <StoryViewer />} */}
             <AuthorProfileSheet />
           </AuthLoader>
         </QueryClientProvider>
