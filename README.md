@@ -68,8 +68,6 @@ The core loop: **Post → Get Upvoted → Earn 🥔 Potatoes → Climb the Campu
 - Campus-filtered listings
 - Bargains hub for finding deals
 
-### 💎 Premium
-- Premium subscription options available (powered by Razorpay) for exclusive features and potato bundles.
 
 ### 🔔 Notifications & Engagement
 - Real-time in-app notifications via Socket.IO
@@ -97,7 +95,7 @@ The core loop: **Post → Get Upvoted → Earn 🥔 Potatoes → Climb the Campu
 | **Auth** | Google OAuth + JWT (access 1h, refresh 30d) |
 | **Images** | Cloudinary CDN |
 | **Push Notifications** | Expo Push Notification Service |
-| **Payments** | Razorpay (for Premium features) |
+| **Payments** | Razorpay (currently mothballed / disabled) |
 | **Error Tracking** | Sentry |
 | **Logging** | Winston + Morgan |
 | **Job Queue** | Bull (burn-post scheduling) |

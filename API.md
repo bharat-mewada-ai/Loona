@@ -102,7 +102,6 @@ This document outlines the API endpoints exposed by the Loona server. Most endpo
 | `POST` | `/feedback` | Submit app feedback | Yes |
 | `GET` | `/notifications` | Get user notifications | Yes |
 | `PATCH` | `/notifications/read-all` | Mark all notifications as read | Yes |
-| `POST` | `/payment/create-order` | Create Razorpay order (Premium) | Yes |
-| `POST` | `/payment/verify` | Verify Razorpay payment signature | Yes |
+
 | `POST` | `/upload/image` | Upload image to Cloudinary (returns URL) | Yes |
 | `GET` | `/health` | Public server health check | No |

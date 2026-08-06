@@ -1,4 +1,3 @@
-import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import ShopItem from '../models/shopItem.model.js';
 import Bargain from '../models/bargain.model.js';
@@ -6,14 +5,6 @@ import Chat from '../models/chat.model.js';
 import User from '../models/user.model.js';
 import logger from '../utils/logger.js';
 import { createNotification } from '../utils/notificationService.js';
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
-
-const LISTING_FEE_INR = 5;    // ₹5 to list
-const BOOST_FEE_INR   = 15;   // ₹15 to feature listing
 
 // ─── GET /shop ─────────────────────────────────────────────────────────────
 // List available items — featured items first, then newest
@@ -135,46 +126,7 @@ export const createListingOrder = async (req, res) => {
         },
       });
     } else {
-      const feeAmount = wantFeatured ? LISTING_FEE_INR + BOOST_FEE_INR : LISTING_FEE_INR;
-
-      // Create Razorpay order
-      const order = await razorpay.orders.create({
-        amount: feeAmount * 100, // paise
-        currency: 'INR',
-        receipt: `shop_list_${req.user._id}_${Date.now()}`,
-        notes: { type: 'shop_listing', userId: req.user._id.toString() },
-      });
-
-      // Save a pending listing
-      const item = await ShopItem.create({
-        title,
-        description,
-        price,
-        category,
-        seller: req.user._id,
-        campus: req.user.campus,
-        sellerUpi: sellerUpi || '',
-        sellerContact: sellerContact || '',
-        isFeatured: !!wantFeatured,
-        listingFeeOrderId: order.id,
-        status: 'pending_payment',
-        image: image || (cleanImages.length > 0 ? cleanImages[0] : null),
-        images: cleanImages,
-      });
-
-      return res.json({
-        itemId: item._id,
-        orderId: order.id,
-        amount: order.amount,
-        currency: order.currency,
-        key: process.env.RAZORPAY_KEY_ID,
-        feeBreakdown: {
-          listingFee: LISTING_FEE_INR,
-          boostFee: wantFeatured ? BOOST_FEE_INR : 0,
-          total: feeAmount,
-        },
-        paymentMethod: 'razorpay',
-      });
+      return res.status(400).json({ error: 'Only potato payments are supported for shop listings' });
     }
   } catch (err) {
     logger.error('[Shop] createListingOrder error:', err.message);
@@ -182,44 +134,6 @@ export const createListingOrder = async (req, res) => {
   }
 };
 
-// ─── POST /shop/:id/verify-listing ─────────────────────────────────────────
-// Step 2: Verify Razorpay payment for listing fee — makes item live
-export const verifyListingPayment = async (req, res) => {
-  try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    const { id } = req.params;
-
-    const item = await ShopItem.findById(id);
-    if (!item) return res.status(404).json({ error: 'Listing not found' });
-    if (item.seller.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    // Verify signature
-    const sign = razorpay_order_id + '|' + razorpay_payment_id;
-    const expected = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret')
-      .update(sign)
-      .digest('hex');
-
-    if (razorpay_signature !== expected) {
-      return res.status(400).json({ error: 'Invalid payment signature' });
-    }
-
-    // Mark listing as live
-    item.status = 'available';
-    item.listingFeePaid = true;
-    if (item.isFeatured) item.boostFeePaid = true;
-    await item.save();
-
-    logger.info(`[Shop] Listing ${item._id} is now live (seller: ${req.user._id})`);
-
-    res.json({ success: true, item });
-  } catch (err) {
-    logger.error('[Shop] verifyListingPayment error:', err.message);
-    res.status(500).json({ error: 'Payment verification failed' });
-  }
-};
 
 // ─── DELETE /shop/:id ──────────────────────────────────────────────────────
 // Seller removes their own listing (only if still available)
