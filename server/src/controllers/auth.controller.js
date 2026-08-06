@@ -33,11 +33,10 @@ export const googleLogin = async (req, res) => {
       const decoded = jwt.decode(token);
       logger.info(`[GoogleLogin] DEBUG - Token Audience (aud): ${decoded?.aud}`);
 
-      // Support client IDs across both the iOS/Server project (612057986452) and the Android project (329290971821)
-      const androidClientId = "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com";
-      const androidWebClientId = "329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com";
+      // Support multiple client IDs via environment variables (comma separated)
+      const extraClientIds = (process.env.GOOGLE_EXTRA_CLIENT_IDS || "").split(',').map(id => id.trim());
       const webClientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
-      const allowedAudiences = [webClientId, androidClientId, androidWebClientId].filter(Boolean);
+      const allowedAudiences = [webClientId, ...extraClientIds].filter(Boolean);
 
       logger.info(`[GoogleLogin] Comparing token aud [${decoded?.aud}] with allowed audiences: ${JSON.stringify(allowedAudiences)}`);
 
