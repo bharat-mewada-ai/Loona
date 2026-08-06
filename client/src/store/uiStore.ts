@@ -86,6 +86,10 @@ interface UIState {
   // ── Haptics ────────────────────────────────────────────────────────────────
   hapticsEnabled: boolean;
   toggleHaptics: () => void;
+
+  // ── Audio State ────────────────────────────────────────────────────────────
+  playingPostId: string | null;
+  setPlayingPostId: (id: string | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -171,4 +175,8 @@ export const useUIStore = create<UIState>((set) => ({
     storage.setItem('loona_haptics', newVal ? 'true' : 'false').catch(() => {});
     return { hapticsEnabled: newVal };
   }),
+
+  // Audio State
+  playingPostId: null,
+  setPlayingPostId: (id) => set({ playingPostId: id }),
 }));

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { 
   View, 
   Text, 
@@ -38,6 +38,7 @@ import { useDeletePost } from "../../src/hooks/usePosts";
 import { useTodayPoll, useVoteTodayPoll } from "../../src/hooks/useDailyPoll";
 import { postsApi } from "../../src/api/posts.api";
 import { BlurView } from "expo-blur";
+import { soundManager } from "../../src/services/musicService";
 
 export default function Feed() {
   useAnalytics('home');
@@ -63,6 +64,17 @@ export default function Feed() {
     }, [queryClient])
   );
   
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: any[] }) => {
+    const currentPlaying = useUIStore.getState().playingPostId;
+    if (currentPlaying) {
+      const isVisible = viewableItems.some(item => item.item._id === currentPlaying);
+      if (!isVisible) {
+        soundManager.stop();
+        useUIStore.getState().setPlayingPostId(null);
+      }
+    }
+  }).current;
+
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const { data: poll, isLoading: pollLoading } = useTodayPoll();
@@ -385,6 +397,8 @@ export default function Feed() {
           keyExtractor={(item) => item._id}
           ListHeaderComponent={renderHeader}
           renderItem={renderItem}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
           estimatedItemSize={380}
           scrollEventThrottle={16}
           contentContainerStyle={[s.listContent, { paddingBottom: 110 }]}

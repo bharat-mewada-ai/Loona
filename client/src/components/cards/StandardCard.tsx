@@ -85,7 +85,10 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
     no: post.bhandaraCountNo || 0,
   });
 
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const playingPostId = useUIStore(s => s.playingPostId);
+  const setPlayingPostId = useUIStore(s => s.setPlayingPostId);
+  const isPlayingAudio = playingPostId === post._id;
+
   const [showReelModal, setShowReelModal] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
 
@@ -115,14 +118,7 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
   }, [!!post.songName]);
   const vinylRotation = vinylAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
-  // Stop audio when card unmounts (e.g. user scrolls away)
-  useEffect(() => {
-    return () => {
-      if (isPlayingAudio) {
-        soundManager.stop();
-      }
-    };
-  }, [isPlayingAudio]);
+  // Removed local unmount stop — handled globally via viewability now
 
   // Sync when server data updates (after onSuccess patches cache)
   React.useEffect(() => {
@@ -275,8 +271,17 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           style={s.floatPlayBtn}
           onPress={(e) => {
             e.stopPropagation();
-            if (isPlayingAudio) { soundManager.stop(); setIsPlayingAudio(false); }
-            else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false), post.songStartOffset || 0); }
+            if (isPlayingAudio) { 
+              soundManager.stop(); 
+              setPlayingPostId(null); 
+            } else { 
+              setPlayingPostId(post._id); 
+              soundManager.play(post.songAudioUrl!, () => {
+                if (useUIStore.getState().playingPostId === post._id) {
+                  useUIStore.getState().setPlayingPostId(null);
+                }
+              }, (post as any).songStartOffset || 0); 
+            }
           }}
         >
           <Ionicons name={isPlayingAudio ? 'pause' : 'play'} size={13} color="#FFF" />
@@ -470,8 +475,17 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: themeColors.ogi, alignItems: 'center', justifyContent: 'center' }}
               onPress={(e) => {
                 e.stopPropagation();
-                if (isPlayingAudio) { soundManager.stop(); setIsPlayingAudio(false); }
-                else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false), post.songStartOffset || 0); }
+                if (isPlayingAudio) { 
+                  soundManager.stop(); 
+                  setPlayingPostId(null); 
+                } else { 
+                  setPlayingPostId(post._id); 
+                  soundManager.play(post.songAudioUrl!, () => {
+                    if (useUIStore.getState().playingPostId === post._id) {
+                      useUIStore.getState().setPlayingPostId(null);
+                    }
+                  }, (post as any).songStartOffset || 0); 
+                }
               }}
             >
               <Ionicons name={isPlayingAudio ? 'pause' : 'play'} size={16} color={isDark ? '#000' : '#fff'} />
@@ -513,12 +527,14 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
                 onPress={() => {
                   if (isPlayingAudio) {
                     soundManager.stop();
-                    setIsPlayingAudio(false);
+                    setPlayingPostId(null);
                   } else {
-                    setIsPlayingAudio(true);
+                    setPlayingPostId(post._id);
                     soundManager.play(post.songAudioUrl!, () => {
-                      setIsPlayingAudio(false);
-                    }, post.songStartOffset || 0);
+                      if (useUIStore.getState().playingPostId === post._id) {
+                        useUIStore.getState().setPlayingPostId(null);
+                      }
+                    }, (post as any).songStartOffset || 0);
                   }
                 }}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: themeColors.ogi, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 30, marginTop: 24 }}
