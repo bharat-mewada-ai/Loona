@@ -514,7 +514,7 @@ export default function Feed() {
 const s = StyleSheet.create({
   safe: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  headerLogo: { width: 32, height: 32, borderRadius: 10 },
+  headerLogo: { width: 32, height: 32, borderRadius: 10, overflow: 'hidden', backgroundColor: 'transparent' },
   logoText: { fontSize: 22, fontFamily: 'Syne_700Bold', letterSpacing: -0.5 },
   subLogo: { fontSize: 9, color: '#888', fontWeight: '800', letterSpacing: 1, marginTop: -2 },
   hActions: { flexDirection: 'row', gap: 8 },

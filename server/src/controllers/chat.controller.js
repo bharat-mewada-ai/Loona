@@ -334,10 +334,12 @@ export const sendMessage = async (req, res) => {
     (async () => {
       try {
         // 1. Update chat metadata atomically
-        await Chat.findByIdAndUpdate(chatId, {
+        const updatedChat = await Chat.findByIdAndUpdate(chatId, {
           $set: { lastMessage: message._id, lastMessageAt: new Date() },
           $inc: { [`unreadCounts.${otherId}`]: 1 }
-        });
+        }, { new: true });
+        
+        const unreadCount = updatedChat?.unreadCounts?.[otherId] || 1;
 
         // 2. Emit via socket to the chat room (both users see it in real-time)
         const io = req.app.get("io");
@@ -377,7 +379,11 @@ export const sendMessage = async (req, res) => {
         if (shouldSendPush) {
           // Build a clean title
           let pushTitle = senderName;
-          const pushBody = image && !content ? "Sent a photo 📷" : `${(content || '').slice(0, 60)}${(content || '').length > 60 ? '...' : ''}`;
+          let pushBody = image && !content ? "Sent a photo 📷" : `${(content || '').slice(0, 60)}${(content || '').length > 60 ? '...' : ''}`;
+          
+          if (unreadCount > 1) {
+            pushBody = `${unreadCount} new messages`;
+          }
 
           await createNotification({
             recipient: otherId,

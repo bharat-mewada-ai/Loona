@@ -69,13 +69,16 @@ export const broadcastNotification = async (title, body, data = {}, target = nul
 export const initMarketingBot = () => {
   // 1. Every Day at 7:00 PM (Spicy Evening Gossip)
   cron.schedule("0 19 * * *", async () => {
-    const msg = SPICY_MESSAGES[Math.floor(Math.random() * SPICY_MESSAGES.length)];
-    await broadcastNotification(msg.title, msg.body, { type: "marketing" });
-    logger.info("[Marketing Bot] Daily spicy notification sent.");
+    // Disabled generic broadcast notification
+    // const msg = SPICY_MESSAGES[Math.floor(Math.random() * SPICY_MESSAGES.length)];
+    // await broadcastNotification(msg.title, msg.body, { type: "marketing" });
+    // logger.info("[Marketing Bot] Daily spicy notification sent.");
   });
 
   // 2. Inactivity Check (Check every hour for users who became inactive exactly 24 hours ago)
   cron.schedule("0 * * * *", async () => {
+    // Disabled inactivity notifications
+    /*
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const twentyFiveHoursAgo = new Date(Date.now() - 25 * 60 * 60 * 1000);
     
@@ -92,5 +95,6 @@ export const initMarketingBot = () => {
         { type: "re-engagement" }
       );
     });
+    */
   });
 };

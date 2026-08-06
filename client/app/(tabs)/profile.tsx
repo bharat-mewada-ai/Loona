@@ -206,7 +206,7 @@ export default function ProfileScreen() {
             position: 'absolute'
           }}>
             <Text style={[s.logo, { color: themeColors.txt }]}>
-              🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>profile</Text>
+              <Text style={{ fontFamily: 'Syne_700Bold', textTransform: 'uppercase', letterSpacing: 2 }}>PROFILE</Text>
             </Text>
           </Animated.View>
 
