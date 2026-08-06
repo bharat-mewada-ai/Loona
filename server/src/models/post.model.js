@@ -29,6 +29,7 @@ const postSchema = new mongoose.Schema({
   views: { type: Number, default: 0 },
   hashtags: [{ type: String }],
   upvotes: { type: Number, default: 0 },
+  upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   commentCount: { type: Number, default: 0 },
   reactions: {
     wow:       { type: Number, default: 0 },

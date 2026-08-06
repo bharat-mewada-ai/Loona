@@ -492,14 +492,12 @@ export const hardDeleteExpiredAccounts = async () => {
       { default: Post },
       { default: Comment },
       { default: Chat },
-      { default: Vote },
       { default: BhandaraVote },
       { default: Notification },
     ] = await Promise.all([
       import('../models/post.model.js'),
       import('../models/comment.model.js'),
       import('../models/chat.model.js'),
-      import('../models/vote.model.js'),
       import('../models/bhandaraVote.model.js'),
       import('../models/notification.model.js'),
     ]);
@@ -508,7 +506,6 @@ export const hardDeleteExpiredAccounts = async () => {
       Post.deleteMany({ author: { $in: userIds } }),
       Comment.deleteMany({ author: { $in: userIds } }),
       Chat.deleteMany({ participants: { $in: userIds } }),
-      Vote.deleteMany({ userId: { $in: userIds } }),
       BhandaraVote.deleteMany({ userId: { $in: userIds } }),
       Notification.deleteMany({ recipient: { $in: userIds } }),
       User.deleteMany({ _id: { $in: userIds } }),

@@ -3,7 +3,7 @@ import Comment from "../models/comment.model.js";
 import User from "../models/user.model.js";
 import Chat from "../models/chat.model.js";
 import { getCampusMultiplier } from "../utils/streakHelper.js";
-import Vote from "../models/vote.model.js";
+// Vote model removed, we use upvotedBy array on Post directly
 import Report from "../models/report.model.js";
 import BhandaraVote from "../models/bhandaraVote.model.js";
 import AuditLog from "../models/auditLog.model.js";
@@ -129,6 +129,8 @@ export const createPost = async (req, res) => {
     songAudioUrl: songAudioUrl ? String(songAudioUrl) : undefined,
     songCoverUrl: songCoverUrl ? String(songCoverUrl) : undefined,
     songStartOffset: songStartOffset ? Number(songStartOffset) : undefined,
+    upvotedBy: [req.user._id],
+    upvotes: 1, // Auto-like own post (Option 2)
   };
 
   const post = await Post.create(postData);
@@ -370,15 +372,10 @@ export const getPosts = async (req, res) => {
     }
   } catch(e) {}
 
-  // Batch check if current user has voted for these posts
-  let postIdsWithVotes = new Set();
-  if (req.user && posts.length > 0) {
-    const userVotes = await Vote.find({
-      userId: req.user._id,
-      postId: { $in: posts.map(p => p._id) }
-    }).select('postId').lean();
-    postIdsWithVotes = new Set(userVotes.map(v => v.postId.toString()));
-  }
+  const userId = req.user?._id?.toString();
+  const postIdsWithVotes = new Set(
+    posts.filter(p => p.upvotedBy && p.upvotedBy.includes(userId)).map(p => p._id.toString())
+  );
 
   const hasMore = posts.length > parseInt(limit);
   if (hasMore) posts.pop(); // Remove the extra post
@@ -391,7 +388,7 @@ export const getPosts = async (req, res) => {
     const hasGone = req.user && p.goingBy ? p.goingBy.some(gid => gid.toString() === userId) : false;
 
     // Cleanup internal maps before sending to client
-    const { pollVoters, reactedBy, reports, goingBy, ...rest } = p;
+    const { pollVoters, reactedBy, reports, goingBy, upvotedBy, ...rest } = p;
     
     if (p.type === 'confess') {
       rest.author = null;
@@ -426,8 +423,7 @@ export const getPostById = async (req, res) => {
 
   let hasVoted = false;
   if (req.user) {
-    const vote = await Vote.findOne({ userId: req.user._id, postId: post._id }).lean();
-    hasVoted = !!vote;
+    hasVoted = post.upvotedBy && post.upvotedBy.includes(req.user._id.toString());
   }
 
   const userId = req.user?._id?.toString();
@@ -435,7 +431,7 @@ export const getPostById = async (req, res) => {
   const isSaved = req.user ? req.user.savedPosts.some(sid => sid.toString() === post._id.toString()) : false;
 
   // Cleanup - Keep author to allow profile navigation
-  const { pollVoters, reactedBy, reports, ...rest } = post;
+  const { pollVoters, reactedBy, reports, upvotedBy, ...rest } = post;
 
   if (rest.type === 'confess') {
     rest.author = null;
@@ -461,37 +457,40 @@ export const votePost = async (req, res) => {
   if (!post) return res.status(404).json({ error: "Not found" });
 
   const userId = req.user._id;
-  const existingVote = await Vote.findOne({ postId: post._id, userId });
+  const existingVote = post.upvotedBy && post.upvotedBy.includes(userId);
 
   let updatedPost;
   if (existingVote) {
-    // Unvote
-    const deleteResult = await Vote.deleteOne({ _id: existingVote._id });
-    if (deleteResult.deletedCount === 0) {
-      // Already unvoted by a concurrent request. Return success with the unvoted state.
-      return res.json({ upvotes: post.upvotes, score: post.score, hasVoted: false, voterPotato: req.user.potato });
-    }
-    updatedPost = await Post.findByIdAndUpdate(
-      post._id,
-      { $inc: { upvotes: -1 } },
+    // Unvote: strictly pull and decrement ONLY if they were already in the array
+    updatedPost = await Post.findOneAndUpdate(
+      { _id: post._id, upvotedBy: userId },
+      { 
+        $pull: { upvotedBy: userId },
+        $inc: { upvotes: -1 }
+      },
       { new: true }
     );
   } else {
-    // Vote
-    try {
-      await Vote.create({ postId: post._id, userId });
-      updatedPost = await Post.findByIdAndUpdate(
-        post._id,
-        { $inc: { upvotes: 1 } },
-        { new: true }
-      );
-    } catch (err) {
-      if (err.code === 11000) {
-        // Already voted by a concurrent request. Return success with the voted state.
-        return res.json({ upvotes: post.upvotes, score: post.score, hasVoted: true, voterPotato: req.user.potato });
-      }
-      throw err;
-    }
+    // Vote: strictly addToSet and increment ONLY if they were NOT in the array
+    updatedPost = await Post.findOneAndUpdate(
+      { _id: post._id, upvotedBy: { $ne: userId } },
+      { 
+        $addToSet: { upvotedBy: userId },
+        $inc: { upvotes: 1 }
+      },
+      { new: true }
+    );
+  }
+
+  // If updatedPost is null, a concurrent request already toggled this state.
+  if (!updatedPost) {
+    const currentPost = await Post.findById(post._id);
+    return res.json({ 
+      upvotes: currentPost.upvotes, 
+      score: currentPost.score, 
+      hasVoted: currentPost.upvotedBy.includes(userId), 
+      voterPotato: req.user.potato 
+    });
   }
 
   if (updatedPost) {
