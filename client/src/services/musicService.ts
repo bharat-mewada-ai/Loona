@@ -23,21 +23,13 @@ const configureAudio = async () => {
     });
     audioConfigured = true;
   } catch (e) {
-    console.log('[AudioMode] Setup error (non-fatal):', e);
+    console.log('[AudioMode] non-fatal:', e);
   }
 };
 configureAudio();
 
-// ─── iTunes Search — with multiple fallback terms ─────────────────────────────
-// NOTE: Do NOT use country=IN — iTunes blocks most preview URLs for India.
-// Using US store (default) gives the most preview URLs globally.
-
-const FALLBACK_TERMS = [
-  'top+hits+2024',
-  'pop+hits',
-  'trending+songs',
-];
-
+// ─── iTunes Search ─────────────────────────────────────────────────────────────
+// Do NOT add country=IN — India blocks most preview URLs on iTunes store.
 const fetchFromItunes = async (term: string, limit = 50): Promise<Track[]> => {
   const url = `https://itunes.apple.com/search?term=${term}&entity=song&limit=${limit}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -58,27 +50,20 @@ const fetchFromItunes = async (term: string, limit = 50): Promise<Track[]> => {
 };
 
 export const getTrendingTracks = async (): Promise<Track[]> => {
-  // Try bollywood first, then fall back to global hits if empty
   const terms = [
     'bollywood+2024',
     'bollywood+hits',
     'hindi+songs',
-    ...FALLBACK_TERMS,
+    'top+hits+2024',
+    'pop+hits',
+    'trending+songs',
   ];
-
   for (const term of terms) {
     try {
       const tracks = await fetchFromItunes(term, 50);
-      if (tracks.length >= 5) {
-        console.log(`[musicService] Got ${tracks.length} tracks for term: ${term}`);
-        return tracks;
-      }
-    } catch (err) {
-      console.log(`[musicService] Failed for term "${term}":`, err);
-    }
+      if (tracks.length >= 5) return tracks;
+    } catch (_) {}
   }
-
-  console.log('[musicService] All terms exhausted, returning []');
   return [];
 };
 
@@ -86,11 +71,8 @@ export const searchTracks = async (query: string): Promise<Track[]> => {
   if (!query || query.trim().length < 2) return getTrendingTracks();
   try {
     const tracks = await fetchFromItunes(encodeURIComponent(query), 50);
-    if (tracks.length > 0) return tracks;
-    // If no results for this query, fallback to trending
-    return getTrendingTracks();
-  } catch (err) {
-    console.log('[musicService] searchTracks error:', err);
+    return tracks.length > 0 ? tracks : getTrendingTracks();
+  } catch (_) {
     return getTrendingTracks();
   }
 };
@@ -100,21 +82,40 @@ class SoundManager {
   private sound: Audio.Sound | null = null;
   private _isPlaying = false;
 
-  async play(url: string | null | undefined, onEnded?: () => void, startOffsetMs = 0): Promise<void> {
+  /**
+   * Play audio from a URL.
+   * @param url        - The audio URL to play
+   * @param onEnded    - Called when playback finishes naturally
+   * @param startOffsetMs - Start position in milliseconds (for song trimmer)
+   */
+  async play(
+    url: string | null | undefined,
+    onEnded?: () => void,
+    startOffsetMs = 0
+  ): Promise<void> {
     if (!url) return;
 
     await configureAudio();
-    await this.stop();
+    await this.stop(); // Always stop previous sound first
 
     try {
+      // Load WITHOUT playing, then seek & play — avoids positionMillis+shouldPlay crash
       const { sound } = await Audio.Sound.createAsync(
         { uri: url },
-        { shouldPlay: true, volume: 1.0, positionMillis: startOffsetMs },
-        undefined,
-        false // downloadFirst = false (stream immediately!)
+        { shouldPlay: false, volume: 1.0 }
       );
 
       this.sound = sound;
+
+      // Seek to offset if needed
+      if (startOffsetMs > 0) {
+        try {
+          await sound.setPositionAsync(startOffsetMs);
+        } catch (_) {}
+      }
+
+      // Now actually play
+      await sound.playAsync();
       this._isPlaying = true;
 
       sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {

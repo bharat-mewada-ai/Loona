@@ -13,6 +13,7 @@ import { useBlockUser } from '../../src/hooks/useAuth';
 import { Ionicons } from '@expo/vector-icons';
 import PostCard from '../../src/components/PostCard';
 import { LinearGradient } from 'expo-linear-gradient';
+import { CAMPUS_META } from '../../src/constants';
 
 const { width } = Dimensions.get('window');
 
@@ -45,7 +46,7 @@ export default function UserProfileScreen() {
 
   const posts = postsData?.pages?.flatMap((p: any) => p?.posts ?? []) ?? [];
   const isPrivate = user.isPrivate;
-  const primaryColor = user.campus === 'lnct' ? themeColors.lnct : themeColors.ogi;
+  const primaryColor = CAMPUS_META[user.campus as keyof typeof CAMPUS_META]?.color || themeColors.ogi;
 
   const handleStartChat = () => {
     if (startingChat) return;
@@ -135,7 +136,7 @@ export default function UserProfileScreen() {
 
           <View style={s.infoSection}>
             <Text style={[s.displayName, { color: themeColors.txt }]}>{user.name}</Text>
-            <Text style={[s.campusSub, { color: primaryColor }]}>@{user.campus?.toUpperCase()} · {user.campus === 'ogi' ? 'Oriental' : 'LNCT'}</Text>
+            <Text style={[s.campusSub, { color: primaryColor }]}>@{user.campus?.toUpperCase()} · {CAMPUS_META[user.campus as keyof typeof CAMPUS_META]?.label || user.campus?.toUpperCase()}</Text>
             
             {user.bio ? (
               <Text style={[s.bioTxt, { color: themeColors.txt2 }]}>{user.bio}</Text>

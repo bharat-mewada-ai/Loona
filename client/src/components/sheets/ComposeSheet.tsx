@@ -25,63 +25,82 @@ interface SliderProps {
   onChange: (value: number) => void;
   onRelease: () => void;
   themeColors: any;
+  isPreviewPlaying: boolean;
+  onPlayPreview: () => void;
+  onStopPreview: () => void;
 }
 
-const CustomMusicSlider = ({ offset, onChange, onRelease, themeColors }: SliderProps) => {
+const CustomMusicSlider = ({ offset, onChange, onRelease, themeColors, isPreviewPlaying, onPlayPreview, onStopPreview }: SliderProps) => {
   const [width, setWidth] = useState(250);
-  
+
   const handleTouch = (e: any) => {
     const { locationX } = e.nativeEvent;
     const percentage = Math.max(0, Math.min(locationX / width, 1));
-    const seconds = Math.round(percentage * 20); // 0 to 20 seconds start offset
+    const seconds = Math.round(percentage * 20);
     onChange(seconds);
   };
 
+  const fmt = (s: number) => `0:${s < 10 ? `0${s}` : s}`;
+
   return (
-    <View style={{ marginTop: 12, width: '100%', paddingHorizontal: 4 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <Text style={{ color: themeColors.txt2, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: 'DMSans_700Bold' }}>
-          Select start part:
-        </Text>
-        <Text style={{ color: themeColors.ogi, fontSize: 12, fontWeight: '900', fontFamily: 'DMSans_700Bold' }}>
-          Starts at 0:{offset < 10 ? `0${offset}` : offset}
-        </Text>
+    <View style={{ marginTop: 14, width: '100%' }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <Text style={{ color: themeColors.txt2, fontSize: 12, fontWeight: '700' }}>🎬 Choose start point</Text>
+        <Text style={{ color: themeColors.ogi, fontSize: 12, fontWeight: '900' }}>{fmt(offset)} — {fmt(Math.min(offset + 10, 30))}</Text>
       </View>
-      <View 
+
+      {/* Slider track */}
+      <View
         onLayout={(e) => setWidth(e.nativeEvent.layout.width || 250)}
         onStartShouldSetResponder={() => true}
         onResponderGrant={handleTouch}
         onResponderMove={handleTouch}
-        onResponderRelease={onRelease}
-        style={{ height: 32, justifyContent: 'center', position: 'relative' }}
+        onResponderRelease={() => { onChange(offset); onRelease(); }}
+        style={{ height: 36, justifyContent: 'center', position: 'relative' }}
       >
-        {/* Track */}
-        <View style={{ height: 6, borderRadius: 3, backgroundColor: themeColors.bdr, width: '100%' }} />
-        {/* Active Part */}
-        <View style={{ position: 'absolute', height: 6, borderRadius: 3, backgroundColor: themeColors.ogi, width: `${(offset / 20) * 100}%` }} />
-        {/* Thumb */}
-        <View 
-          style={{ 
-            position: 'absolute', 
-            left: `${(offset / 20) * 100}%`, 
-            marginLeft: -10, 
-            width: 20, 
-            height: 20, 
-            borderRadius: 10, 
-            backgroundColor: '#FFF', 
-            borderWidth: 2, 
-            borderColor: themeColors.ogi,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 2,
-            elevation: 2 
-          }} 
-        />
+        {/* Background track */}
+        <View style={{ height: 8, borderRadius: 4, backgroundColor: themeColors.bdr, width: '100%' }} />
+        {/* Selected range highlight */}
+        <View style={{
+          position: 'absolute',
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: themeColors.ogi + '55',
+          left: `${(offset / 20) * 100}%`,
+          width: `${(10 / 30) * 100}%`,
+        }} />
+        {/* Start thumb */}
+        <View style={{
+          position: 'absolute',
+          left: `${(offset / 20) * 100}%`,
+          marginLeft: -11,
+          width: 22,
+          height: 22,
+          borderRadius: 11,
+          backgroundColor: themeColors.ogi,
+          borderWidth: 3,
+          borderColor: '#FFF',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3,
+          elevation: 4,
+        }} />
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}>
-        <Text style={{ color: themeColors.txt3, fontSize: 10, fontFamily: 'DMSans_400Regular' }}>0:00 (Start)</Text>
-        <Text style={{ color: themeColors.txt3, fontSize: 10, fontFamily: 'DMSans_400Regular' }}>0:20 (End of preview)</Text>
+
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+        <Text style={{ color: themeColors.txt3, fontSize: 10 }}>0:00</Text>
+        {/* Play preview button */}
+        <TouchableOpacity
+          onPress={isPreviewPlaying ? onStopPreview : onPlayPreview}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: themeColors.card2, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14 }}
+        >
+          <Ionicons name={isPreviewPlaying ? 'pause' : 'play'} size={14} color={themeColors.ogi} />
+          <Text style={{ color: themeColors.ogi, fontSize: 12, fontWeight: '700' }}>
+            {isPreviewPlaying ? 'Stop Preview' : 'Preview Clip'}
+          </Text>
+        </TouchableOpacity>
+        <Text style={{ color: themeColors.txt3, fontSize: 10 }}>0:20</Text>
       </View>
     </View>
   );
@@ -141,7 +160,8 @@ export default function ComposeSheet() {
   const [playingPreviewId, setPlayingPreviewId] = useState<number | null>(null);
   const musicSearchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [musicFetchError, setMusicFetchError] = useState(false);
-  const [songStartOffset, setSongStartOffset] = useState(0); // start offset in seconds (0-20)
+  const [songStartOffset, setSongStartOffset] = useState(0);
+  const [isSliderPreviewPlaying, setIsSliderPreviewPlaying] = useState(false);
 
 
   // Stop preview audio whenever music modal closes
@@ -386,13 +406,13 @@ export default function ComposeSheet() {
         songArtist: selectedTrack?.artistName || undefined,
         songAudioUrl: selectedTrack?.previewUrl || undefined,
         songCoverUrl: selectedTrack?.artworkUrl || undefined,
-        songStartOffset: selectedTrack ? songStartOffset * 1000 : undefined,
+        songStartOffset: selectedTrack && songStartOffset > 0 ? songStartOffset * 1000 : undefined,
       },
       {
         onSuccess: () => {
           setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false); setPollOptions(['', '']);
           setEventLocation('');
-          setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setSongStartOffset(0);
+          setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setSongStartOffset(0); setIsSliderPreviewPlaying(false);
           soundManager.stop();
           closeComposeSheet();
         },
@@ -408,7 +428,7 @@ export default function ComposeSheet() {
   const handleClose = () => {
     setTitle(''); setBody(''); setImageUris([]); setCdnUrls([]); setDateSet(false); setBurn(false); setIsPoll(false);
     setOfferBrand(''); setOfferDiscount(''); setExternalLink(''); setIsExclusive(false);
-    setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setSongStartOffset(0);
+    setSelectedTrack(null); setSongQuery(''); setSearchResults([]); setSongStartOffset(0); setIsSliderPreviewPlaying(false);
     soundManager.stop();
     closeComposeSheet();
   };
@@ -677,14 +697,37 @@ export default function ComposeSheet() {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Custom Music Slider */}
-                  <CustomMusicSlider 
+                  {/* Song Clip Selector Slider */}
+                  <CustomMusicSlider
                     offset={songStartOffset}
-                    onChange={setSongStartOffset}
+                    onChange={(val) => {
+                      setSongStartOffset(val);
+                      setIsSliderPreviewPlaying(false);
+                      soundManager.stop();
+                    }}
                     onRelease={() => {
-                      soundManager.play(selectedTrack.previewUrl, () => {}, songStartOffset * 1000);
+                      // Preview automatically plays when slider is released
+                      setIsSliderPreviewPlaying(true);
+                      soundManager.play(
+                        selectedTrack.previewUrl,
+                        () => setIsSliderPreviewPlaying(false),
+                        songStartOffset * 1000
+                      );
                     }}
                     themeColors={themeColors}
+                    isPreviewPlaying={isSliderPreviewPlaying}
+                    onPlayPreview={() => {
+                      setIsSliderPreviewPlaying(true);
+                      soundManager.play(
+                        selectedTrack.previewUrl,
+                        () => setIsSliderPreviewPlaying(false),
+                        songStartOffset * 1000
+                      );
+                    }}
+                    onStopPreview={() => {
+                      setIsSliderPreviewPlaying(false);
+                      soundManager.stop();
+                    }}
                   />
                 </View>
               )}

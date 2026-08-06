@@ -90,7 +90,8 @@ export default function Feed() {
     triggerHaptic();
     setShakeLoading(true);
     try {
-      const otherCampus = user?.campus === 'ogi' ? 'lnct' : 'ogi';
+      const otherCampuses = ['ogi', 'lnct', 'manit', 'rgpv'].filter(c => c !== user?.campus);
+      const otherCampus = otherCampuses[Math.floor(Math.random() * otherCampuses.length)];
       const res = await postsApi.getFeed({ campus: otherCampus, limit: 15 });
       if (res && res.posts && res.posts.length > 0) {
         const randomIdx = Math.floor(Math.random() * res.posts.length);

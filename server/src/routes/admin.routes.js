@@ -64,7 +64,7 @@ router.post("/broadcast", requireAuth, requireAdmin, asyncHandler(async (req, re
   // 1. Find target recipients with push tokens to save their names/emails in history
   const query = { expoPushToken: { $exists: true, $ne: "" } };
   if (target) {
-    if (typeof target === 'string' && ['ogi', 'lnct', 'oriental'].includes(target)) {
+    if (typeof target === 'string' && ['ogi', 'lnct', 'oriental', 'manit', 'rgpv'].includes(target)) {
        query.campus = target;
     } else if (target.userId) {
        if (mongoose.isValidObjectId(target.userId)) {

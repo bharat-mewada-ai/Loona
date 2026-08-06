@@ -313,7 +313,7 @@ export const logout = async (req, res) => {
 
 // --- CAMPUS LIST -------------------------------------------------------------
 export const getCampuses = async (req, res) => {
-  res.json(["ogi", "lnct"]);
+  res.json(["ogi", "lnct", "manit", "rgpv"]);
 };
 
 // --- LEADERBOARD -------------------------------------------------------------
@@ -337,13 +337,23 @@ export const getLeaderboard = async (req, res) => {
   }
 
   try {
-    const [campusWarData, topUsersData] = await Promise.all([
+    const [rawCampusWarData, topUsersData] = await Promise.all([
       User.aggregate([
         { $group: { _id: "$campus", potato: { $sum: "$potato" } } },
-        { $sort: { potato: -1 } },
       ]),
       User.find().sort({ potato: -1 }).limit(10).select("name avatar potato campus").lean(),
     ]);
+
+    // Ensure all 4 campuses are present even if they have 0 users/potatoes in the db
+    const campusMap = new Map(rawCampusWarData.map(c => [c._id, c.potato]));
+    const ALL_CAMPUSES = ["ogi", "lnct", "manit", "rgpv"];
+    const campusWarData = ALL_CAMPUSES.map(campus => ({
+      _id: campus,
+      potato: campusMap.get(campus) || 0
+    }));
+
+    // Sort by potato count descending
+    campusWarData.sort((a, b) => b.potato - a.potato);
 
     const payload = { campusWar: campusWarData, topUsers: topUsersData };
 

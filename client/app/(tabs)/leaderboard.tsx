@@ -6,23 +6,18 @@ import { Colors, getColors } from '../../src/theme/colors';
 import { useUIStore } from '../../src/store/uiStore';
 import { useLeaderboard } from '../../src/hooks/useAuth';
 import { useAnalytics } from '../../src/hooks/useAnalytics';
+import { CAMPUS_META } from '../../src/constants';
 
 const getCampusColor = (campus: string, themeColors: any) => {
-  if (campus === 'ogi') return '#C94030';
-  if (campus === 'lnct') return '#4D3DBF';
-  return '#10B981';
+  return CAMPUS_META[campus as keyof typeof CAMPUS_META]?.color || '#10B981';
 };
 
 const getCampusName = (campus: string) => {
-  if (campus === 'ogi') return 'Oriental';
-  if (campus === 'lnct') return 'LNCT';
-  return 'NIT Bhopal';
+  return CAMPUS_META[campus as keyof typeof CAMPUS_META]?.label || campus?.toUpperCase() || 'Campus';
 };
 
 const getCampusEmoji = (campus: string) => {
-  if (campus === 'ogi') return '🦊';
-  if (campus === 'lnct') return '🌙';
-  return '🏛️';
+  return CAMPUS_META[campus as keyof typeof CAMPUS_META]?.emoji || '🏛️';
 };
 
 const getRankLabel = (index: number) => {
@@ -148,7 +143,7 @@ export default function LeaderboardScreen() {
                 <Text style={[s.campusName, { color: themeColors.txt }]}>{getCampusName(c._id)}</Text>
                 <View style={s.barWrap}>
                   <View style={[s.barBg, { backgroundColor: themeColors.card2 }]}>
-                    <View style={[s.barFill, { width: `${Math.min(100, (c.potato / leadCampus.potato) * 100)}%`, backgroundColor: color }]} />
+                    <View style={[s.barFill, { width: `${Math.min(100, (c.potato / (leadCampus?.potato || 1)) * 100)}%`, backgroundColor: color }]} />
                   </View>
                   <Text style={[s.barVal, { color: themeColors.txt3 }]}>{c.potato.toLocaleString()} 🥔</Text>
                 </View>

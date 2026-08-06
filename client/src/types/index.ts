@@ -1,4 +1,4 @@
-export type Campus = "ogi" | "lnct" | "all";
+export type Campus = "ogi" | "lnct" | "manit" | "rgpv" | "all";
 export type TabFilter = "all" | "discussion" | "confess" | "stories" | "events" | "bhandara" | "place" | "offers";
 
 export interface User {

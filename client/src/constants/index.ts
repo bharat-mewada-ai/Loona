@@ -21,7 +21,7 @@ export const GOOGLE_AUTH = {
 };
 
 // ─── Campus type & data ───────────────────────────────────────────────────────
-export type Campus = 'ogi' | 'lnct' | 'all';
+export type Campus = 'ogi' | 'lnct' | 'manit' | 'rgpv' | 'all';
 
 export interface CampusOption {
   value: Campus;
@@ -37,6 +37,8 @@ export interface CampusOption {
 export const CAMPUSES: CampusOption[] = [
   { value: 'ogi',  label: 'Oriental',  full: 'Oriental Group of Institutes',         color: '#C94030', bg: '#FDF1EF', darkBg: '#2A0F0C', border: '#F2C0B8', dotColor: '#C94030' },
   { value: 'lnct', label: 'LNCT',      full: 'Lakshmi Narain College of Technology', color: '#4D3DBF', bg: '#F0EEFB', darkBg: '#110D2E', border: '#C5BFF0', dotColor: '#4D3DBF' },
+  { value: 'manit', label: 'MANIT',    full: 'Maulana Azad National Institute of Technology', color: '#0D9488', bg: '#F0FDF4', darkBg: '#064E3B', border: '#CCFBF1', dotColor: '#0D9488' },
+  { value: 'rgpv', label: 'RGPV',      full: 'Rajiv Gandhi Proudyogiki Vishwavidyalaya', color: '#DB2777', bg: '#FDF2F8', darkBg: '#50072B', border: '#FBCFE8', dotColor: '#DB2777' },
   { value: 'all',  label: 'Sneak In',  full: 'Sneak into the other campus',          color: '#6B6860', bg: '#F5F3EE', border: '#DDD9CE', dotColor: '#6B6860' },
 ];
 
@@ -49,6 +51,8 @@ export const CAMPUS_META: Record<
 > = {
   ogi:  { label: 'Oriental', color: '#C94030', bg: '#FDF1EF', bdr: '#F2C0B8', emoji: '🦊' },
   lnct: { label: 'LNCT',    color: '#4D3DBF', bg: '#F0EEFB', bdr: '#C5BFF0', emoji: '🌙' },
+  manit: { label: 'MANIT',  color: '#0D9488', bg: '#F0FDF4', bdr: '#CCFBF1', emoji: '🏫' },
+  rgpv: { label: 'RGPV',    color: '#DB2777', bg: '#FDF2F8', bdr: '#FBCFE8', emoji: '🚀' },
 };
 
 // ─── Post types ───────────────────────────────────────────────────────────────
