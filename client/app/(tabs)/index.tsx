@@ -399,12 +399,12 @@ export default function Feed() {
           renderItem={renderItem}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
-          estimatedItemSize={380}
+          
           scrollEventThrottle={16}
           contentContainerStyle={[s.listContent, { paddingBottom: 110 }]}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={true}
-          windowSize={7}
+          
           refreshControl={
             <RefreshControl refreshing={isFetching && !isFetchingNextPage} onRefresh={refetch} tintColor={themeColors.ogi} />
           }
