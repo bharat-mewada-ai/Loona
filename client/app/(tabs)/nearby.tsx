@@ -330,8 +330,8 @@ export default function NearbyScreen() {
             const isVeryClose = item.distance < 250;
             const isActionPending = activeActionUserId === item._id;
             const isAnyActionPending = !!activeActionUserId;
-            // Nearby bio: only show item.nearbyBio (no fallback to bio as requested)
-            const displayBio = (item as any).nearbyBio;
+            // Nearby bio: prefer item.nearbyBio, fallback to item.bio
+            const displayBio = (item as any).nearbyBio || item.bio;
             const tags: string[] = (item as any).tags || [];
             return (
               <View style={[
