@@ -496,12 +496,20 @@ export const reportChat = async (req, res) => {
       return res.status(404).json({ error: "Chat not found or access denied" });
     }
 
-    const report = await Report.create({
-      targetType: "chat",
-      targetId: chatId,
-      reporter: req.user._id,
-      reason
-    });
+    let report;
+    try {
+      report = await Report.create({
+        targetType: "chat",
+        targetId: chatId,
+        reporter: req.user._id,
+        reason
+      });
+    } catch (e) {
+      if (e.code === 11000) {
+        return res.status(400).json({ error: "You have already reported this chat" });
+      }
+      throw e;
+    }
 
     res.json({ success: true, message: "Chat reported successfully!", report });
   } catch (err) {

@@ -63,15 +63,36 @@ export const globalLimiter = rateLimit({
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
       try {
         const token = req.headers.authorization.split(" ")[1];
-        const decoded = jwt.decode(token);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         if (decoded && decoded.id) {
           return `user:${decoded.id}`;
         }
-      } catch (e) {}
+      } catch (e) {
+        // Fall back to IP if token is invalid or expired
+      }
     }
     return req.ip;
   },
 });
+
+export const refreshLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: process.env.NODE_ENV === 'development' ? 100 : 30, // 30 requests per hour per IP
+  message: { error: "Too many refresh attempts, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: createDynamicStore('refresh'),
+  keyGenerator: (req) => req.ip,
+});
+
+export const reportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: process.env.NODE_ENV === 'development' ? 50 : 10, // 10 reports per 15 min per user/IP
+  message: { error: "Too many reports submitted. Please wait before reporting again." },
+  store: createDynamicStore('report'),
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+});
+
 
 export const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,

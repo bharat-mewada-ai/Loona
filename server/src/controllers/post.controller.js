@@ -1089,23 +1089,40 @@ export const reportPost = async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ error: "Post not found" });
 
-    // 1. Create report
-    await Report.create({
-      targetType: "post",
-      targetId: postId,
-      reporter: userId,
-      reason
-    });
+    // Check if already reported
+    const alreadyReported = post.reports.some(r => r.reporter.toString() === userId.toString());
+    if (alreadyReported) {
+      return res.status(400).json({ error: "You have already reported this post" });
+    }
 
-    // 2. Increment count (Threshold is now 3, but NO auto-hide per user request)
+    // 1. Create report (handles duplicates gracefully due to Mongo compound index)
+    try {
+      await Report.create({
+        targetType: "post",
+        targetId: postId,
+        reporter: userId,
+        reason
+      });
+    } catch (e) {
+      if (e.code === 11000) {
+        return res.status(400).json({ error: "You have already reported this post" });
+      }
+      throw e;
+    }
+
+    // 2. Increment count
     post.reportCount = (post.reportCount || 0) + 1;
     
-    // Threshold check for internal flagging (not hiding)
+    // Threshold check for internal flagging
     if (post.reportCount >= 3) {
-      // We could set a 'isFlagged' flag if we want, but user wants it visible until mod deletes.
+      // Intentionally left blank
     }
 
     post.reports.push({ reason, reporter: userId });
+    // Keep array bounded to recent 50 reports to prevent document bloat
+    if (post.reports.length > 50) {
+      post.reports = post.reports.slice(-50);
+    }
     await post.save();
 
     // Increment criminal count for the author

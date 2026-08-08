@@ -7,7 +7,7 @@ import {
 } from "../controllers/post.controller.js";
 import { requireAuth, requireAdmin, requireStaff, optionalAuth } from "../middlewares/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { postLimiter, voteLimiter } from "../middlewares/limiters.js";
+import { postLimiter, voteLimiter, reportLimiter } from "../middlewares/limiters.js";
 import {
   validate,
   createPostRules, getPostsRules,
@@ -45,7 +45,7 @@ router.post("/:id/vote",          requireAuth, voteLimiter, asyncHandler(votePos
 router.post("/:id/poll-vote",      requireAuth, voteLimiter, asyncHandler(votePoll));
 router.post("/:id/bhandara-vote", requireAuth, voteLimiter, asyncHandler(voteBhandara));
 router.post("/:id/react",      requireAuth, voteLimiter, reactRules,    validate,  asyncHandler(reactPost));
-router.post("/:id/report",     requireAuth, reportRules,   validate,  asyncHandler(reportPost));
+router.post("/:id/report",     requireAuth, reportLimiter, reportRules,   validate,  asyncHandler(reportPost));
 router.post("/:id/comments",   requireAuth, addCommentRules, validate, asyncHandler(addComment));
 router.post("/:id/save",       requireAuth, asyncHandler(toggleSavePost));
 router.post("/:id/going",      requireAuth, asyncHandler(toggleGoing));
