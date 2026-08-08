@@ -160,7 +160,11 @@ export const startChat = async (req, res) => {
     activeStartChats.set(lockKey, startPromise);
 
     try {
-      const resultChat = await startPromise;
+      let resultChat = await startPromise;
+      if (resultChat && resultChat.isAnonymous && resultChat.anonAuthorId && req.user._id.toString() !== resultChat.anonAuthorId.toString()) {
+        resultChat = resultChat.toObject ? resultChat.toObject() : { ...resultChat };
+        resultChat.anonAuthorId = undefined;
+      }
       res.json(resultChat);
     } catch (err) {
       if (err.message.startsWith("POTATO_LIMIT:")) {
@@ -248,7 +252,7 @@ export const getMessages = async (req, res) => {
       chat: {
         _id: chat._id,
         isAnonymous: chat.isAnonymous,
-        anonAuthorId: chat.anonAuthorId,
+        anonAuthorId: (chat.anonAuthorId && req.user._id.toString() === chat.anonAuthorId.toString()) ? chat.anonAuthorId : undefined,
         isRevealed: chat.isRevealed,
         identities
       },
@@ -334,15 +338,22 @@ export const sendMessage = async (req, res) => {
     (async () => {
       try {
         // 1. Update chat metadata atomically
-        await Chat.findByIdAndUpdate(chatId, {
+        const updatedChat = await Chat.findByIdAndUpdate(chatId, {
           $set: { lastMessage: message._id, lastMessageAt: new Date() },
           $inc: { [`unreadCounts.${otherId}`]: 1 }
-        });
+        }, { new: true });
+        
+        const unreadCount = updatedChat?.unreadCounts?.[otherId] || 1;
 
         // 2. Emit via socket to the chat room (both users see it in real-time)
         const io = req.app.get("io");
         if (io) {
-          io.to(chatId).emit("newMessage", message);
+          // Emit to sender's own devices with their real senderId
+          io.to(`user:${req.user._id}`).emit("newMessage", message);
+          // Emit to recipient with senderId stripped
+          const sanitizedMessage = { ...message.toObject(), senderId: undefined };
+          io.to(`user:${otherId}`).emit("newMessage", sanitizedMessage);
+
           io.to(`user:${otherId}`).emit("newNotification", {
             type: "message",
             chatId,
@@ -377,7 +388,11 @@ export const sendMessage = async (req, res) => {
         if (shouldSendPush) {
           // Build a clean title
           let pushTitle = senderName;
-          const pushBody = image && !content ? "Sent a photo 📷" : `${(content || '').slice(0, 60)}${(content || '').length > 60 ? '...' : ''}`;
+          let pushBody = image && !content ? "Sent a photo 📷" : `${(content || '').slice(0, 60)}${(content || '').length > 60 ? '...' : ''}`;
+          
+          if (unreadCount > 1) {
+            pushBody = `${unreadCount} new messages`;
+          }
 
           await createNotification({
             recipient: otherId,
@@ -481,12 +496,20 @@ export const reportChat = async (req, res) => {
       return res.status(404).json({ error: "Chat not found or access denied" });
     }
 
-    const report = await Report.create({
-      targetType: "chat",
-      targetId: chatId,
-      reporter: req.user._id,
-      reason
-    });
+    let report;
+    try {
+      report = await Report.create({
+        targetType: "chat",
+        targetId: chatId,
+        reporter: req.user._id,
+        reason
+      });
+    } catch (e) {
+      if (e.code === 11000) {
+        return res.status(400).json({ error: "You have already reported this chat" });
+      }
+      throw e;
+    }
 
     res.json({ success: true, message: "Chat reported successfully!", report });
   } catch (err) {

@@ -24,7 +24,7 @@ const SLIDES = [
   {
     id: '2',
     title: 'Connect with Campus',
-    desc: 'Join the conversation at OGI, LNCT, and NIT Bhopal. See what is happening around you.',
+    desc: 'Join the conversation at OGI, LNCT, MANIT, and RGPV. See what is happening around you.',
     icon: 'business-outline',
     colors: ['#c8f53a', '#a6d42d'],
   },

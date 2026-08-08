@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Gavel, AlertTriangle, ShieldX } from 'lucide-react';
+import { AlertTriangle, ShieldX } from 'lucide-react';
 
 const Criminals = () => {
   const [criminals, setCriminals] = useState([]);

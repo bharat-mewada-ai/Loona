@@ -48,9 +48,17 @@ export const getCampusMultiplier = async (campus) => {
       const scores = await User.aggregate([
         { $group: { _id: "$campus", total: { $sum: "$potato" } } }
       ]);
-      const ogi = scores.find(s => s._id === 'ogi')?.total || 0;
-      const lnct = scores.find(s => s._id === 'lnct')?.total || 0;
-      const winner = ogi > lnct ? 'ogi' : (lnct > ogi ? 'lnct' : 'draw');
+      const validCampuses = ["ogi", "lnct", "manit", "rgpv"];
+      const sortedScores = scores
+        .filter(s => validCampuses.includes(s._id))
+        .sort((a, b) => b.total - a.total);
+
+      let winner = 'draw';
+      if (sortedScores.length > 0) {
+        if (sortedScores.length === 1 || sortedScores[0].total > sortedScores[1].total) {
+          winner = sortedScores[0]._id;
+        }
+      }
 
       if (winner !== 'draw') {
         yesterdayRecord = await DailyWinner.findOneAndUpdate(

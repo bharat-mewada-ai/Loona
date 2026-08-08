@@ -5,7 +5,6 @@ import {
   getListings,
   getMyListings,
   createListingOrder,
-  verifyListingPayment,
   deleteListing,
   createBargain,
   getBargains,
@@ -28,8 +27,7 @@ router.get('/my', asyncHandler(getMyListings));
 // Create listing — Step 1: pay listing fee
 router.post('/create-order', asyncHandler(createListingOrder));
 
-// Create listing — Step 2: verify payment & go live
-router.post('/:id/verify-listing', asyncHandler(verifyListingPayment));
+// Create listing — Step 2: verify payment & go live (Removed during Razorpay mothballing)
 
 // Delete listing
 router.delete('/:id', asyncHandler(deleteListing));

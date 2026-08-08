@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
-import { Calendar, Mail, Search, MessageSquare, Trash2, ShieldAlert } from 'lucide-react';
+import { Calendar, Mail, Search, Trash2, ShieldAlert } from 'lucide-react';
 
 const Confessions = () => {
   const [confessions, setConfessions] = useState([]);

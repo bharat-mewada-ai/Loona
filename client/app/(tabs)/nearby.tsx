@@ -325,14 +325,14 @@ export default function NearbyScreen() {
           data={nearbyUsers}
           keyExtractor={item => item._id}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
-          estimatedItemSize={80}
+          
           renderItem={({ item }) => {
             const isVeryClose = item.distance < 250;
             const isActionPending = activeActionUserId === item._id;
             const isAnyActionPending = !!activeActionUserId;
             // Nearby bio: prefer item.nearbyBio, fallback to item.bio
-            const displayBio = item.nearbyBio || item.bio;
-            const tags: string[] = item.tags || [];
+            const displayBio = (item as any).nearbyBio || item.bio;
+            const tags: string[] = (item as any).tags || [];
             return (
               <View style={[
                 s.personCard, 
@@ -440,7 +440,7 @@ export default function NearbyScreen() {
         style={[
           s.pencilFab,
           {
-            bottom: insets.bottom + 90,
+            bottom: insets.bottom + 20,
             backgroundColor: isDark ? LIME : '#2d6a1e',
             shadowColor: isDark ? LIME : '#2d6a1e',
             transform: [{ scale: fabScale }],

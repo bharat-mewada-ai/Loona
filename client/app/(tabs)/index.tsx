@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { 
   View, 
   Text, 
@@ -38,6 +38,7 @@ import { useDeletePost } from "../../src/hooks/usePosts";
 import { useTodayPoll, useVoteTodayPoll } from "../../src/hooks/useDailyPoll";
 import { postsApi } from "../../src/api/posts.api";
 import { BlurView } from "expo-blur";
+import { soundManager } from "../../src/services/musicService";
 
 export default function Feed() {
   useAnalytics('home');
@@ -63,6 +64,17 @@ export default function Feed() {
     }, [queryClient])
   );
   
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: any[] }) => {
+    const currentPlaying = useUIStore.getState().playingPostId;
+    if (currentPlaying) {
+      const isVisible = viewableItems.some(item => item.item._id === currentPlaying);
+      if (!isVisible) {
+        soundManager.stop();
+        useUIStore.getState().setPlayingPostId(null);
+      }
+    }
+  }).current;
+
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const { data: poll, isLoading: pollLoading } = useTodayPoll();
@@ -90,7 +102,8 @@ export default function Feed() {
     triggerHaptic();
     setShakeLoading(true);
     try {
-      const otherCampus = user?.campus === 'ogi' ? 'lnct' : 'ogi';
+      const otherCampuses = ['ogi', 'lnct', 'manit', 'rgpv'].filter(c => c !== user?.campus);
+      const otherCampus = otherCampuses[Math.floor(Math.random() * otherCampuses.length)];
       const res = await postsApi.getFeed({ campus: otherCampus, limit: 15 });
       if (res && res.posts && res.posts.length > 0) {
         const randomIdx = Math.floor(Math.random() * res.posts.length);
@@ -123,10 +136,8 @@ export default function Feed() {
   }, []);
   let posts = data?.pages.flatMap((page) => page.posts) ?? [];
 
-  // Filter stories out of 'all' feed because they are in the Rail
-  if (activeTab === 'all') {
-    posts = posts.filter(p => p.type !== 'stories');
-  }
+  // Stories hidden from feed (StoryRail disabled) — filter out story-type posts everywhere
+  posts = posts.filter(p => p.type !== 'stories');
 
   const handleSelectCampus = (c: Campus) => {
     setCampus(c);
@@ -199,7 +210,7 @@ export default function Feed() {
     if (activeTab === 'all') {
       return (
         <View style={{ gap: 16, marginBottom: 8 }}>
-          <StoryRail />
+          {/* StoryRail hidden — stories feature disabled */}
           
           {/* Quick Utilities Row */}
           <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 4, marginTop: 4 }}>
@@ -386,12 +397,14 @@ export default function Feed() {
           keyExtractor={(item) => item._id}
           ListHeaderComponent={renderHeader}
           renderItem={renderItem}
-          estimatedItemSize={380}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
+          
           scrollEventThrottle={16}
           contentContainerStyle={[s.listContent, { paddingBottom: 110 }]}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews={true}
-          windowSize={7}
+          
           refreshControl={
             <RefreshControl refreshing={isFetching && !isFetchingNextPage} onRefresh={refetch} tintColor={themeColors.ogi} />
           }
@@ -426,7 +439,7 @@ export default function Feed() {
       {/* FAB - Hide if sneaking */}
       {!isSneaking && (
         <TouchableOpacity 
-          style={[s.fab, { backgroundColor: themeColors.ogi, bottom: insets.bottom + 90 }]} 
+          style={[s.fab, { backgroundColor: themeColors.ogi, bottom: insets.bottom + 20 }]} 
           onPress={() => {
             // Never pass 'all' or 'place' as a post type — default to 'discussion'
             const type = (activeTab === 'all' || activeTab === 'place') ? 'discussion' : activeTab;
@@ -501,7 +514,7 @@ export default function Feed() {
 const s = StyleSheet.create({
   safe: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  headerLogo: { width: 32, height: 32, borderRadius: 10 },
+  headerLogo: { width: 32, height: 32, borderRadius: 10, overflow: 'hidden', backgroundColor: 'transparent' },
   logoText: { fontSize: 22, fontFamily: 'Syne_700Bold', letterSpacing: -0.5 },
   subLogo: { fontSize: 9, color: '#888', fontWeight: '800', letterSpacing: 1, marginTop: -2 },
   hActions: { flexDirection: 'row', gap: 8 },

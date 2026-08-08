@@ -33,11 +33,10 @@ export const googleLogin = async (req, res) => {
       const decoded = jwt.decode(token);
       logger.info(`[GoogleLogin] DEBUG - Token Audience (aud): ${decoded?.aud}`);
 
-      // Support client IDs across both the iOS/Server project (612057986452) and the Android project (329290971821)
-      const androidClientId = "329290971821-kh0a91v046d91hfauv9u6fk4k5nvmj96.apps.googleusercontent.com";
-      const androidWebClientId = "329290971821-116b0s90hp4dfr5aii772hk5cbs0t457.apps.googleusercontent.com";
+      // Support multiple client IDs via environment variables (comma separated)
+      const extraClientIds = (process.env.GOOGLE_EXTRA_CLIENT_IDS || "").split(',').map(id => id.trim());
       const webClientId = (process.env.GOOGLE_CLIENT_ID || "").trim();
-      const allowedAudiences = [webClientId, androidClientId, androidWebClientId].filter(Boolean);
+      const allowedAudiences = [webClientId, ...extraClientIds].filter(Boolean);
 
       logger.info(`[GoogleLogin] Comparing token aud [${decoded?.aud}] with allowed audiences: ${JSON.stringify(allowedAudiences)}`);
 
@@ -313,7 +312,7 @@ export const logout = async (req, res) => {
 
 // --- CAMPUS LIST -------------------------------------------------------------
 export const getCampuses = async (req, res) => {
-  res.json(["ogi", "lnct"]);
+  res.json(["ogi", "lnct", "manit", "rgpv"]);
 };
 
 // --- LEADERBOARD -------------------------------------------------------------
@@ -337,13 +336,23 @@ export const getLeaderboard = async (req, res) => {
   }
 
   try {
-    const [campusWarData, topUsersData] = await Promise.all([
+    const [rawCampusWarData, topUsersData] = await Promise.all([
       User.aggregate([
         { $group: { _id: "$campus", potato: { $sum: "$potato" } } },
-        { $sort: { potato: -1 } },
       ]),
       User.find().sort({ potato: -1 }).limit(10).select("name avatar potato campus").lean(),
     ]);
+
+    // Ensure all 4 campuses are present even if they have 0 users/potatoes in the db
+    const campusMap = new Map(rawCampusWarData.map(c => [c._id, c.potato]));
+    const ALL_CAMPUSES = ["ogi", "lnct", "manit", "rgpv"];
+    const campusWarData = ALL_CAMPUSES.map(campus => ({
+      _id: campus,
+      potato: campusMap.get(campus) || 0
+    }));
+
+    // Sort by potato count descending
+    campusWarData.sort((a, b) => b.potato - a.potato);
 
     const payload = { campusWar: campusWarData, topUsers: topUsersData };
 
@@ -483,14 +492,12 @@ export const hardDeleteExpiredAccounts = async () => {
       { default: Post },
       { default: Comment },
       { default: Chat },
-      { default: Vote },
       { default: BhandaraVote },
       { default: Notification },
     ] = await Promise.all([
       import('../models/post.model.js'),
       import('../models/comment.model.js'),
       import('../models/chat.model.js'),
-      import('../models/vote.model.js'),
       import('../models/bhandaraVote.model.js'),
       import('../models/notification.model.js'),
     ]);
@@ -499,7 +506,6 @@ export const hardDeleteExpiredAccounts = async () => {
       Post.deleteMany({ author: { $in: userIds } }),
       Comment.deleteMany({ author: { $in: userIds } }),
       Chat.deleteMany({ participants: { $in: userIds } }),
-      Vote.deleteMany({ userId: { $in: userIds } }),
       BhandaraVote.deleteMany({ userId: { $in: userIds } }),
       Notification.deleteMany({ recipient: { $in: userIds } }),
       User.deleteMany({ _id: { $in: userIds } }),

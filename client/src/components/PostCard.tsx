@@ -39,8 +39,7 @@ const PostCard = React.memo(({ post, isAllTab, isConfessionTab, userLocation }: 
 
   // Route to specialized card
   switch (post.type) {
-    case 'stories':
-      return <StoryCard post={post} onDelete={handleDelete} />;
+    // 'stories' type hidden — falls through to StandardCard below
     
     case 'offers':
       return <OfferCard post={post} onDelete={handleDelete} />;

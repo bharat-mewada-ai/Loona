@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import api from '../utils/api';
-import { Megaphone, Send, Info } from 'lucide-react';
+import { Megaphone, Send } from 'lucide-react';
 
 const Broadcast = () => {
   const [title, setTitle] = useState('');
@@ -10,20 +10,10 @@ const Broadcast = () => {
   const [targetValue, setTargetValue] = useState(''); // ID or Email
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
-  const [recipients, setRecipients] = useState([]);
   const [history, setHistory] = useState([]);
   const [selectedBroadcast, setSelectedBroadcast] = useState(null);
 
-  const fetchRecipients = async () => {
-    try {
-      const { data } = await api.get('/admin/broadcast/recipients');
-      setRecipients(data);
-    } catch (err) {
-      console.error('Failed to fetch recipients');
-    }
-  };
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       const { data } = await api.get('/admin/broadcast/history');
       setHistory(data);
@@ -33,12 +23,11 @@ const Broadcast = () => {
     } catch (err) {
       console.error('Failed to fetch broadcast history');
     }
-  };
+  }, [selectedBroadcast]);
 
   React.useEffect(() => {
-    fetchRecipients();
     fetchHistory();
-  }, []);
+  }, [fetchHistory]);
 
   const handleBroadcast = async (e) => {
     e.preventDefault();

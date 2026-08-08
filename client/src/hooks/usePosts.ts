@@ -13,10 +13,7 @@ export const usePosts = () => {
 
   let targetCampus: string | undefined = activeCampus;
   if (activeCampus === 'all') {
-    // Mutual Exclusive Sneak In logic:
-    // If I am from Oriental (ogi), Sneak In shows LNCT (lnct)
-    // If I am from LNCT (lnct), Sneak In shows Oriental (ogi)
-    targetCampus = user?.campus === 'ogi' ? 'lnct' : 'ogi';
+    targetCampus = undefined;
   }
 
   return useInfiniteQuery({

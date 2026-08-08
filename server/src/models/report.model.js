@@ -33,5 +33,6 @@ const reportSchema = new mongoose.Schema({
 reportSchema.index({ targetId: 1 });
 reportSchema.index({ reporter: 1 });
 reportSchema.index({ status: 1 });
+reportSchema.index({ targetId: 1, reporter: 1 }, { unique: true });
 
 export default mongoose.model("Report", reportSchema);

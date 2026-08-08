@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
       
@@ -27,6 +27,30 @@ jobs:
       
       - name: Check for Syntax Errors
         run: node --check server.js
+
+      - name: Run Tests
+        run: npm test
+
+  admin-check:
+    name: Admin Build Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: admin/package-lock.json
+      
+      - name: Install Dependencies
+        run: npm ci
+      
+      - name: Build Admin
+        run: npm run build
 
   client-check:
     name: Client Health Check
@@ -39,7 +63,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
       

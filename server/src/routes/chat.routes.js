@@ -2,7 +2,7 @@ import express from "express";
 import { requireAuth } from "../middlewares/auth.js";
 import { getChats, startChat, getMessages, sendMessage, revealIdentity, deleteChat, reportChat, reactToMessage } from "../controllers/chat.controller.js";
 import { validate, startChatRules, sendMessageRules } from "../middlewares/validate.js";
-
+import { reportLimiter } from "../middlewares/limiters.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = express.Router();
@@ -15,7 +15,7 @@ router.get("/:chatId/messages",                              getMessages);
 router.post("/:chatId/messages", sendMessageRules, validate, sendMessage);
 router.post("/:chatId/messages/:messageId/react",            asyncHandler(reactToMessage));
 router.post("/:chatId/reveal",                               revealIdentity);
-router.post("/:chatId/report",                               asyncHandler(reportChat));
+router.post("/:chatId/report",             reportLimiter,                  asyncHandler(reportChat));
 router.delete("/:chatId",                                    deleteChat);
 
 export default router;

@@ -3,14 +3,14 @@ import { googleLogin, login, getMe, logout, getLeaderboard, updateProfile, regis
 import { requireAuth } from "../middlewares/auth.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { validate, googleLoginRules, updateProfileRules, loginRules } from "../middlewares/validate.js";
-import { authLimiter } from "../middlewares/limiters.js";
+import { authLimiter, refreshLimiter } from "../middlewares/limiters.js";
 
 const router = express.Router();
 
 // ─── Public routes ─────────────────────────────────────────────────────────────
 router.post("/google",      authLimiter, googleLoginRules, validate, asyncHandler(googleLogin));
 router.post("/login",       authLimiter, loginRules,       validate, asyncHandler(login));
-router.post("/refresh",                                    asyncHandler(refresh));
+router.post("/refresh",       refreshLimiter,                      asyncHandler(refresh));
 router.get("/leaderboard",                                 asyncHandler(getLeaderboard));
 router.get("/campuses",                                    asyncHandler(getCampuses));
 

@@ -10,7 +10,7 @@ export const useStories = () => {
 
   let targetCampus: string | undefined = activeCampus;
   if (activeCampus === 'all') {
-    targetCampus = user?.campus === 'ogi' ? 'lnct' : 'ogi';
+    targetCampus = undefined;
   }
 
   return useInfiniteQuery({

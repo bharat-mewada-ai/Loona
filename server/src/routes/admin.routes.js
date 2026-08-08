@@ -24,6 +24,37 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const router = express.Router();
 
+function scrubUserForAdmin(user, reqUser) {
+  if (!user) return user;
+  const userObj = user.toObject ? user.toObject() : (user._doc ? { ...user._doc } : { ...user });
+  
+  if (process.env.OWNER_USER_ID && reqUser._id.toString() === process.env.OWNER_USER_ID) {
+    const { password, ...safeOwnerUser } = userObj;
+    return safeOwnerUser;
+  }
+  
+  return {
+    _id: userObj._id,
+    name: userObj.name,
+    email: userObj.email,
+    campus: userObj.campus,
+    avatar: userObj.avatar,
+    potato: userObj.potato,
+    isBanned: userObj.isBanned,
+    isVerified: userObj.isVerified,
+    role: userObj.role,
+    createdAt: userObj.createdAt,
+    lastActive: userObj.lastActive,
+    totalReportsCount: userObj.totalReportsCount,
+    reportedPostsCount: userObj.reportedPostsCount,
+    bio: userObj.bio,
+    instagram: userObj.instagram,
+    isPrivate: userObj.isPrivate,
+    badges: userObj.badges
+  };
+}
+
+
 /**
  * BROADCAST PUSH NOTIFICATION (Super Admin Only)
  */
@@ -64,7 +95,7 @@ router.post("/broadcast", requireAuth, requireAdmin, asyncHandler(async (req, re
   // 1. Find target recipients with push tokens to save their names/emails in history
   const query = { expoPushToken: { $exists: true, $ne: "" } };
   if (target) {
-    if (typeof target === 'string' && ['ogi', 'lnct', 'oriental'].includes(target)) {
+    if (typeof target === 'string' && ['ogi', 'lnct', 'oriental', 'manit', 'rgpv'].includes(target)) {
        query.campus = target;
     } else if (target.userId) {
        if (mongoose.isValidObjectId(target.userId)) {
@@ -197,7 +228,7 @@ router.get("/users/:userId/details", requireAuth, requireStaff, asyncHandler(asy
   if (!user) return res.status(404).json({ error: "User not found" });
 
   res.json({
-    user,
+    user: scrubUserForAdmin(user, req.user),
     stats: { chatsCount },
     logs: auditLogs,
     posts
@@ -219,7 +250,7 @@ router.post("/users/:userId/ban", requireAuth, requireAdmin, asyncHandler(async 
     details: `Banned user: ${user.email}`
   });
 
-  res.json({ message: "User banned permanently", user });
+  res.json({ message: "User banned permanently", user: scrubUserForAdmin(user, req.user) });
 }));
 
 router.post("/users/:userId/unban", requireAuth, requireAdmin, asyncHandler(async (req, res) => {
@@ -234,7 +265,7 @@ router.post("/users/:userId/unban", requireAuth, requireAdmin, asyncHandler(asyn
     details: `Unbanned user: ${user.email}`
   });
 
-  res.json({ message: "User unbanned successfully", user });
+  res.json({ message: "User unbanned successfully", user: scrubUserForAdmin(user, req.user) });
 }));
 
 /**
@@ -258,7 +289,7 @@ router.post("/users/:userId/verify", requireAuth, requireStaff, asyncHandler(asy
     targetType: "User"
   });
 
-  res.json({ message: "User verified successfully", user });
+  res.json({ message: "User verified successfully", user: scrubUserForAdmin(user, req.user) });
 }));
 
 /**
@@ -283,7 +314,7 @@ router.post("/users/:userId/unverify", requireAuth, requireStaff, asyncHandler(a
     targetType: "User"
   });
 
-  res.json({ message: "User verification removed successfully", user });
+  res.json({ message: "User verification removed successfully", user: scrubUserForAdmin(user, req.user) });
 }));
 
 /**

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions, Easing, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Share, Animated, ScrollView, Dimensions, Easing, Modal, ActionSheetIOS, Platform, Alert as RNAlert } from 'react-native';
 import { Image } from 'expo-image';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_IMAGE_WIDTH = SCREEN_WIDTH - 32; // 16px margin each side
@@ -85,8 +85,12 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
     no: post.bhandaraCountNo || 0,
   });
 
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const playingPostId = useUIStore(s => s.playingPostId);
+  const setPlayingPostId = useUIStore(s => s.setPlayingPostId);
+  const isPlayingAudio = playingPostId === post._id;
+
   const [showReelModal, setShowReelModal] = useState(false);
+  const [showMenuModal, setShowMenuModal] = useState(false);
 
 
   const [activeIndex, setActiveIndex] = useState(0);
@@ -113,6 +117,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
     }
   }, [!!post.songName]);
   const vinylRotation = vinylAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  // Removed local unmount stop — handled globally via viewability now
 
   // Sync when server data updates (after onSuccess patches cache)
   React.useEffect(() => {
@@ -265,8 +271,17 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
           style={s.floatPlayBtn}
           onPress={(e) => {
             e.stopPropagation();
-            if (isPlayingAudio) { soundManager.stop(); setIsPlayingAudio(false); }
-            else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false)); }
+            if (isPlayingAudio) { 
+              soundManager.stop(); 
+              setPlayingPostId(null); 
+            } else { 
+              setPlayingPostId(post._id); 
+              soundManager.play(post.songAudioUrl!, () => {
+                if (useUIStore.getState().playingPostId === post._id) {
+                  useUIStore.getState().setPlayingPostId(null);
+                }
+              }, (post as any).songStartOffset || 0); 
+            }
           }}
         >
           <Ionicons name={isPlayingAudio ? 'pause' : 'play'} size={13} color="#FFF" />
@@ -340,24 +355,14 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               <Text style={[s.statusTxt, { color: '#3B82F6' }]}>🎉 Event</Text>
             </View>
           )}
-          {canReport && (
-            <TouchableOpacity 
-              onPress={onReport} 
+          {(canDelete || canReport) && (
+            <TouchableOpacity
+              onPress={() => setShowMenuModal(true)}
               style={s.moreBtn}
               accessibilityRole="button"
-              accessibilityLabel="Report this post"
+              accessibilityLabel="More options"
             >
-              <Text style={{ fontSize: 16 }}>🚩</Text>
-            </TouchableOpacity>
-          )}
-          {canDelete && (
-            <TouchableOpacity 
-              onPress={onDelete} 
-              style={s.moreBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Delete this post"
-            >
-              <Text style={{ fontSize: 18, color: themeColors.txt3 }}>⋮</Text>
+              <Ionicons name="ellipsis-horizontal" size={20} color={themeColors.txt3} />
             </TouchableOpacity>
           )}
         </View>
@@ -470,8 +475,17 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: themeColors.ogi, alignItems: 'center', justifyContent: 'center' }}
               onPress={(e) => {
                 e.stopPropagation();
-                if (isPlayingAudio) { soundManager.stop(); setIsPlayingAudio(false); }
-                else { setIsPlayingAudio(true); soundManager.play(post.songAudioUrl!, () => setIsPlayingAudio(false)); }
+                if (isPlayingAudio) { 
+                  soundManager.stop(); 
+                  setPlayingPostId(null); 
+                } else { 
+                  setPlayingPostId(post._id); 
+                  soundManager.play(post.songAudioUrl!, () => {
+                    if (useUIStore.getState().playingPostId === post._id) {
+                      useUIStore.getState().setPlayingPostId(null);
+                    }
+                  }, (post as any).songStartOffset || 0); 
+                }
               }}
             >
               <Ionicons name={isPlayingAudio ? 'pause' : 'play'} size={16} color={isDark ? '#000' : '#fff'} />
@@ -482,10 +496,17 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
 
       {/* 🎬 Instagram-Style Reel Music Modal */}
       <Modal visible={showReelModal} transparent animationType="slide" onRequestClose={() => setShowReelModal(false)}>
-        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }} activeOpacity={1} onPress={() => setShowReelModal(false)}>
-          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: isDark ? '#121217' : '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, alignItems: 'center' }}>
-            <View style={{ width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, marginBottom: 20 }} />
-            
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setShowReelModal(false)}
+        >
+          <View
+            style={{ backgroundColor: isDark ? '#121217' : '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, alignItems: 'center' }}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={{ width: 40, height: 4, backgroundColor: isDark ? '#333' : '#DDD', borderRadius: 2, marginBottom: 20 }} />
+
             {/* Spinning Album Artwork */}
             <View style={{ width: 140, height: 140, borderRadius: 70, overflow: 'hidden', borderWidth: 4, borderColor: themeColors.ogi, marginBottom: 16, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 }}>
               {post.songCoverUrl ? (
@@ -497,8 +518,8 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
               )}
             </View>
 
-            <Text style={{ color: themeColors.txt, fontSize: 20, fontWeight: '800', textAlign: 'center' }}>{post.songName}</Text>
-            <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '500', marginTop: 4, textAlign: 'center' }}>{post.songArtist || 'Original Audio'} · Audio Preview</Text>
+            <Text style={{ color: themeColors.txt, fontSize: 20, fontWeight: '800', textAlign: 'center', fontFamily: 'DMSans_700Bold' }}>{post.songName}</Text>
+            <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '500', marginTop: 4, textAlign: 'center', fontFamily: 'DMSans_400Regular' }}>{post.songArtist || 'Original Audio'} · Audio Preview</Text>
 
             {/* Play/Pause Large Button */}
             {!!post.songAudioUrl && (
@@ -506,28 +527,85 @@ const StandardCard = React.memo(({ post, isAllTab, userLocation, onDelete, onRep
                 onPress={() => {
                   if (isPlayingAudio) {
                     soundManager.stop();
-                    setIsPlayingAudio(false);
+                    setPlayingPostId(null);
                   } else {
-                    setIsPlayingAudio(true);
+                    setPlayingPostId(post._id);
                     soundManager.play(post.songAudioUrl!, () => {
-                      setIsPlayingAudio(false);
-                    });
+                      if (useUIStore.getState().playingPostId === post._id) {
+                        useUIStore.getState().setPlayingPostId(null);
+                      }
+                    }, (post as any).songStartOffset || 0);
                   }
                 }}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: themeColors.ogi, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 30, marginTop: 24 }}
               >
                 <Ionicons name={isPlayingAudio ? "pause" : "play"} size={22} color={isDark ? '#000' : '#fff'} />
-                <Text style={{ color: isDark ? '#000' : '#fff', fontWeight: '800', fontSize: 16 }}>
+                <Text style={{ color: isDark ? '#000' : '#fff', fontWeight: '800', fontSize: 16, fontFamily: 'DMSans_700Bold' }}>
                   {isPlayingAudio ? 'Pause Audio' : 'Play Song Preview'}
                 </Text>
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowReelModal(false)}
-              style={{ marginTop: 20, paddingVertical: 10 }}
+              style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 24 }}
             >
-              <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '600' }}>Close</Text>
+              <Text style={{ color: themeColors.txt3, fontSize: 14, fontWeight: '600', fontFamily: 'DMSans_600SemiBold' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+
+      {/* Three-dot Action Menu Modal */}
+      <Modal
+        visible={showMenuModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMenuModal(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setShowMenuModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={[s.menuSheet, { backgroundColor: isDark ? '#1A1A22' : '#FFFFFF' }]}>
+            <View style={{ width: 40, height: 4, backgroundColor: isDark ? '#333' : '#DDD', borderRadius: 2, alignSelf: 'center', marginBottom: 16 }} />
+            {canDelete && (
+              <TouchableOpacity
+                style={s.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  setTimeout(() => onDelete?.(), 200);
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.menuItemTitle, { color: '#FF3B30' }]}>Delete Post</Text>
+                  <Text style={[s.menuItemSub, { color: themeColors.txt3 }]}>This action cannot be undone</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            {canReport && (
+              <TouchableOpacity
+                style={s.menuItem}
+                onPress={() => {
+                  setShowMenuModal(false);
+                  setTimeout(() => onReport?.(), 200);
+                }}
+              >
+                <Ionicons name="flag-outline" size={20} color={themeColors.txt2} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.menuItemTitle, { color: themeColors.txt }]}>Report Post</Text>
+                  <Text style={[s.menuItemSub, { color: themeColors.txt3 }]}>Report to our moderation team</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[s.menuItem, { marginTop: 8, borderTopWidth: 1, borderTopColor: isDark ? '#222' : '#EEE' }]}
+              onPress={() => setShowMenuModal(false)}
+            >
+              <Text style={[s.menuItemTitle, { color: themeColors.txt3, textAlign: 'center', flex: 1 }]}>Cancel</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -661,14 +739,14 @@ const s = StyleSheet.create({
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   avatarWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   avatarEmoji: { fontSize: 24 },
-  authorName: { fontSize: 14, fontWeight: '600', fontFamily: 'PlusJakartaSans_600SemiBold' },
-  authorHandle: { fontSize: 12, fontFamily: 'PlusJakartaSans_400Regular', marginTop: 1, color: '#666' },
+  authorName: { fontSize: 14, fontWeight: '600', fontFamily: 'DMSans_600SemiBold' },
+  authorHandle: { fontSize: 12, fontFamily: 'DMSans_400Regular', marginTop: 1, color: '#666' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   statusTxt: { fontSize: 11, fontWeight: '800' },
   moreBtn: { padding: 4 },
   contentArea: { paddingHorizontal: 16, paddingVertical: 8 },
-  textBody: { fontSize: 15, lineHeight: 22.5, fontFamily: 'PlusJakartaSans_400Regular' },
+  textBody: { fontSize: 15, lineHeight: 22.5, fontFamily: 'DMSans_400Regular' },
   // Single image — auto height (4:3 ratio, no black bars, cover crop like Instagram)
   mediaImg: { width: CARD_IMAGE_WIDTH },
   // Multi-image carousel container — no fixed height
@@ -685,12 +763,12 @@ const s = StyleSheet.create({
   footerLeft: { flexDirection: 'row', gap: 24, alignItems: 'center' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   actionIcon: { fontSize: 20 },
-  actionCount: { fontSize: 13, fontWeight: '400', fontFamily: 'PlusJakartaSans_400Regular' },
+  actionCount: { fontSize: 13, fontWeight: '400', fontFamily: 'DMSans_400Regular' },
   sectionTag: { paddingHorizontal: 12, paddingVertical: 4, alignSelf: 'flex-start' },
-  sectionTagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold', textTransform: 'uppercase', letterSpacing: 0.08 },
+  sectionTagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'DMSans_700Bold', textTransform: 'uppercase', letterSpacing: 0.08 },
   tagsList: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginVertical: 2 },
   tagPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  tagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'PlusJakartaSans_700Bold', letterSpacing: 0.08 },
+  tagTxt: { fontSize: 10, fontWeight: '700', fontFamily: 'DMSans_700Bold', letterSpacing: 0.08 },
   proPill: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, marginLeft: 2 },
   proTxt: { fontSize: 9, fontWeight: '900', color: '#000' },
   // Song badge styles (pill shown below text when no image)
@@ -748,5 +826,30 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Three-dot action menu
+  menuSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 20,
+    paddingBottom: 36,
+    gap: 4,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  menuItemTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'DMSans_600SemiBold',
+  },
+  menuItemSub: {
+    fontSize: 12,
+    fontFamily: 'DMSans_400Regular',
+    marginTop: 2,
   },
 });

@@ -109,7 +109,7 @@ export default function ChatsScreen() {
         data={filteredChats}
         keyExtractor={i => i._id}
         contentContainerStyle={[s.scroll, { paddingTop: insets.top + 70 }]}
-        estimatedItemSize={75}
+        
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={s.item} 

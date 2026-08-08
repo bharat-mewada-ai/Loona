@@ -25,9 +25,11 @@ const postSchema = new mongoose.Schema({
   songArtist: { type: String, maxlength: 100 },    // Artist name
   songAudioUrl: { type: String },                  // Audio preview URL (MP3)
   songCoverUrl: { type: String },                  // Album cover image URL
+  songStartOffset: { type: Number, default: 0 },  // Offset in milliseconds
   views: { type: Number, default: 0 },
   hashtags: [{ type: String }],
   upvotes: { type: Number, default: 0 },
+  upvotedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   commentCount: { type: Number, default: 0 },
   reactions: {
     wow:       { type: Number, default: 0 },

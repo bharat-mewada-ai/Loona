@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, 
   Modal, ActivityIndicator, Alert, Switch, TextInput, Platform,
-  Dimensions, Image, Share, Linking, FlatList, Animated, Pressable
+  Dimensions, Image, Share, Linking, FlatList, Animated, Pressable, RefreshControl
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
+import { soundManager } from '../../src/services/musicService';
 import { Colors, getColors } from '../../src/theme/colors';
 import { useAuthStore } from '../../src/store/authStore';
 import { useUIStore } from '../../src/store/uiStore';
@@ -151,6 +152,17 @@ export default function ProfileScreen() {
   if (activeView === 'posts' || activeView === 'saved') {
     const listData = activeView === 'posts' ? myPosts : (Array.isArray(savedPosts) ? savedPosts : []);
     
+    const onViewableItemsChanged = React.useRef(({ viewableItems }: { viewableItems: any[] }) => {
+      const currentPlaying = useUIStore.getState().playingPostId;
+      if (currentPlaying) {
+        const isVisible = viewableItems.some(item => item.item?._id === currentPlaying);
+        if (!isVisible) {
+          soundManager.stop();
+          useUIStore.getState().setPlayingPostId(null);
+        }
+      }
+    }).current;
+
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: themeColors.bg }}>
         <View style={s.subHeader}>
@@ -170,6 +182,8 @@ export default function ProfileScreen() {
               onReport={() => {}} 
             />
           ) : null}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
           contentContainerStyle={{ padding: 16 }}
           ListEmptyComponent={<Text style={{ textAlign: 'center', color: themeColors.txt3, marginTop: 40 }}>Nothing here yet...</Text>}
         />
@@ -192,7 +206,7 @@ export default function ProfileScreen() {
             position: 'absolute'
           }}>
             <Text style={[s.logo, { color: themeColors.txt }]}>
-              🌙 <Text style={{ fontFamily: 'Syne_700Bold' }}>profile</Text>
+              <Text style={{ fontFamily: 'Syne_700Bold', textTransform: 'uppercase', letterSpacing: 2 }}>PROFILE</Text>
             </Text>
           </Animated.View>
 

@@ -16,6 +16,12 @@ export const light = {
   lnct: "#4D3DBF",
   lnctbg: "#F0EEFB",
   lnctbdr: "#C7C2F3",
+  manit: "#0D9488",
+  manitbg: "#F0FDF4",
+  manitbdr: "#CCFBF1",
+  rgpv: "#DB2777",
+  rgpvbg: "#FDF2F8",
+  rgpvbdr: "#FBCFE8",
   gold: "#9A6E00",
   goldbg: "#FDF6E3",
   danger: "#B83030",
@@ -28,7 +34,7 @@ export const light = {
 };
 
 export const dark: typeof light = {
-  bg: "#0d0d0f",
+  bg: "#0F1115",
   bg2: "#111113",
   bg3: "#161618",
   card: "#141416",
@@ -45,6 +51,12 @@ export const dark: typeof light = {
   lnct: "#7B6CE8",
   lnctbg: "#1C1A2E",
   lnctbdr: "#2C2950",
+  manit: "#0D9488",
+  manitbg: "#064E3B",
+  manitbdr: "#0F766E",
+  rgpv: "#EC4899",
+  rgpvbg: "#50072B",
+  rgpvbdr: "#831843",
   gold: "#FFB800",
   goldbg: "#1A1500",
   danger: "#FF4444",
@@ -67,18 +79,30 @@ export const getColors = (isDark: boolean) => isDark ? dark : light;
 
 export const campusColor = (c: string) =>
   c === 'ogi' ? Colors.ogi :
+  c === 'lnct' ? Colors.lnct :
+  c === 'manit' ? Colors.manit :
+  c === 'rgpv' ? Colors.rgpv :
   Colors.lnct;
 
 export const campusBg = (c: string) =>
   c === 'ogi' ? Colors.ogibg :
+  c === 'lnct' ? Colors.lnctbg :
+  c === 'manit' ? Colors.manitbg :
+  c === 'rgpv' ? Colors.rgpvbg :
   Colors.lnctbg;
 
 export const campusBdr = (c: string) =>
   c === 'ogi' ? Colors.ogibdr :
+  c === 'lnct' ? Colors.lnctbdr :
+  c === 'manit' ? Colors.manitbdr :
+  c === 'rgpv' ? Colors.rgpvbdr :
   Colors.lnctbdr;
 
 export const campusLabel = (c: string) =>
   c === 'ogi' ? 'Oriental' :
+  c === 'lnct' ? 'LNCT' :
+  c === 'manit' ? 'MANIT' :
+  c === 'rgpv' ? 'RGPV' :
   'LNCT';
 
 export const vibeStyle = (vibe: string) => {
