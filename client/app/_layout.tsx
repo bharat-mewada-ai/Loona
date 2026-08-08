@@ -3,7 +3,10 @@ import { View, StyleSheet, Platform, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../global.css';
 import { StatusBar } from 'expo-status-bar';
-import { Stack } from 'expo-router';
+import { Stack, SplashScreen } from 'expo-router';
+
+// Prevent the splash screen from auto-hiding before asset loading is complete.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 import * as Updates from 'expo-updates';
 import { QueryClientProvider } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,7 +25,6 @@ import * as WebBrowser from 'expo-web-browser';
 import { useAuthStore } from '../src/store/authStore';
 import { useUIStore } from '../src/store/uiStore';
 import ErrorBoundary from '../src/components/ErrorBoundary';
-import OpeningSplashScreen from '../src/components/OpeningSplashScreen';
 import * as Application from 'expo-application';
 import UpdateRequiredScreen from '../src/components/UpdateRequiredScreen';
 import client from '../src/api/client';
@@ -191,11 +193,13 @@ function RootLayout() {
     const safetyTimer = setTimeout(() => {
       console.log('[RootLayout] Safety Timer triggered - hiding splash');
       setSplashVisible(false);
+      SplashScreen.hideAsync();
     }, 2000);
 
     if (fontsLoaded && isInitialized) {
       setSplashVisible(false);
       clearTimeout(safetyTimer);
+      SplashScreen.hideAsync();
     }
 
     return () => clearTimeout(safetyTimer);
@@ -205,7 +209,7 @@ function RootLayout() {
   if (updateConfig) {
     content = <UpdateRequiredScreen {...updateConfig} />;
   } else if (splashVisible) {
-    content = <OpeningSplashScreen />;
+    content = null;
   } else {
     // If onboarding is needed, Stack will start with onboarding route if we define it in the initial route name
     // However, it is easier to just conditional render if we want to be strict.

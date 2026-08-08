@@ -63,7 +63,7 @@ import jwt from "jsonwebtoken";
 import app, { corsOptions } from "./src/app.js";
 
 // Startup env validation ───────────────────────────────────────────────────
-const REQUIRED_ENV = ["MONGO_URI", "JWT_SECRET", "GOOGLE_CLIENT_ID"];
+const REQUIRED_ENV = ["MONGO_URI", "JWT_SECRET", "JWT_REFRESH_SECRET", "GOOGLE_CLIENT_ID"];
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missing.length) {
   logger.error(`❌ Missing required env vars: ${missing.join(", ")}`);

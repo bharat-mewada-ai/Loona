@@ -66,6 +66,7 @@ export const useMessages = (chatId: string) => {
 
     // When a new message arrives, update cache manually for zero-latency
     const handleNewMessage = (msg: any) => {
+      if (msg.chatId !== chatId) return;
       qc.setQueryData(['messages', chatId], (old: any) => {
         if (!old) return old;
         // Check if message already exists (e.g. from the sender's own HTTP response)

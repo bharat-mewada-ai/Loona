@@ -160,7 +160,11 @@ export const startChat = async (req, res) => {
     activeStartChats.set(lockKey, startPromise);
 
     try {
-      const resultChat = await startPromise;
+      let resultChat = await startPromise;
+      if (resultChat && resultChat.isAnonymous && resultChat.anonAuthorId && req.user._id.toString() !== resultChat.anonAuthorId.toString()) {
+        resultChat = resultChat.toObject ? resultChat.toObject() : { ...resultChat };
+        resultChat.anonAuthorId = undefined;
+      }
       res.json(resultChat);
     } catch (err) {
       if (err.message.startsWith("POTATO_LIMIT:")) {
@@ -248,7 +252,7 @@ export const getMessages = async (req, res) => {
       chat: {
         _id: chat._id,
         isAnonymous: chat.isAnonymous,
-        anonAuthorId: chat.anonAuthorId,
+        anonAuthorId: (chat.anonAuthorId && req.user._id.toString() === chat.anonAuthorId.toString()) ? chat.anonAuthorId : undefined,
         isRevealed: chat.isRevealed,
         identities
       },
@@ -344,7 +348,12 @@ export const sendMessage = async (req, res) => {
         // 2. Emit via socket to the chat room (both users see it in real-time)
         const io = req.app.get("io");
         if (io) {
-          io.to(chatId).emit("newMessage", message);
+          // Emit to sender's own devices with their real senderId
+          io.to(`user:${req.user._id}`).emit("newMessage", message);
+          // Emit to recipient with senderId stripped
+          const sanitizedMessage = { ...message.toObject(), senderId: undefined };
+          io.to(`user:${otherId}`).emit("newMessage", sanitizedMessage);
+
           io.to(`user:${otherId}`).emit("newNotification", {
             type: "message",
             chatId,
