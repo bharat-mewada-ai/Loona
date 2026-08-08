@@ -175,7 +175,7 @@ export default function LoginScreen() {
     <SafeAreaView style={[s.safe, { backgroundColor: '#F5F3EE' }]}>
       <StatusBar style="dark" />
 
-      <View style={{ flex: 1, padding: 24, justifyContent: 'center' }}>
+      <Animated.View style={{ flex: 1, padding: 24, justifyContent: 'center', opacity: opacityAnim, transform: [{ translateY: slideAnim }] }}>
         <View style={{ alignItems: 'center', marginBottom: 40 }}>
           <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#C94030' }}>LOONA</Text>
           <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>CAMPUS UNDERGROUND</Text>
@@ -272,7 +272,7 @@ export default function LoginScreen() {
         <Text style={[s.privacy, { color: '#888', marginTop: 20 }]}>
           Your real identity is never shown to other students.{'\n'}Loona is anonymous by design.
         </Text>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
