@@ -26,6 +26,11 @@ vi.mock('../src/utils/redis.js', () => ({
 }));
 
 beforeAll(async () => {
+  // Set mock environment variables for CI where .env is not present
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
+  process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test_refresh_secret';
+  process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'test_google_client_id';
+
   // Start in-memory MongoDB
   mongod = await MongoMemoryServer.create();
   const uri = mongod.getUri();
